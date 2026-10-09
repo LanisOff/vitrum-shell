@@ -82,6 +82,12 @@ NixOS     = " "   # nf-linux-nixos
 Alpine    = " "   # nf-linux-alpine
 Manjaro   = " "   # nf-linux-manjaro
 EndeavourOS = " " # nf-linux-endeavour
+CachyOS   = " "   # nf-linux-cachyos
+Garuda    = " "   # nf-linux-garuda
+# Arch-based without a logo of their own in the Nerd Font: Arch's. (ArcoLinux,
+# Archcraft, XeroLinux… are Arch to Starship, and get it anyway.)
+Mabox     = " "   # nf-linux-archlinux
+InstantOS = " "   # nf-linux-archlinux
 Windows   = " "   # nf-fa-windows
 Unknown   = " "   # nf-fa-question_circle
 
