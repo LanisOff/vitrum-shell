@@ -18,6 +18,7 @@ stage_theming() {
   _theme_cursor "$cursor"
   _theme_dolphin
   _theme_xdg_dirs
+  _theme_wallpapers
   stage_done
 }
 
@@ -196,4 +197,45 @@ _theme_xdg_dirs() {
   [[ "$DRY_RUN" == "1" ]] && return 0
   if have xdg-user-dirs-update; then xdg-user-dirs-update 2>/dev/null || true; fi
   mkdir -p "$HOME"/{Desktop,Documents,Downloads,Pictures/Screenshots,Pictures/Wallpapers,Music,Videos/Recordings} 2>/dev/null || true
+}
+
+# The bundled wallpapers (assets/wallpapers): copied into ~/Pictures/Wallpapers
+# (the Wallpaper pane's folder), never over a file of yours with the same
+# name. With no wallpaper chosen yet, one of them becomes it: default.* if
+# the set has one, else the first by name.
+_theme_wallpapers() {
+  local src="$VITRUM_DIR/assets/wallpapers" dst="$HOME/Pictures/Wallpapers" f first="" def=""
+  [[ -d "$src" ]] || return 0
+  step "wallpapers"
+  local files=()
+  while IFS= read -r f; do files+=("$f"); done < <(find "$src" -maxdepth 1 -type f \( -iname '*.jpg' -o -iname '*.jpeg' -o -iname '*.png' \
+      -o -iname '*.webp' -o -iname '*.mp4' -o -iname '*.webm' -o -iname '*.mkv' -o -iname '*.gif' \) | LC_ALL=C sort)
+  [[ ${#files[@]} -gt 0 ]] || { dim "none bundled"; return 0; }
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would copy ${#files[@]} wallpaper(s) to $dst"; return 0; fi
+  mkdir -p "$dst"
+  for f in "${files[@]}"; do
+    [[ -e "$dst/${f##*/}" ]] || cp "$f" "$dst/"
+    case "${f##*/}" in default.*) def="${f##*/}" ;; esac
+    if [[ -z "$first" ]] && [[ "${f,,}" =~ \.(jpe?g|png|webp)$ ]]; then first="${f##*/}"; fi
+  done
+  dim "${#files[@]} wallpaper(s) in $dst"
+  local pick="${def:-$first}"
+  [[ -n "$pick" ]] && have python3 || return 0
+  mkdir -p "$XDG_CONFIG_HOME/vitrum"
+  python3 - "$XDG_CONFIG_HOME/vitrum/settings.json" "~/Pictures/Wallpapers/$pick" <<'PY'
+import json, os, sys
+path, pick = sys.argv[1], sys.argv[2]
+try:
+    with open(path) as f:
+        s = json.load(f)
+except (OSError, ValueError):
+    s = {}
+w = s.setdefault("wallpaper", {}) if isinstance(s, dict) else None
+if isinstance(w, dict) and not w.get("path"):
+    w["path"] = pick
+    with open(path + ".tmp", "w") as f:
+        json.dump(s, f, indent=2)
+        f.write("\n")
+    os.replace(path + ".tmp", path)
+PY
 }

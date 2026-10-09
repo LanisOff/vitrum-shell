@@ -13,6 +13,8 @@ It started as my own setup and grew into something that installs cleanly on
 a fresh machine. It is still young: expect rough edges, and please open an
 issue when you hit one.
 
+Default wallpapers are from [Wallhaven]https://wallhaven.cc/
+
 ## What you get
 
 - **Glass everywhere** — the bar, panels, dock and menus refract what is

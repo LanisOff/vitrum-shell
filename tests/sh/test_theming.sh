@@ -73,3 +73,36 @@ test_gsettings_inside_a_session_used_directly() {
   ! grep -q "dbus-run-session" "$HOME/calls"
   assert_contains "$(cat "$HOME/calls")" "gsettings set org.gnome.desktop.interface icon-theme Papirus-Dark"
 }
+
+# The bundled wallpapers (assets/wallpapers) land in ~/Pictures/Wallpapers;
+# yours are never overwritten, and a chosen wallpaper is never replaced.
+_walls() {
+  _load_theming
+  export VITRUM_DIR="$HOME/repo"; mkdir -p "$VITRUM_DIR/assets/wallpapers"
+  printf 'a' > "$VITRUM_DIR/assets/wallpapers/b-forest.jpg"
+  printf 'b' > "$VITRUM_DIR/assets/wallpapers/a-sea.png"
+  printf 'r' > "$VITRUM_DIR/assets/wallpapers/README.md"
+}
+test_bundled_wallpapers_are_copied_and_one_is_chosen() {
+  _walls
+  _theme_wallpapers >/dev/null 2>&1
+  [[ -f "$HOME/Pictures/Wallpapers/b-forest.jpg" && -f "$HOME/Pictures/Wallpapers/a-sea.png" ]]
+  [[ ! -e "$HOME/Pictures/Wallpapers/README.md" ]]
+  assert_contains "$(cat "$XDG_CONFIG_HOME/vitrum/settings.json")" '"path": "~/Pictures/Wallpapers/a-sea.png"'
+}
+test_default_wallpaper_wins() {
+  _walls
+  printf 'd' > "$VITRUM_DIR/assets/wallpapers/default.jpg"
+  _theme_wallpapers >/dev/null 2>&1
+  assert_contains "$(cat "$XDG_CONFIG_HOME/vitrum/settings.json")" '"path": "~/Pictures/Wallpapers/default.jpg"'
+}
+test_your_wallpapers_and_choice_are_kept() {
+  _walls
+  mkdir -p "$HOME/Pictures/Wallpapers"; printf 'mine' > "$HOME/Pictures/Wallpapers/b-forest.jpg"
+  printf '{"wallpaper":{"path":"~/Pictures/me.jpg"},"density":"compact"}' > "$XDG_CONFIG_HOME/vitrum/settings.json"
+  _theme_wallpapers >/dev/null 2>&1
+  assert_eq "$(cat "$HOME/Pictures/Wallpapers/b-forest.jpg")" "mine"
+  s="$(cat "$XDG_CONFIG_HOME/vitrum/settings.json")"
+  assert_contains "$s" "~/Pictures/me.jpg"
+  assert_contains "$s" "compact"
+}
