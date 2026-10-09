@@ -1,0 +1,23 @@
+# macOS
+.DS_Store
+
+# Python
+__pycache__/
+*.pyc
+
+# Upstream niri checkout — keeps its own git history, patched by patches/
+/Niri-glass/
+
+# Local AI tooling and its notes (not part of the project)
+.claude/
+CLAUDE.md
+CLAUDE.local.md
+AGENTS.md
+.mcp.json
+.superpowers/
+docs/superpowers/
+.codegraph/
+graphify-out/
+
+# Screenshots and logs from the live tests
+tests/live/out/
