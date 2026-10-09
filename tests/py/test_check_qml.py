@@ -32,6 +32,19 @@ class CheckQml(unittest.TestCase):
         })
         self.assertNotIn("has no property", out)
 
+    def test_inline_components_are_per_file(self):
+        # Two files each with their own inline Chip_: one has a signal, the
+        # other does not. Each file's uses are checked against its own.
+        code, out = run({
+            "A.qml": "import QtQuick\nItem {\n    component Chip_: Rectangle { signal picked() }\n    Chip_ { onPicked: {} }\n}\n",
+            "B.qml": "import QtQuick\nItem {\n    component Chip_: Rectangle { property bool on: false }\n    Chip_ { on: true }\n}\n",
+        })
+        self.assertEqual(code, 0, out)
+
+    def test_inline_component_typo_is_still_flagged(self):
+        code, out = run({"A.qml": "import QtQuick\nItem {\n    component Chip_: Rectangle { signal picked() }\n    Chip_ { onPickd: {} }\n}\n"})
+        self.assertIn("Chip_ has no property `onPickd`", out)
+
     def test_typo_on_own_component_is_still_flagged(self):
         rc, out = run({
             "Chip.qml": "import QtQuick\nItem {\n    property string title: \"\"\n}\n",

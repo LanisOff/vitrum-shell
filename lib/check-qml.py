@@ -343,7 +343,9 @@ def collect_types(cleaned, paths):
     Works from text already decoded by read_qml rather than opening the files
     again — one guarded read per file, and no second place that can throw.
     """
-    root_of, declared = {}, {}
+    # Inline components belong to their file: four panes each with their own
+    # `component Chip_` are four types, not one (the last one read won).
+    root_of, declared, inline = {}, {}, {}
 
     def decls(body):
         props = set(re.findall(
@@ -371,9 +373,8 @@ def collect_types(cleaned, paths):
                 elif clean[i] == "}":
                     depth -= 1
                 i += 1
-            root_of[name] = base.split(".")[-1]
-            declared[name] = decls(clean[start:i - 1])
-    return root_of, declared
+            inline.setdefault(path, {})[name] = (base.split(".")[-1], decls(clean[start:i - 1]))
+    return root_of, declared, inline
 
 
 def allowed_props(t, root_of, declared, seen=None):
@@ -477,14 +478,17 @@ def main(argv):
         if check_braces(path, clean, report):
             parseable.append(path)
 
-    root_of, declared = collect_types(cleaned, parseable)
+    root_of, declared, inline = collect_types(cleaned, parseable)
 
     for path in parseable:
         raw, clean = cleaned[path]
         check_imports(path, raw, clean, local, report)
         check_repo_imports(path, raw, clean, root_for(path, roots), defined_in, report)
         check_window_root(path, clean, report)
-        check_our_properties(path, clean, root_of, declared, report)
+        own_root, own_decl = dict(root_of), dict(declared)
+        for name, (base, decl) in inline.get(path, {}).items():
+            own_root[name], own_decl[name] = base, decl
+        check_our_properties(path, clean, own_root, own_decl, report)
 
     if problems:
         print("check-qml: %d problem(s) in %d file(s):" % (len(problems), len(paths)))
