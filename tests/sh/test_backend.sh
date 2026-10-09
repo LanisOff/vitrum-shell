@@ -82,13 +82,40 @@ test_pacman_install_uses_needed_and_splits_aur() {
   assert_contains "$calls" "pacman -Syu --needed --noconfirm jq"
   assert_contains "$calls" "paru -Syu --needed --noconfirm matugen-bin"
 }
-test_pacman_aur_without_helper_bootstraps_paru() {
-  _clean_path; stub pacman; stub sudo '"$@"'; stub git 'echo "git $*" >> "$HOME/calls"'
+# No helper and none in the repositories (plain Arch): paru from source, not
+# paru-bin — a prebuilt one breaks whenever pacman's library moves.
+test_pacman_aur_without_helper_builds_paru_from_source() {
+  _clean_path; stub pacman 'case "$1" in -Si) exit 1;; esac'; stub sudo '"$@"'; stub git 'echo "git $*" >> "$HOME/calls"'
   export DRY_RUN=1
   source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/pkg-pacman.sh"
   out="$(pkg_install aur:matugen-bin 2>&1)"
-  assert_contains "$out" "paru-bin.git"
+  assert_contains "$out" "aur.archlinux.org/paru.git"
+  ! grep -q "paru-bin" <<<"$out"
   assert_contains "$out" "would run: paru -Syu --needed --noconfirm matugen-bin"
+}
+# The distribution ships one (CachyOS: paru, EndeavourOS: yay): that, built for its pacman.
+test_pacman_aur_helper_from_the_repositories() {
+  _clean_path; stub sudo '"$@"'
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/pkg-pacman.sh"
+  stub pacman 'echo "pacman $*" >> "$HOME/calls"; case "$1 $2" in "-Si paru") exit 1;; "-Si yay") exit 0;; -Qq*) exit 1;; "-S --needed") printf "#!/usr/bin/env bash\necho \"yay \$*\" >> \"\$HOME/calls\"\n" > "$(dirname "$0")/yay"; chmod +x "$(dirname "$0")/yay";; esac'
+  pkg_install aur:matugen-bin >/dev/null 2>&1
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "pacman -S --needed --noconfirm yay"
+  assert_contains "$calls" "yay -Syu --needed --noconfirm matugen-bin"
+}
+# paru-bin built for an older pacman is there but dies on start (libalpm.so.15):
+# it is replaced by the repositories' paru, never used.
+test_pacman_broken_paru_is_replaced() {
+  _clean_path; stub sudo '"$@"'
+  stub paru 'case "$1" in --version) echo "libalpm.so.15: cannot open" >&2; exit 127;; esac; echo "BROKEN paru $*" >> "$HOME/calls"'
+  stub pacman 'echo "pacman $*" >> "$HOME/calls"; case "$1 $2" in "-Si paru") exit 0;; "-Qq paru-bin") exit 0;; -Qq*) exit 1;; "-S --needed") printf "#!/usr/bin/env bash\necho \"paru \$*\" >> \"\$HOME/calls\"\n" > "$(dirname "$0")/paru";; esac'
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/pkg-pacman.sh"
+  pkg_install aur:matugen-bin >/dev/null 2>&1
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "pacman -Rdd --noconfirm paru-bin"
+  assert_contains "$calls" "pacman -S --needed --noconfirm paru"
+  assert_contains "$calls" "paru -Syu --needed --noconfirm matugen-bin"
+  ! grep -q "BROKEN" <<<"$calls"
 }
 test_openrc_enable_missing_service_warns_not_dies() {
   source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-openrc.sh"
