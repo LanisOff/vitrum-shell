@@ -1,0 +1,263 @@
+#!/usr/bin/env python3
+"""vitrum-calendar — your calendar for the shell: local events always, and a
+CalDAV server (or Google) when connected, kept in sync by vdirsyncer; khal
+reads and writes them.
+
+    vitrum-calendar list <YYYY-MM-DD> <days>     JSON: [{uid, title, start, end, allDay, calendar, location}]
+    vitrum-calendar add <title> <YYYY-MM-DD> [<HH:MM> <minutes>]   to the default calendar
+    vitrum-calendar delete <uid>
+    vitrum-calendar sync                          vdirsyncer sync, when connected
+    vitrum-calendar connect <url> <user>          CalDAV (the password comes on stdin)
+    vitrum-calendar google <client-id> <client-secret>   Google (asks in a browser: run in a terminal)
+    vitrum-calendar status                        JSON: {connected, kind, calendars}
+
+Everything lives under ~/.local/share/vitrum/calendars. khal's and
+vdirsyncer's configs are written here only if you have none of your own (or
+ones this wrote earlier).
+"""
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+HOME = Path.home()
+DATA = Path(os.environ.get("XDG_DATA_HOME", HOME / ".local/share")) / "vitrum"
+CONFIG = Path(os.environ.get("XDG_CONFIG_HOME", HOME / ".config"))
+CALS = DATA / "calendars"
+LOCAL = CALS / "local"
+REMOTE = CALS / "caldav"
+PASSFILE = DATA / "caldav.pass"
+KHAL_CONF = CONFIG / "khal" / "config"
+VDIR_CONF = CONFIG / "vdirsyncer" / "config"
+MARK = "# Written by vitrum-calendar"
+FIELDS = ["uid", "title", "start-long", "end-long", "all-day", "calendar", "location"]
+
+
+def khal_config():
+    return f"""{MARK} — delete this line to keep your own edits.
+[calendars]
+[[local]]
+path = {LOCAL}
+type = calendar
+color = light blue
+[[caldav]]
+path = {REMOTE}/*
+type = discover
+
+[locale]
+timeformat = %H:%M
+dateformat = %Y-%m-%d
+longdateformat = %Y-%m-%d
+datetimeformat = %Y-%m-%d %H:%M
+longdatetimeformat = %Y-%m-%d %H:%M
+
+[default]
+default_calendar = local
+"""
+
+
+def _q(v):
+    """A value for vdirsyncer's config: a JSON string (quotes and backslashes escaped)."""
+    return json.dumps(str(v))
+
+
+def vdirsyncer_caldav(url, user):
+    return f"""{MARK} — delete this line to keep your own edits.
+[general]
+status_path = "{CALS}/.vdirsyncer-status/"
+
+[pair vitrum]
+a = "vitrum_remote"
+b = "vitrum_local"
+collections = ["from a", "from b"]
+conflict_resolution = "a wins"
+metadata = ["color", "displayname"]
+
+[storage vitrum_local]
+type = "filesystem"
+path = "{REMOTE}/"
+fileext = ".ics"
+
+[storage vitrum_remote]
+type = "caldav"
+url = {_q(url)}
+username = {_q(user)}
+password.fetch = ["command", "cat", "{PASSFILE}"]
+"""
+
+
+def vdirsyncer_google(client_id, client_secret):
+    return f"""{MARK} — delete this line to keep your own edits.
+[general]
+status_path = "{CALS}/.vdirsyncer-status/"
+
+[pair vitrum]
+a = "vitrum_remote"
+b = "vitrum_local"
+collections = ["from a", "from b"]
+conflict_resolution = "a wins"
+metadata = ["color", "displayname"]
+
+[storage vitrum_local]
+type = "filesystem"
+path = "{REMOTE}/"
+fileext = ".ics"
+
+[storage vitrum_remote]
+type = "google_calendar"
+token_file = "{DATA}/google-calendar.token"
+client_id = {_q(client_id)}
+client_secret = {_q(client_secret)}
+"""
+
+
+def _ours_or_absent(path):
+    return not path.exists() or path.read_text(errors="replace").startswith(MARK)
+
+
+def ensure():
+    LOCAL.mkdir(parents=True, exist_ok=True)
+    REMOTE.mkdir(parents=True, exist_ok=True)
+    (LOCAL / "displayname").write_text("Local\n") if not (LOCAL / "displayname").exists() else None
+    if _ours_or_absent(KHAL_CONF):
+        KHAL_CONF.parent.mkdir(parents=True, exist_ok=True)
+        KHAL_CONF.write_text(khal_config())
+
+
+def connected():
+    return VDIR_CONF.exists() and "vitrum_remote" in VDIR_CONF.read_text(errors="replace")
+
+
+def normalize(rows):
+    """khal's --json output (one JSON array per line) → events."""
+    out = []
+    for line in rows.splitlines():
+        line = line.strip()
+        if not line.startswith("["):
+            continue
+        try:
+            items = json.loads(line)
+        except ValueError:
+            continue
+        for e in items:
+            all_day = str(e.get("all-day", "")).lower() in ("true", "1", "yes")
+            out.append({"uid": e.get("uid", ""), "title": e.get("title", ""), "start": e.get("start-long", ""),
+                        "end": e.get("end-long", ""), "allDay": all_day, "calendar": e.get("calendar", ""),
+                        "location": e.get("location", "")})
+    seen, unique = set(), []
+    for e in out:
+        key = (e["uid"], e["start"])
+        if key not in seen:
+            seen.add(key)
+            unique.append(e)
+    return unique
+
+
+def run(cmd, **kw):
+    return subprocess.run(cmd, capture_output=True, text=True, **kw)
+
+
+def find_ics(uid):
+    """The file of the event whose UID line is exactly this one."""
+    if not uid or any(c in uid for c in "\r\n"):
+        return None
+    want = "UID:" + uid
+    for p in CALS.rglob("*.ics"):
+        try:
+            for line in p.read_text(errors="replace").splitlines():
+                if line.strip() == want:
+                    return p
+        except OSError:
+            continue
+    return None
+
+
+def main(argv):
+    if not argv:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    cmd = argv[0]
+    ensure()
+    if cmd == "list":
+        start, days = argv[1], argv[2] if len(argv) > 2 else "1"
+        args = ["khal", "list", "--day-format", ""]
+        for f in FIELDS:
+            args += ["--json", f]
+        r = run(args + [start, days + "d"])
+        json.dump(normalize(r.stdout), sys.stdout)
+        return 0
+    if cmd == "add":
+        title, day = argv[1], argv[2]
+        if len(argv) > 4:
+            hh, minutes = argv[3], int(argv[4])
+            h, m = (int(x) for x in hh.split(":"))
+            end_total = h * 60 + m + minutes
+            end = "%02d:%02d" % (min(23, end_total // 60), end_total % 60 if end_total < 24 * 60 else 59)
+            r = run(["khal", "new", "--", day + " " + hh, day + " " + end, title])
+        else:
+            r = run(["khal", "new", "--", day, title])
+        if r.returncode != 0:
+            print(r.stderr.strip(), file=sys.stderr)
+            return 1
+        if connected():
+            subprocess.Popen(["vdirsyncer", "sync"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        return 0
+    if cmd == "delete":
+        p = find_ics(argv[1])
+        if not p:
+            return 1
+        p.unlink()
+        if connected():
+            subprocess.Popen(["vdirsyncer", "sync"], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        return 0
+    if cmd == "sync":
+        if not connected():
+            return 0
+        r = run(["vdirsyncer", "sync"])
+        print(r.stderr.strip()[-400:], file=sys.stderr) if r.returncode else None
+        return r.returncode
+    if cmd == "connect":
+        url, user = argv[1], argv[2]
+        password = sys.stdin.read().strip()
+        if not _ours_or_absent(VDIR_CONF):
+            print("~/.config/vdirsyncer/config is yours; not touching it", file=sys.stderr)
+            return 1
+        PASSFILE.parent.mkdir(parents=True, exist_ok=True)
+        fd = os.open(PASSFILE, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
+        os.fchmod(fd, 0o600)                     # an older file may have had other modes
+        with os.fdopen(fd, "w") as f:
+            f.write(password + "\n")
+        VDIR_CONF.parent.mkdir(parents=True, exist_ok=True)
+        VDIR_CONF.write_text(vdirsyncer_caldav(url, user))
+        d = run(["vdirsyncer", "discover", "vitrum"], input="y\n" * 50)
+        if d.returncode != 0:
+            print(d.stderr.strip()[-600:], file=sys.stderr)
+            return 1
+        s = run(["vdirsyncer", "sync"])
+        return s.returncode
+    if cmd == "google":
+        if not _ours_or_absent(VDIR_CONF):
+            print("~/.config/vdirsyncer/config is yours; not touching it", file=sys.stderr)
+            return 1
+        VDIR_CONF.parent.mkdir(parents=True, exist_ok=True)
+        VDIR_CONF.write_text(vdirsyncer_google(argv[1], argv[2]))
+        os.execvp("sh", ["sh", "-c", "yes | vdirsyncer discover vitrum && vdirsyncer sync"])
+    if cmd == "disconnect":
+        if VDIR_CONF.exists() and _ours_or_absent(VDIR_CONF):
+            VDIR_CONF.unlink()
+        PASSFILE.unlink(missing_ok=True)
+        return 0
+    if cmd == "status":
+        cals = sorted(p.name for p in REMOTE.iterdir() if p.is_dir()) if REMOTE.is_dir() else []
+        kind = ""
+        if connected():
+            kind = "google" if "google_calendar" in VDIR_CONF.read_text(errors="replace") else "caldav"
+        json.dump({"connected": connected(), "kind": kind, "calendars": ["local"] + cals}, sys.stdout)
+        return 0
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

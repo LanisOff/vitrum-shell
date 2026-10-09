@@ -1,0 +1,10 @@
+[SddmGreeterTheme]
+Name=vitrum
+Description=The vitrum login: the lock screen's clock, capsule field and session chooser
+Author=vitrum
+License=MIT
+Type=sddm-theme
+Version=1.0
+MainScript=Main.qml
+ConfigFile=theme.conf
+QtVersion=6

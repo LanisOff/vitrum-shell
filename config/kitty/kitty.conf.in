@@ -1,0 +1,50 @@
+# vitrum — kitty. Installed once by vitrum; yours to edit.
+#
+# Colours and opacity live in vitrum-colors.conf (included at the end, so it
+# wins), which vitrum-theme rewrites whenever the palette changes; running
+# kitty windows reload it on their own.
+#
+# niri draws the window material behind kitty (Settings → Windows → window
+# materials; kitty is glass by default), so the background is translucent.
+
+font_family                 @FONT_MONO@
+bold_font                   auto
+italic_font                 auto
+bold_italic_font            auto
+font_size                   12.5
+# Nerd Font icons for the prompt and the tmux status line, whatever the text font.
+symbol_map U+E000-U+F8FF,U+F0001-U+F1AF0,U+23FB-U+23FE,U+2665,U+26A1 Symbols Nerd Font Mono
+adjust_line_height          110%
+disable_ligatures           never
+
+shell                       @SHELL@
+cursor_shape                beam
+cursor_trail                1
+cursor_blink_interval       0.6
+cursor_stop_blinking_after  15.0
+scrollback_lines            20000
+mouse_hide_wait             2.0
+url_style                   curly
+strip_trailing_spaces       smart
+enable_audio_bell           no
+visual_bell_duration        0.0
+
+remember_window_size        no
+initial_window_width        104c
+initial_window_height       30c
+window_padding_width        10 12
+placement_strategy          center
+hide_window_decorations     yes
+confirm_os_window_close     0
+dynamic_background_opacity  yes
+background_blur             0
+
+tab_bar_edge                top
+tab_bar_style               powerline
+tab_powerline_style         round
+tab_title_template          "{index}: {title}"
+
+allow_remote_control        socket-only
+listen_on                   unix:@kitty-{kitty_pid}
+
+include vitrum-colors.conf

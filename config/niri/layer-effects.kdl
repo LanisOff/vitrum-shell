@@ -1,0 +1,227 @@
+// Glass for the shell's own layer surfaces.
+//
+// Substituted into @LAYER_EFFECTS@ when the compositor accepts it. If the
+// installed niri does not understand background-effect on layer rules, the
+// installer drops this whole file and the panels fall back to drawing their own
+// blur, which looks close but samples only the wallpaper.
+//
+// ── Written against upstream Niri-glass, with nothing patched ──
+//
+// The overlay is installed exactly as it comes from
+// https://github.com/zaroutt/Niri-glass. That decides the vocabulary available
+// here: `preset`, `tint-color`, `tint-opacity`, `specular` and `cursor-light`
+// are NOT upstream options — they came from a local fork that is no longer
+// used — so every material below is written out of upstream's own parameters.
+//
+// That constraint turned out to be the fix rather than the cost. The material
+// used to be a white wash laid over a blur (`tint-opacity` up to 0.42), and a
+// pale flat sheet with light smeared across its whole face is what reads as
+// water in a tray rather than as glass. Upstream has no such layer at all, so
+// what remains is the thing glass actually does:
+//
+//   refraction lives at the rim       high `power-factor` with a modest
+//                                     `refraction-strength`. The exponent is
+//                                     what pins the distortion to the last few
+//                                     pixels; strength alone just bends the
+//                                     entire face, and a bent face is a lens,
+//                                     not a pane.
+//   the face stays clean              low `lens-distortion` and low
+//                                     `glow-weight`. Both bow or brighten the
+//                                     middle, which is where a real sheet is
+//                                     doing nothing at all.
+//   the bezel is thin                 `edge-thickness` well under the 0.15
+//                                     default. The shader floors the band at
+//                                     8px, so this cannot vanish entirely.
+//   colour comes back up              `saturation` above upstream's 0.85.
+//                                     Blurring averages neighbours and pulls
+//                                     everything towards grey; this puts it
+//                                     back, and transmitting colour is most of
+//                                     what separates glass from frost.
+//   legibility is adaptive            `adaptive-dim` / `adaptive-boost`, which
+//                                     respond to what is behind the surface,
+//                                     instead of a fixed pale layer that has to
+//                                     be opaque enough for the worst case.
+
+// Top bar — no material at all.
+//
+// This rule used to put glass on the bar, and that single line is what made an
+// otherwise current desktop read as three versions old. Tahoe's menu bar is not
+// a frosted strip with a hairline under it; it is glyphs and text sitting
+// directly on the wallpaper, with the window behind it sharp. TopBar.qml has
+// always known that — it draws no fill unless reduced-transparency asks for one
+// — but a layer rule applies to the whole surface regardless of what the client
+// paints, and the bar spans the display. So the compositor drew a full-width
+// slab underneath a bar that had deliberately drawn nothing.
+//
+// Legibility comes from Text.Raised on the labels instead. See
+// Tokens.onWallpaperShadow.
+layer-rule {
+    match namespace="^niri-tahoe-topbar$"
+    background-effect {
+        blur false
+        xray false
+    }
+}
+
+// Dock — the thickest glass in the system, because it floats free and you see
+// its edges against the wallpaper rather than against a window.
+layer-rule {
+    match namespace="^niri-tahoe-dock$"
+
+    geometry-corner-radius 26
+    background-effect {
+        blur true
+        xray true
+        noise 0.018
+        liquid-glass {
+            refraction-strength 1.6
+            power-factor 7.0
+            edge-thickness 0.14
+            edge-lighting 0.7
+            glow-weight 0.07
+            fringing 0.2
+            lens-distortion 0.3
+            saturation 1.12
+            vibrancy 0.2
+            adaptive-dim 0.2
+            adaptive-boost 0.22
+        }
+    }
+
+    shadow {
+        on
+        softness 50
+        spread 4
+        offset x=0 y=12
+        color "#00000070"
+    }
+}
+
+// The Dock's icons live on their own surface, and it must stay invisible.
+//
+// Magnified icons rise up out of the plate, so they cannot be drawn on the
+// surface the plate is made of — a layer rule covers a whole surface, and one
+// big enough to hold a magnified icon would be a slab of glass standing well
+// above the Dock. Hence two surfaces, and hence this rule: no blur, no glass,
+// nothing. Only the icons themselves are ever visible here.
+layer-rule {
+    match namespace="^niri-tahoe-dockitems$"
+    background-effect {
+        blur false
+        xray false
+    }
+}
+
+// Spotlight, Control Centre, Notification Centre, the session dialog: sheets.
+// Frosted, because they hold text that has to win against the wallpaper — so
+// less refraction than the Dock and considerably more adaptive dimming.
+layer-rule {
+    match namespace="^niri-tahoe-(spotlight|controlcentre|notifications|session|switcher|cheatsheet|clipboard|emoji|polkit)$"
+
+    geometry-corner-radius 20
+    background-effect {
+        blur true
+        xray true
+        noise 0.02
+        liquid-glass {
+            refraction-strength 0.8
+            power-factor 6.0
+            edge-thickness 0.12
+            edge-lighting 0.4
+            glow-weight 0.05
+            fringing 0.1
+            lens-distortion 0.15
+            saturation 0.95
+            vibrancy 0.15
+            adaptive-dim 0.34
+            adaptive-boost 0.2
+        }
+    }
+
+    shadow {
+        on
+        softness 70
+        spread 6
+        offset x=0 y=20
+        color "#00000085"
+    }
+}
+
+// Notification toasts: small, bright, must stay legible over anything at all,
+// including a photograph they happen to land on.
+layer-rule {
+    match namespace="^niri-tahoe-toast$"
+
+    geometry-corner-radius 18
+    background-effect {
+        blur true
+        xray true
+        noise 0.02
+        liquid-glass {
+            refraction-strength 0.7
+            power-factor 6.0
+            edge-thickness 0.12
+            edge-lighting 0.38
+            glow-weight 0.05
+            fringing 0.1
+            lens-distortion 0.12
+            saturation 0.95
+            adaptive-dim 0.38
+            adaptive-boost 0.2
+        }
+    }
+}
+
+// Launchpad and the lock screen cover the whole screen. No refraction: bending
+// a full-screen surface smears the entire desktop and costs frames for an
+// effect nobody can see. The darkening is `brightness` — upstream has no tint
+// layer, and dropping the exposure is what a dark veil actually is.
+layer-rule {
+    match namespace="^niri-tahoe-(launchpad|lock)$"
+
+    background-effect {
+        blur true
+        xray false
+        saturation 1.4
+        liquid-glass {
+            refraction-strength 0.0
+            edge-thickness 0.0
+            edge-lighting 0.0
+            glow-weight 0.0
+            lens-distortion 0.0
+            fringing 0.0
+            brightness 0.55
+        }
+    }
+}
+
+// The screenshot overlay and the crosshair: no glass, they must not tint what
+// is being captured or measured.
+layer-rule {
+    match namespace="^niri-tahoe-(screenshot|crosshair)$"
+    background-effect {
+        blur false
+        xray false
+    }
+}
+
+layer-rule {
+    match namespace="^niri-tahoe-osd$"
+
+    geometry-corner-radius 22
+    background-effect {
+        blur true
+        xray true
+        liquid-glass {
+            refraction-strength 0.8
+            power-factor 6.0
+            edge-thickness 0.14
+            edge-lighting 0.45
+            glow-weight 0.05
+            lens-distortion 0.15
+            saturation 0.98
+            adaptive-dim 0.3
+            adaptive-boost 0.2
+        }
+    }
+}

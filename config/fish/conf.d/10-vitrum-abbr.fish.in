@@ -1,0 +1,138 @@
+# ============================================================================
+#  vitrum — shortcuts
+# ============================================================================
+#
+#  Two rules here, both learned the hard way:
+#
+#  1. Nothing shadows a standard command. An earlier version of this file
+#     abbreviated `ls`, `cat`, `du`, `df`, `ip` and `vi`. fish expands an
+#     abbreviation in place, so typing `ls` replaced what you typed with
+#     `eza --icons --group-directories-first` in front of you — and if eza was
+#     not installed, with a command that did not exist. Surprising at best,
+#     broken at worst. Your commands stay your commands.
+#
+#  2. Anything depending on a tool checks for it first and falls back to the
+#     one every machine has.
+#
+#  The modern replacements are still here under names that are not already
+#  taken: `ll`, `la`, `lt`, `cot`. Those are functions, not abbreviations, so
+#  what you type stays what you typed.
+#
+#  This file is replaced on update. Personal shortcuts go in
+#  conf.d/99-local.fish, which is never touched.
+# ============================================================================
+
+status is-interactive; or exit 0
+
+# Undo the shadowing set that earlier versions installed. Harmless when there
+# is nothing to erase, and necessary on fish builds that stored them
+# universally, where deleting this file alone would not have been enough.
+for _stale in ls cat du df free ip vi ps_ jc jcu t
+    abbr --erase $_stale 2>/dev/null
+end
+set -e _stale
+
+# ------------------------------------------------------------------- git ----
+#
+# `g` is not a command on any normal system, and the rest are prefixed by it.
+abbr -a g      git
+abbr -a gs     git status --short --branch
+abbr -a ga     git add
+abbr -a gaa    git add --all
+abbr -a gc     git commit -v
+abbr -a gca    git commit -v --amend
+abbr -a gco    git checkout
+abbr -a gsw    git switch
+abbr -a gb     git branch
+abbr -a gd     git diff
+abbr -a gds    git diff --staged
+abbr -a gl     git log --oneline --graph --decorate -20
+abbr -a gll    git log --oneline --graph --decorate --all
+abbr -a gp     git push
+abbr -a gpl    git pull --rebase
+abbr -a gf     git fetch --all --prune
+abbr -a gst    git stash
+abbr -a gstp   git stash pop
+abbr -a grh    git reset --hard
+command -q lazygit; and abbr -a lg lazygit
+
+# ---------------------------------------------------------------- pacman ----
+abbr -a pi     sudo pacman -S
+abbr -a prm    sudo pacman -Rns
+abbr -a pu     sudo pacman -Syu
+abbr -a pse    pacman -Ss
+abbr -a pq     pacman -Qs
+abbr -a orphan pacman -Qtdq
+
+# ------------------------------------------------------------------ tmux ----
+abbr -a tm     tmux
+abbr -a ta     tmux attach -t
+abbr -a tn     tmux new -s
+abbr -a tls    tmux list-sessions
+abbr -a tk     tmux kill-session -t
+
+# ------------------------------------------------------------ journalctl ----
+abbr -a jctl   journalctl -xe
+abbr -a jctlu  journalctl --user -xe
+
+# ------------------------------------------------------------- navigation ---
+abbr -a ..     cd ..
+abbr -a ...    cd ../..
+abbr -a ....   cd ../../..
+
+# ------------------------------------------------------------- the desktop --
+abbr -a settings   vitrum-settings
+abbr -a disks      vitrum-disks
+abbr -a about      vitrum-about
+abbr -a reshell    'vitrum-shell --restart'
+abbr -a theme      vitrum-theme
+command -q fastfetch; and abbr -a ff fastfetch
+
+# In kitty (tmux inside kitty too) fastfetch hands the logo PNG to kitty to
+# draw (kitty-direct): no ImageMagick needed in fastfetch — Gentoo builds it
+# without — and it passes through tmux. Elsewhere, a TTY, the config's "auto"
+# stays. A --logo-type of your own comes later and wins.
+if set -q KITTY_WINDOW_ID; and command -q fastfetch
+    function fastfetch --wraps fastfetch --description 'fastfetch, logo drawn by kitty'
+        command fastfetch --logo-type kitty-direct $argv
+    end
+end
+
+# -------------------------------------------------------------- listings ----
+#
+# Functions, not abbreviations: they do not rewrite your input, and they work
+# whether or not the prettier tool is installed.
+
+function ll --description "Long listing"
+    if command -q eza
+        command eza --icons --group-directories-first -l --git $argv
+    else
+        command ls -lh --color=auto $argv
+    end
+end
+
+function la --description "Long listing, including dotfiles"
+    if command -q eza
+        command eza --icons --group-directories-first -la --git $argv
+    else
+        command ls -lha --color=auto $argv
+    end
+end
+
+function lt --description "Tree, two levels deep"
+    if command -q eza
+        command eza --icons --tree --level=2 $argv
+    else if command -q tree
+        command tree -L 2 $argv
+    else
+        command ls -R $argv
+    end
+end
+
+function cot --description "Cat with syntax highlighting, if bat is installed"
+    if command -q bat
+        command bat --style=plain $argv
+    else
+        command cat $argv
+    end
+end

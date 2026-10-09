@@ -1,0 +1,133 @@
+# vitrum packages — one row per logical package.
+#
+# Columns (TAB separated):
+#   logical   name used in this file and in messages
+#   portage   Gentoo atom, or - if Gentoo does not package it
+#   pacman    Arch package, aur:<name> for the AUR, or - if Arch does not package it
+#             Both columns accept "a|b" (installed if either is; the first is installed)
+#             and a trailing "@cmd" (counts as installed when that command exists).
+#   need      required, or the optional component that wants it
+#             (nvidia, sddm, plymouth, live-wallpaper, tmux, nvim, extras, phone)
+#   keywords  portage only: keyword written to package.accept_keywords/vitrum, or -
+#   use       portage only: USE flags written to package.use/vitrum, or -
+#   env       portage only: "half" builds with half the jobs (package.env/vitrum), or -
+#
+# Gentoo atoms were checked against gentoo, guru, gentoo-zh and hyproverlay on 2026-10-01.
+build-base	-	base-devel	required	-	-	-
+build-rust	dev-lang/rust-bin|dev-lang/rust@cargo	rust@cargo	required	-	-	-
+build-clang	llvm-core/clang@clang	clang@clang	required	-	-	-
+build-git	dev-vcs/git	git	required	-	-	-
+mesa	media-libs/mesa	mesa	required	-	-	-
+libglvnd	media-libs/libglvnd	libglvnd	required	-	-	-
+wayland	dev-libs/wayland	wayland	required	-	-	-
+wayland-protocols	dev-libs/wayland-protocols	wayland-protocols	required	-	-	-
+libxkbcommon	x11-libs/libxkbcommon	libxkbcommon	required	-	-	-
+libinput	dev-libs/libinput	libinput	required	-	-	-
+libdisplay-info	media-libs/libdisplay-info	libdisplay-info	required	-	-	-
+seatd	sys-auth/seatd	seatd	required	-	-	-
+pipewire	media-video/pipewire	pipewire	required	-	gstreamer sound-server pipewire-alsa bluetooth	-
+wireplumber	media-video/wireplumber	wireplumber	required	-	-	-
+pango	x11-libs/pango	pango	required	-	-	-
+cairo	x11-libs/cairo	cairo	required	-	-	-
+pixman	x11-libs/pixman	pixman	required	-	-	-
+qt-base	dev-qt/qtbase	qt6-base	required	-	-	-
+qt-declarative	dev-qt/qtdeclarative	qt6-declarative	required	-	-	-
+qt-svg	dev-qt/qtsvg	qt6-svg	required	-	-	-
+qt-wayland	dev-qt/qtwayland	qt6-wayland	required	-	-	-
+qt-imageformats	dev-qt/qtimageformats	qt6-imageformats	required	-	-	-
+qt-shadertools	dev-qt/qtshadertools	qt6-shadertools	required	-	-	-
+qt-5compat	dev-qt/qt5compat	qt6-5compat	required	-	-	-
+qt-multimedia	dev-qt/qtmultimedia	qt6-multimedia	required	-	-	-
+quickshell	gui-apps/quickshell	quickshell	required	~amd64	-	-
+networkmanager	net-misc/networkmanager	networkmanager	required	-	-	-
+bluez	net-wireless/bluez	bluez	required	-	-	-
+bluez-utils	-	bluez-utils	required	-	-	-
+upower	sys-power/upower	upower	required	-	-	-
+power-profiles-daemon	sys-power/power-profiles-daemon	power-profiles-daemon	required	-	-	-
+brightnessctl	app-misc/brightnessctl	brightnessctl	required	~amd64	-	-
+playerctl	media-sound/playerctl	playerctl	required	-	-	-
+polkit	sys-auth/polkit	polkit	required	-	-	-
+dbus-python	dev-python/dbus-python	python-dbus	required	-	-	-
+pygobject	dev-python/pygobject	python-gobject	required	-	-	-
+pillow	dev-python/pillow	python-pillow	required	-	-	-
+portal	sys-apps/xdg-desktop-portal	xdg-desktop-portal	required	-	-	-
+portal-gtk	sys-apps/xdg-desktop-portal-gtk	xdg-desktop-portal-gtk	required	-	-	-
+portal-gnome	-	xdg-desktop-portal-gnome	required	-	-	-
+xdg-user-dirs	x11-misc/xdg-user-dirs	xdg-user-dirs	required	-	-	-
+udisks	sys-fs/udisks	udisks2	required	-	-	-
+grim	gui-apps/grim	grim	required	-	-	-
+slurp	gui-apps/slurp	slurp	required	-	-	-
+wl-clipboard	gui-apps/wl-clipboard	wl-clipboard	required	-	-	-
+cliphist	app-misc/cliphist	cliphist	required	~amd64	-	-
+libnotify	x11-libs/libnotify	libnotify	required	-	-	-
+jq	app-misc/jq	jq	required	-	-	-
+socat	net-misc/socat	socat	required	-	-	-
+xdg-utils	x11-misc/xdg-utils	xdg-utils	required	-	-	-
+curl	net-misc/curl	curl	required	-	-	-
+imagemagick	media-gfx/imagemagick	imagemagick	required	-	-	-
+ffmpeg	media-video/ffmpeg	ffmpeg	required	-	-	-
+ffmpegthumbnailer	media-video/ffmpegthumbnailer	ffmpegthumbnailer	required	-	-	-
+poppler	app-text/poppler	poppler-glib	required	-	-	-
+plocate	sys-apps/plocate	plocate	required	-	-	-
+fd	sys-apps/fd	fd	required	-	-	-
+ripgrep	sys-apps/ripgrep	ripgrep	required	-	-	-
+bc	sys-devel/bc	bc	required	-	-	-
+tesseract	app-text/tesseract	tesseract	required	-	-	-
+tesseract-eng	app-text/tessdata_fast	tesseract-data-eng	required	-	-	-
+tesseract-rus	app-text/tessdata_fast	tesseract-data-rus	required	-	l10n_ru	-
+satty	gui-apps/satty	satty	required	~amd64	-	-
+gpu-screen-recorder	media-video/gpu-screen-recorder	gpu-screen-recorder	required	~amd64	-	-
+wf-recorder	gui-apps/wf-recorder	wf-recorder	required	~amd64	-	-
+matugen	x11-misc/matugen	aur:matugen-bin	required	~amd64	-	-
+awww	gui-apps/awww	awww	required	~amd64	-	-
+xwayland-satellite	gui-apps/xwayland-satellite	xwayland-satellite	required	~amd64	-	-
+kitty	x11-terms/kitty	kitty	required	-	-	-
+dolphin	kde-apps/dolphin	dolphin	required	-	-	-
+kvantum	x11-themes/kvantum	kvantum	required	~amd64	-	-
+adw-gtk3	x11-themes/adw-gtk3	adw-gtk-theme	required	~amd64	-	-
+qt6ct	gui-apps/qt6ct	qt6ct	required	-	-	-
+papirus	x11-themes/papirus-icon-theme	papirus-icon-theme	required	-	-	-
+font-inter	media-fonts/inter	inter-font	required	~amd64	-	-
+font-jetbrains	media-fonts/jetbrains-mono	ttf-jetbrains-mono	required	-	-	-
+font-nerd	media-fonts/nerdfonts	ttf-jetbrains-mono-nerd	required	~amd64	jetbrainsmono	-
+font-noto	media-fonts/noto	noto-fonts	required	-	-	-
+font-noto-cjk	media-fonts/noto-cjk	noto-fonts-cjk	required	-	-	-
+font-noto-emoji	media-fonts/noto-emoji	noto-fonts-emoji	required	-	-	-
+sounds	x11-themes/sound-theme-freedesktop	sound-theme-freedesktop	required	-	-	-
+fish	app-shells/fish	fish	required	-	-	-
+starship	app-shells/starship	starship	required	-	-	-
+fastfetch	app-misc/fastfetch	fastfetch	required	-	-	-
+eza	sys-apps/eza	eza	required	-	-	-
+bat	sys-apps/bat	bat	required	-	-	-
+fzf	app-shells/fzf	fzf	required	-	-	-
+zoxide	app-shells/zoxide	zoxide	required	~amd64	-	-
+git-delta	dev-util/git-delta	git-delta	required	-	-	-
+wget	net-misc/wget	wget	required	-	-	-
+unzip	app-arch/unzip	unzip	required	-	-	-
+7zip	app-arch/7zip	7zip	required	-	-	-
+nvidia-vaapi	media-libs/nvidia-vaapi-driver	libva-nvidia-driver	nvidia	~amd64	-	-
+sddm	x11-misc/sddm	sddm	sddm	-	-	-
+plymouth	sys-boot/plymouth	plymouth	plymouth	-	-	-
+mpvpaper	gui-apps/mpvpaper	mpvpaper	live-wallpaper	~amd64	-	-
+mpv	media-video/mpv	mpv	live-wallpaper	-	-	-
+tmux	app-misc/tmux	tmux	tmux	-	-	-
+xsel	x11-misc/xsel	xsel	tmux	-	-	-
+neovim	app-editors/neovim	neovim	nvim	-	-	-
+tree-sitter	dev-libs/tree-sitter	tree-sitter	nvim	-	-	-
+lazygit	dev-vcs/lazygit	lazygit	nvim	~amd64	-	-
+shellcheck	dev-util/shellcheck-bin	shellcheck	nvim	-	-	-
+# extras: game mode and its HUD, the microphone noise filter, calendar sync,
+# VPN and hardware sensors.
+gamemode	games-util/gamemode	gamemode	extras	~amd64	-	-
+mangohud	games-util/mangohud	mangohud	extras	~amd64	mangohudctl	-
+noise-suppression	media-libs/noise-suppression-for-voice	aur:noise-suppression-for-voice	extras	~amd64	-	-
+cava	media-sound/cava	cava	extras	-	pipewire	-
+pavucontrol	media-sound/pavucontrol	pavucontrol	extras	-	-	-
+ark	kde-apps/ark	ark	extras	-	-	-
+khal	app-misc/khal	khal	extras	~amd64	-	-
+vdirsyncer	dev-python/vdirsyncer	vdirsyncer	extras	~amd64	-	-
+wireguard-tools	net-vpn/wireguard-tools	wireguard-tools	extras	-	-	-
+smartmontools	sys-apps/smartmontools	smartmontools	extras	-	-daemon	-
+lm-sensors	sys-apps/lm-sensors	lm_sensors	extras	-	-	-
+# phone: KDE Connect (pulls a good part of KDE Frameworks).
+kdeconnect	kde-misc/kdeconnect	kdeconnect	phone	-	-	-

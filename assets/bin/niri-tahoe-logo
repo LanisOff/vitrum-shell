@@ -1,0 +1,186 @@
+#!/usr/bin/env bash
+#
+#  Produce a distribution logo image for fastfetch.
+#
+#  fastfetch draws ASCII by default. A rice that has spent this much effort on
+#  a compositor shader should not put ASCII art next to it, so this resolves an
+#  actual image, in this order:
+#
+#    1. ~/.config/niri-tahoe/logo.png — yours, if you dropped one there
+#    2. the cache, unless --force
+#    3. a real logo file already on the system, from the distro's own package
+#    4. one rendered from the Nerd Font distro glyph, in the distro's colour
+#
+#  Step 4 is why this works on any distribution without shipping anyone's
+#  trademark: the glyph is already in the font the rest of the rice depends on.
+#
+#  If none of that is possible it exits non-zero and prints nothing, and the
+#  fastfetch config falls back to built-in ASCII.
+#
+#  Usage:
+#    niri-tahoe-logo            print the path, generating it if needed
+#    niri-tahoe-logo --force    regenerate even if cached
+#    niri-tahoe-logo --clean    delete the cache
+#
+set -euo pipefail
+
+XDG_CONFIG_HOME="${XDG_CONFIG_HOME:-$HOME/.config}"
+XDG_DATA_HOME="${XDG_DATA_HOME:-$HOME/.local/share}"
+
+OVERRIDE="$XDG_CONFIG_HOME/niri-tahoe/logo.png"
+CACHE_DIR="$XDG_DATA_HOME/niri-tahoe/fastfetch"
+CACHE="$CACHE_DIR/logo.png"
+
+FORCE=0
+case "${1:-}" in
+  --force) FORCE=1 ;;
+  --clean) rm -f "$CACHE"; exit 0 ;;
+  --help|-h) sed -n '2,25p' "$0" | sed 's/^#\{1,\} \{0,1\}//'; exit 0 ;;
+  "") ;;
+  *) printf 'niri-tahoe-logo: unknown option: %s\n' "$1" >&2; exit 2 ;;
+esac
+
+have() { command -v "$1" >/dev/null 2>&1; }
+
+# ImageMagick 7 renamed the entry point; support both.
+magick_cmd() {
+  if have magick; then magick "$@"
+  elif have convert; then convert "$@"
+  else return 127; fi
+}
+
+mkdir -p "$CACHE_DIR"
+
+# ------------------------------------------------------------- 1. yours -----
+#
+# Copied into the cache rather than used where it lies, because fastfetch's
+# config holds one fixed path and this keeps that path the only one.
+
+if [[ -f "$OVERRIDE" ]]; then
+  if [[ "$OVERRIDE" -nt "$CACHE" || ! -s "$CACHE" ]]; then
+    cp -f "$OVERRIDE" "$CACHE"
+  fi
+  printf '%s\n' "$CACHE"
+  exit 0
+fi
+
+# ------------------------------------------------------------- 2. cache -----
+
+if [[ "$FORCE" != "1" && -s "$CACHE" ]]; then
+  printf '%s\n' "$CACHE"
+  exit 0
+fi
+
+# ---------------------------------------------------------- distro id -------
+
+ID="linux"; ID_LIKE=""
+if [[ -r /etc/os-release ]]; then
+  # shellcheck disable=SC1091
+  . /etc/os-release
+  ID="${ID:-linux}"
+  ID_LIKE="${ID_LIKE:-}"
+fi
+
+# ------------------------------------------- 3. a logo already installed -----
+#
+# Most distributions ship one in /usr/share/pixmaps. Prefer PNG; an SVG needs
+# ImageMagick with librsvg, which is not a given, so it is tried but not
+# depended on.
+
+find_installed() {
+  local name candidate
+  for name in "$ID" "${ID_LIKE%% *}"; do
+    [[ -n "$name" ]] || continue
+    for candidate in \
+      "/usr/share/pixmaps/${name}-logo.png" \
+      "/usr/share/pixmaps/${name}.png" \
+      "/usr/share/pixmaps/${name}-logo.svg" \
+      "/usr/share/pixmaps/${name}.svg" \
+      "/usr/share/icons/hicolor/scalable/apps/${name}-logo.svg" \
+      "/usr/share/icons/hicolor/256x256/apps/${name}.png"
+    do
+      [[ -r "$candidate" ]] && { printf '%s\n' "$candidate"; return 0; }
+    done
+  done
+  return 1
+}
+
+if installed="$(find_installed)"; then
+  case "$installed" in
+    *.png)
+      if magick_cmd "$installed" -resize 512x512 "png:$CACHE" 2>/dev/null && [[ -s "$CACHE" ]]; then
+        printf '%s\n' "$CACHE"; exit 0
+      fi
+      # No ImageMagick: copy it verbatim so the cached path still resolves.
+      cp -f "$installed" "$CACHE" && { printf '%s\n' "$CACHE"; exit 0; }
+      exit 1
+      ;;
+    *.svg)
+      if magick_cmd -background none "$installed" -resize 512x512 "png:$CACHE" 2>/dev/null \
+         && [[ -s "$CACHE" ]]; then
+        printf '%s\n' "$CACHE"; exit 0
+      fi
+      ;;
+  esac
+fi
+
+# ------------------------------------------- 4. render the distro glyph ------
+#
+# Nerd Fonts carries a logo for every distribution worth naming, at U+F300 and
+# up. Rendering one gives a clean, correctly-coloured mark at any size, and
+# nothing has to be downloaded.
+
+glyph_for() {
+  case "$1" in
+    arch|archarm|arch32)          printf ' #1793d1' ;;
+    cachyos|garuda|artix|endeavouros)
+      case "$1" in
+        endeavouros) printf ' #7f7fff' ;;
+        garuda)      printf ' #2f6fed' ;;
+        artix)       printf ' #10a0cc' ;;
+        *)           printf ' #00aaff' ;;
+      esac ;;
+    manjaro)                      printf ' #35bf5c' ;;
+    debian)                       printf ' #d70a53' ;;
+    ubuntu)                       printf ' #e95420' ;;
+    pop)                          printf ' #48b9c7' ;;
+    linuxmint|mint)               printf ' #87cf3e' ;;
+    fedora)                       printf ' #3c6eb4' ;;
+    rhel|centos|almalinux|rocky)  printf ' #ee0000' ;;
+    opensuse*|suse|sles)          printf ' #73ba25' ;;
+    nixos)                        printf ' #5277c3' ;;
+    gentoo)                       printf ' #54487a' ;;
+    void)                         printf ' #478061' ;;
+    alpine)                       printf ' #0d597f' ;;
+    slackware)                    printf ' #4e4e4e' ;;
+    kali)                         printf ' #367bf0' ;;
+    raspbian)                     printf ' #c51a4a' ;;
+    *)                            printf ' #8e8e93' ;;   # generic Tux
+  esac
+}
+
+read -r GLYPH COLOUR <<<"$(glyph_for "$ID")"
+
+# The Nerd Font's file, asked of fontconfig rather than guessed: the family
+# name differs between the "Symbols Nerd Font" and "Symbols Nerd Font Mono"
+# packagings, and ImageMagick wants a path anyway.
+FONT=""
+if have fc-match; then
+  FONT="$(fc-match -f '%{file}' 'Symbols Nerd Font' 2>/dev/null || true)"
+  [[ -r "$FONT" ]] || FONT="$(fc-match -f '%{file}' 'Symbols Nerd Font Mono' 2>/dev/null || true)"
+fi
+
+if [[ -z "$FONT" || ! -r "$FONT" ]] || { ! have magick && ! have convert; }; then
+  # Nothing to render with. Say nothing; fastfetch falls back to ASCII.
+  exit 1
+fi
+
+if magick_cmd -background none -fill "$COLOUR" -font "$FONT" \
+      -pointsize 420 "label:$GLYPH" \
+      -trim +repage -bordercolor none -border 24 \
+      -resize 512x512 "png:$CACHE" 2>/dev/null && [[ -s "$CACHE" ]]; then
+  printf '%s\n' "$CACHE"
+  exit 0
+fi
+
+exit 1

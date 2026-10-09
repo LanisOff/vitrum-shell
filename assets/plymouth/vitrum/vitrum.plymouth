@@ -1,0 +1,8 @@
+[Plymouth Theme]
+Name=vitrum
+Description=The vitrum mark and a quiet spinner
+ModuleName=script
+
+[script]
+ImageDir=/usr/share/plymouth/themes/vitrum
+ScriptFile=/usr/share/plymouth/themes/vitrum/vitrum.script

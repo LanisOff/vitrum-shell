@@ -1,0 +1,68 @@
+--- a/src/render_helpers/background_effect.rs
++++ b/src/render_helpers/background_effect.rs
+@@ -664,9 +664,10 @@
+             _ => 0.0,
+         };
+ 
+-        // Shaped glass is drawn by the xray path only.
++        // Shaped glass on both paths: xray (the wallpaper) and the framebuffer
++        // (whatever is really behind, windows included).
+         let shape_fillet = match &background_effect.options.liquid_glass {
+-            Some(lg) if background_effect.options.xray => lg.shape_fillet,
++            Some(lg) => lg.shape_fillet,
+             _ => 0.0,
+         };
+ 
+--- a/src/render_helpers/framebuffer_effect.rs
++++ b/src/render_helpers/framebuffer_effect.rs
+@@ -1,4 +1,5 @@
+ use std::cell::RefCell;
++use std::rc::Rc;
+ 
+ use glam::{Mat3, Vec2};
+ use niri_config::CornerRadius;
+@@ -14,7 +15,7 @@
+ use smithay::utils::{Buffer, Logical, Physical, Rectangle, Scale, Transform};
+ 
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+-use crate::render_helpers::background_effect::RenderParams;
++use crate::render_helpers::background_effect::{push_shape_uniforms, RenderParams, ShapeUniforms};
+ use crate::render_helpers::blur::{Blur, BlurOptions};
+ use crate::render_helpers::liquid_glass::LiquidGlassOptions;
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+@@ -41,6 +42,7 @@
+     saturation: f32,
+     liquid_glass: Option<LiquidGlassOptions>,
+     padding_pixels: f32,
++    shapes: Option<Rc<ShapeUniforms>>,
+ }
+ 
+ #[derive(Debug)]
+@@ -89,6 +91,9 @@
+             id = id.namespaced(ns);
+         }
+ 
++        // The pieces, in the clip geometry's own units (what geo_size is here).
++        let shapes = params.shapes.as_ref().map(|s| Rc::new(s.uniforms(clip_geo.loc, 1.)));
++
+         FramebufferEffectElement {
+             id,
+             commit: self.commit,
+@@ -102,6 +107,7 @@
+             saturation,
+             liquid_glass,
+             padding_pixels,
++            shapes,
+         }
+     }
+ }
+@@ -204,8 +210,7 @@
+             ]);
+         }
+ 
+-        // Shaped glass is xray-only.
+-        crate::render_helpers::background_effect::push_shape_uniforms(None, &mut uniforms);
++        push_shape_uniforms(self.shapes.as_deref(), &mut uniforms);
+ 
+         uniforms
+     }

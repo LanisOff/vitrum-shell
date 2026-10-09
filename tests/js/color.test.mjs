@@ -1,0 +1,11 @@
+import { load, eq, ok } from "./lib.mjs";
+const c = load("color.js");
+eq(c.toHex(c.parse("#0a84ff")), "#0a84ff", "roundtrip");
+eq(c.toHex(c.parse("#fff")), "#ffffff", "short form");
+eq(c.toHex(c.parse("#800a84ff")), "#800a84ff", "alpha form keeps alpha");
+ok(Math.abs(c.contrast(c.parse("#ffffff"), c.parse("#000000")) - 21) < 0.01, "white/black 21:1");
+const fixed = c.ensureContrast("#777777", "#808080", 4.5);
+ok(c.contrast(c.parse(fixed), c.parse("#808080")) >= 4.5, "guard reaches 4.5");
+eq(c.ensureContrast("#ffffff", "#000000", 4.5), "#ffffff", "already fine unchanged");
+eq(c.toHex(c.mix(c.parse("#000000"), c.parse("#ffffff"), 0.5)), "#808080", "mix midpoint");
+eq(c.toHex(c.withAlpha(c.parse("#102030"), 0.5)), "#80102030", "withAlpha");

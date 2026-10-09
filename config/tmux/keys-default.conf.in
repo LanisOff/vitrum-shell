@@ -1,0 +1,8 @@
+# ============================================================================
+#  vitrum — tmux keys (tmux's own). Sourced by tmux.conf; yours to edit.
+#  Nothing is rebound: Ctrl+b, % and " splits — the tmux manual's keys.
+#  The keybind sheet (Super+/) lists them from keys-default.json.
+# ============================================================================
+
+# Only: copying in copy-mode also reaches the Wayland clipboard.
+set -g copy-command "wl-copy"

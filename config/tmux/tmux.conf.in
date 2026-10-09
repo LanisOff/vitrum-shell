@@ -1,0 +1,137 @@
+# ============================================================================
+#  vitrum — tmux
+# ============================================================================
+#
+#  Your ~/.tmux.conf, carried over: the same options and plugin list (the keys
+#  are in keys.conf). Three things changed, and only because they had to:
+#
+#    * the shell is @SHELL@, not the Homebrew path
+#    * terminal-features matches kitty and foot, not alacritty
+#    * catppuccin is gone — the status bar is ours now, in vitrum.conf
+#
+#  Rendered from tmux.conf.in at install time. Edit the copy in
+#  ~/.config/tmux/ freely; the installer backs it up before replacing it.
+# ============================================================================
+
+# ==========================================
+# 1. BASICS
+# ==========================================
+
+# Fish, automatically.
+set -g default-command "@SHELL@"
+set -g default-shell "@SHELL@"
+
+# 24-bit colour and undercurls.
+#   default-terminal   is what nvim sees INSIDE tmux; tmux-256color does undercurl
+#   terminal-features  matches the OUTSIDE TERM
+set -g default-terminal "tmux-256color"
+set -as terminal-features ",kitty*:RGB:usstyle"
+set -as terminal-features ",foot*:RGB:usstyle"
+set -as terminal-features ",alacritty*:RGB:usstyle"
+set -as terminal-features ",xterm-256color:RGB:usstyle"
+set -as terminal-overrides ",*:Ss=\\E[%p1%d q:Se=\\E[2 q"
+
+# The bar sits at the very bottom.
+set -g status-position bottom
+
+set -g mouse on
+set -g history-limit 100000
+
+set -g detach-on-destroy off   # do not drop out of tmux on the last window
+set -g allow-passthrough on    # OSC passthrough for image protocols
+
+set -g escape-time 10          # nvim <Esc> should not feel laggy
+set -g focus-events on         # so nvim's autoread and lualine notice focus
+set -g set-clipboard on
+set -g display-time 2000
+set -g status-interval 5
+
+# Wheel scrolling drops you into copy-mode as a trackpad expects.
+bind -n WheelUpPane if-shell -F -t = "#{mouse_any_flag}" "send-keys -M" "copy-mode -e; send-keys -M"
+bind -n WheelDownPane select-pane -t= \; send-keys -M
+
+# ==========================================
+# 2. KEYS
+# ==========================================
+
+# The keys themselves are in keys.conf: vitrum's (Ctrl+a, | and - splits)
+# or tmux's own, as chosen at install. ./install.sh --only terminal asks again.
+source-file @CONFIG_HOME@/tmux/keys.conf
+
+# Count from 1.
+set -g base-index 1
+set -g pane-base-index 1
+set-window-option -g pane-base-index 1
+set -g renumber-windows on
+
+# ==========================================
+# 3. PLUGINS (TPM)
+# ==========================================
+
+set -g @plugin 'tmux-plugins/tpm'
+set -g @plugin 'tmux-plugins/tmux-sensible'
+
+# Navigation and copying
+set -g @plugin 'christoomey/vim-tmux-navigator'
+set -g @plugin 'tmux-plugins/tmux-yank'
+
+# Save and restore sessions across reboots
+set -g @plugin 'tmux-plugins/tmux-resurrect'
+set -g @plugin 'tmux-plugins/tmux-continuum'
+set -g @resurrect-strategy-nvim 'session'
+
+# Automatic save is on; automatic restore is not.
+#
+# With @continuum-restore on, the very first tmux you ever open has nothing
+# saved yet and greets you with "Tmux resurrect file not found!" across the
+# status line — which reads like the install broke something. Continuum starts
+# saving every fifteen minutes from now, and once there is something to restore
+# you bring it back with prefix + Ctrl-r. Turn the automatic side on here if you
+# would rather it happened for you:
+#   set -g @continuum-restore 'on'
+set -g @continuum-save-interval '15'
+
+# Utilities
+set -g @plugin 'fcsonline/tmux-thumbs'
+set -g @plugin 'alexwforsythe/tmux-which-key'
+set -g @plugin 'omerxx/tmux-sessionx'
+set -g @sessionx-bind 'u'
+set -g @plugin 'roosta/tmux-fuzzback'
+set -g @plugin 'jaclu/tmux-menus'
+
+# Extras
+set -g @plugin 'laktak/extrakto'                          # prefix+Tab: pull text off the screen with fzf
+set -g @plugin 'wfxr/tmux-fzf-url'                        # prefix+e: fzf over URLs on screen
+set -g @plugin 'sainnhe/tmux-fzf'                         # prefix+F: sessions / windows / panes
+set -g @plugin 'joshmedeski/tmux-nerd-font-window-name'   # per-window Nerd Font icons
+set -g @plugin 'tmux-plugins/tmux-prefix-highlight'       # prefix indicator, used by the theme
+set -g @fzf-url-bind 'e'                                  # 'u' belongs to sessionx
+
+# sessionx, sized like a vitrum panel
+set -g @sessionx-window-height '75%'
+set -g @sessionx-window-width '65%'
+set -g @sessionx-preview-enabled 'true'
+set -g @sessionx-zoxide-mode 'on'
+
+# ==========================================
+# 4. THEME
+# ==========================================
+
+source-file @CONFIG_HOME@/tmux/vitrum.conf
+
+# ==========================================
+# 5. TPM — strictly last
+# ==========================================
+
+# Bootstrap TPM on first run so a fresh machine does not start themeless.
+if "test ! -d ~/.tmux/plugins/tpm" \
+   "run 'git clone -q https://github.com/tmux-plugins/tpm ~/.tmux/plugins/tpm && ~/.tmux/plugins/tpm/bin/install_plugins'"
+
+run '~/.tmux/plugins/tpm/tpm'
+
+# tmux-prefix-highlight behaviour. Its *colours* live in vitrum.conf, which is
+# sourced above — do not set the output prefix/suffix here or the theme's
+# pill caps get thrown away.
+set -g @prefix_highlight_show_copy_mode 'on'
+set -g @prefix_highlight_show_sync_mode 'on'
+set -g @prefix_highlight_empty_has_affixes 'off'

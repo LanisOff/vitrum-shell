@@ -1,0 +1,92 @@
+#!/usr/bin/env python3
+"""vitrum-theme — render the palette and niri's generated config from settings.
+
+  vitrum-theme                 apply ~/.config/vitrum/settings.json
+  vitrum-theme --dry-run       show what would change
+  vitrum-theme --wallpaper P   use P as the palette source (otherwise settings.wallpaper)
+  vitrum-theme --all           also (re)install the base terminal/GTK configs from the templates
+"""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+# Installed layout: ~/.local/bin/vitrum-theme with the package in ~/.local/share/vitrum/lib.
+HERE = Path(__file__).resolve().parent
+for candidate in (HERE, HERE.parent / "share" / "vitrum" / "lib"):
+    if (candidate / "vitrum_theme" / "__init__.py").is_file():
+        sys.path.insert(0, str(candidate))
+        break
+
+import vitrum_theme as vt  # noqa: E402
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="vitrum-theme")
+    ap.add_argument("--settings", type=Path, default=vt.CONFIG / "vitrum" / "settings.json")
+    ap.add_argument("--wallpaper", type=Path)
+    ap.add_argument("--out-palette", type=Path, default=vt.DATA_HOME / "vitrum" / "palette.json")
+    ap.add_argument("--niri-dir", type=Path, default=vt.CONFIG / "vitrum" / "niri" / "generated")
+    ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--quiet", action="store_true")
+    ap.add_argument("--no-color-scheme", action="store_true", help="do not touch the desktop color-scheme")
+    ap.add_argument("--templates", type=Path, default=vt.DATA_HOME / "vitrum" / "templates",
+                    help="terminal/toolkit templates (installed by the installer)")
+    ap.add_argument("--config", type=Path, default=vt.CONFIG, help="where kitty, fish, tmux, GTK… live")
+    ap.add_argument("--all", action="store_true", help="also write the base configs (the installer passes this)")
+    a = ap.parse_args(argv)
+
+    say = (lambda *x: None) if a.quiet else print
+    settings, warnings = vt.load_settings(a.settings)
+    for w in warnings:
+        print(f"vitrum-theme: warning: {w}", file=sys.stderr)
+
+    wp = a.wallpaper
+    if wp is None:
+        path = settings["wallpaper"]["path"] or next(iter(settings["wallpaper"]["perOutput"].values()), "")
+        wp = Path(os.path.expanduser(path)) if path else None
+    palette, note = vt.resolve_palette(settings, wp)
+    scheme = vt.current_scheme(settings)
+
+    caps = vt.niri_caps()
+    outputs = {
+        a.out_palette: json.dumps({"source": note, "palette": palette}, indent=2) + "\n",
+        # What this niri can do, for the shell (shaped glass on the bar).
+        a.out_palette.parent / "niri-caps.json": json.dumps(caps) + "\n",
+        a.niri_dir / "look.kdl": vt.look_kdl(settings, palette, scheme),
+        a.niri_dir / "effects.kdl": vt.effects_kdl(settings, caps),
+        a.niri_dir / "animations.kdl": vt.animations_kdl(settings),
+    }
+    changed = 0
+    for path, text in outputs.items():
+        if a.dry_run:
+            same = path.is_file() and path.read_text(encoding="utf-8") == text
+            say(f"{'unchanged' if same else 'would write'} {path}")
+            continue
+        if vt.write_if_changed(path, text):
+            changed += 1
+            say(f"wrote {path}")
+    # Terminal and toolkits: kitty, fish, Starship, tmux, Neovim, GTK, Kvantum.
+    if not a.dry_run and a.templates.is_dir():
+        from vitrum_theme import render
+        written = render.render_all(palette[scheme], scheme, settings, templates=a.templates, config=a.config,
+                                    data=a.out_palette.parent, base=a.all, source=note)
+        for w in written:
+            say(f"wrote {w}")
+        changed += len(written)
+        if written:
+            render.reload_running(a.config, render.components(a.out_palette.parent), written)
+    if not a.dry_run:
+        if changed == 0:
+            say("nothing changed")
+        if not a.no_color_scheme:
+            vt.set_color_scheme(scheme, gtk=(settings.get("toolkits") or {}).get("gtk", True) is not False)
+            from vitrum_theme import render as icons
+            vt.set_icon_theme(icons.icon_theme((settings.get("icons") or {}).get("theme") or "Papirus-Dark", scheme))
+    say(f"palette: {note}; scheme: {scheme}")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

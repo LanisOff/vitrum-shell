@@ -1,0 +1,8 @@
+/*
+ * GTK 4 — installed once by vitrum; yours to edit.
+ * The colours come from vitrum.css (rewritten whenever the palette changes).
+ */
+@import url("vitrum.css");
+
+/* Windows match niri's corner radius. */
+window.background.csd, window.csd { border-radius: 12px; }

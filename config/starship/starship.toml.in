@@ -1,0 +1,433 @@
+# ============================================================================
+#  vitrum — the Starship prompt. Written by vitrum-theme; do not edit
+#  (it is rewritten whenever the palette changes). Your own prompt: point
+#  STARSHIP_CONFIG at another file.
+#
+#  In the template, an @-delimited NAME is a colour and \uXXXX a Nerd Font glyph (kept as
+#  escapes so it reads without the font). Segments are capsules: a left cap
+#  \ue0b6, a body and a right cap \ue0b4, floating rather than one bar.
+# ============================================================================
+
+"$schema" = 'https://starship.rs/config-schema.json'
+
+add_newline = true
+command_timeout = 1000
+scan_timeout = 30
+
+format = """
+$os\
+$username\
+$hostname\
+$directory\
+$git_branch\
+$git_commit\
+$git_state\
+$git_status\
+$c\
+$cpp\
+$rust\
+$golang\
+$python\
+$nodejs\
+$bun\
+$deno\
+$java\
+$kotlin\
+$lua\
+$ruby\
+$php\
+$swift\
+$dart\
+$elixir\
+$erlang\
+$haskell\
+$scala\
+$zig\
+$julia\
+$nim\
+$ocaml\
+$perl\
+$rlang\
+$dotnet\
+$package\
+$docker_context\
+$kubernetes\
+$terraform\
+$aws\
+$nix_shell\
+$conda\
+$direnv\
+$line_break\
+$character"""
+
+right_format = """$status$cmd_duration$jobs$memory_usage$battery$time"""
+
+# ----------------------------------------------------------------- system ---
+
+[os]
+disabled = false
+format = "[](fg:@ACCENT@)[$symbol](fg:@ON_ACCENT@ bg:@ACCENT@)[](fg:@ACCENT@) "
+
+[os.symbols]
+Arch      = " "   # nf-linux-archlinux
+Gentoo    = " "   # nf-linux-gentoo
+Artix     = " "   # nf-linux-artix
+Void      = " "   # nf-linux-void
+openSUSE  = " "   # nf-linux-opensuse
+Linux     = " "   # nf-fa-linux
+Ubuntu    = " "   # nf-linux-ubuntu
+Debian    = " "   # nf-linux-debian
+Fedora    = " "   # nf-linux-fedora
+NixOS     = " "   # nf-linux-nixos
+Alpine    = " "   # nf-linux-alpine
+Manjaro   = " "   # nf-linux-manjaro
+EndeavourOS = " " # nf-linux-endeavour
+Windows   = " "   # nf-fa-windows
+Unknown   = " "   # nf-fa-question_circle
+
+# Only shown when it is not you — root, or an su into someone else.
+[username]
+show_always = false
+format = "[](fg:@PILL@)[  $user ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+style_user = "fg:@FG@ bg:@PILL@"
+style_root = "fg:@RED@ bg:@PILL@"
+
+# Only over SSH, which is exactly when you want it.
+[hostname]
+ssh_only = true
+format = "[](fg:@PILL@)[  $hostname ](fg:@TEAL@ bg:@PILL@)[](fg:@PILL@) "
+
+[directory]
+format = "[](fg:@PILL@)[  ](fg:@ACCENT_FG@ bg:@PILL@)[$read_only$path ](fg:@FG@ bg:@PILL@)[](fg:@PILL@) "
+truncation_length = 4
+truncate_to_repo = true
+truncation_symbol = " /"   # nf-fa-ellipsis_h
+home_symbol = ""           # nf-fa-home
+read_only = " "            # nf-fa-lock
+read_only_style = "fg:@RED@ bg:@PILL@"
+
+[directory.substitutions]
+"Documents"  = ""          # nf-fa-book
+"Downloads"  = ""          # nf-fa-download
+"Music"      = ""          # nf-fa-music
+"Pictures"   = ""          # nf-fa-picture_o
+"Videos"     = ""          # nf-fa-video_camera
+"Desktop"    = ""          # nf-fa-desktop
+"Projects"   = ""          # nf-fa-code
+"Developer"  = ""
+".config"    = ""          # nf-fa-cog
+"/etc"       = ""
+
+# -------------------------------------------------------------------- git ---
+
+[git_branch]
+format = "[](fg:@PILL@)[  $branch ](fg:@PURPLE@ bg:@PILL@)"
+symbol = ""
+truncation_length = 24
+truncation_symbol = ""
+
+[git_commit]
+format = "[  $hash$tag ](fg:@DIM@ bg:@PILL@)"
+commit_hash_length = 7
+tag_symbol = "  "          # nf-fa-tag
+tag_disabled = false
+only_detached = true
+
+[git_state]
+format = "[  $state($progress_current/$progress_total) ](fg:@ORANGE@ bg:@PILL@)"
+rebase = "REBASE"
+merge = "MERGE"
+revert = "REVERT"
+cherry_pick = " PICK"
+bisect = "BISECT"
+am = "AM"
+am_or_rebase = "AM/REBASE"
+
+[git_status]
+format = "([ $all_status$ahead_behind](bg:@PILL@))[](fg:@PILL@) "
+conflicted = "[ ](fg:@RED@ bg:@PILL@)"       # nf-fa-exclamation_triangle
+ahead      = "[ ${count} ](fg:@GREEN@ bg:@PILL@)"
+behind     = "[ ${count} ](fg:@ORANGE@ bg:@PILL@)"
+diverged   = "[ ${ahead_count}/${behind_count} ](fg:@PINK@ bg:@PILL@)"
+up_to_date = ""
+untracked  = "[ ${count} ](fg:@DIM@ bg:@PILL@)"      # nf-fa-question
+stashed    = "[ ${count} ](fg:@TEAL@ bg:@PILL@)"     # nf-fa-inbox
+modified   = "[ ${count} ](fg:@YELLOW@ bg:@PILL@)"   # nf-fa-pencil
+staged     = "[ ${count} ](fg:@GREEN@ bg:@PILL@)"    # nf-fa-plus_circle
+renamed    = "[ ${count} ](fg:@BLUE@ bg:@PILL@)"     # nf-fa-arrow_right
+deleted    = "[ ${count} ](fg:@RED@ bg:@PILL@)"      # nf-fa-times
+ignore_submodules = true
+
+# ------------------------------------------------------------- languages ---
+#
+# Every one of these follows the same shape, so adding a language is copying
+# four lines. The colour is the language's own; the pill is always @PILL@.
+
+[c]
+format = "[](fg:@PILL@)[  $version ](fg:@BLUE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}"
+
+[cpp]
+format = "[](fg:@PILL@)[  $version ](fg:@BLUE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+disabled = false
+version_format = "v${major}"
+
+[rust]
+format = "[](fg:@PILL@)[  $version ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[golang]
+format = "[](fg:@PILL@)[  $version ](fg:@TEAL@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[python]
+format = "[](fg:@PILL@)[  $version(  $virtualenv) ](fg:@YELLOW@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+detect_extensions = ["py", "pyi", "ipynb"]
+
+[nodejs]
+format = "[](fg:@PILL@)[  $version ](fg:@GREEN@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}"
+
+[bun]
+format = "[](fg:@PILL@)[  $version ](fg:@BROWN@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[deno]
+format = "[](fg:@PILL@)[  $version ](fg:@FG@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[java]
+format = "[](fg:@PILL@)[  $version ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}"
+
+[kotlin]
+format = "[](fg:@PILL@)[  $version ](fg:@PURPLE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[lua]
+format = "[](fg:@PILL@)[  $version ](fg:@INDIGO@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[ruby]
+format = "[](fg:@PILL@)[  $version ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[php]
+format = "[](fg:@PILL@)[  $version ](fg:@INDIGO@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[swift]
+format = "[](fg:@PILL@)[  $version ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[dart]
+format = "[](fg:@PILL@)[  $version ](fg:@TEAL@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[elixir]
+format = "[](fg:@PILL@)[  $version ](fg:@PURPLE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[erlang]
+format = "[](fg:@PILL@)[  $version ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}"
+
+[haskell]
+format = "[](fg:@PILL@)[  $version ](fg:@PURPLE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[scala]
+format = "[](fg:@PILL@)[  $version ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[zig]
+format = "[](fg:@PILL@)[  $version ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[julia]
+format = "[](fg:@PILL@)[  $version ](fg:@PURPLE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[nim]
+format = "[](fg:@PILL@)[  $version ](fg:@YELLOW@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[ocaml]
+format = "[](fg:@PILL@)[  $version ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[perl]
+format = "[](fg:@PILL@)[  $version ](fg:@INDIGO@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[rlang]
+format = "[](fg:@PILL@)[  $version ](fg:@BLUE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}.${minor}"
+
+[dotnet]
+format = "[](fg:@PILL@)[  $version ](fg:@PURPLE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+version_format = "v${major}"
+
+# -------------------------------------------------------------- toolchain ---
+
+[package]
+format = "[](fg:@PILL@)[  $version ](fg:@DIM@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+display_private = false
+
+[docker_context]
+format = "[](fg:@PILL@)[  $context ](fg:@BLUE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+only_with_files = true
+
+[kubernetes]
+disabled = false
+format = "[](fg:@PILL@)[ \U000f10fe $context(  $namespace) ](fg:@INDIGO@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+detect_files = ["k8s", "Chart.yaml", "kustomization.yaml"]
+
+[terraform]
+format = "[](fg:@PILL@)[ \U000f1062 $workspace ](fg:@PURPLE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+
+[aws]
+format = "[](fg:@PILL@)[  $profile($region) ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+
+[nix_shell]
+format = "[](fg:@PILL@)[  $state ](fg:@TEAL@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+impure_msg = "impure"
+pure_msg = "pure"
+
+[conda]
+format = "[](fg:@PILL@)[  $environment ](fg:@GREEN@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+ignore_base = true
+
+[direnv]
+disabled = false
+format = "[](fg:@PILL@)[  $loaded/$allowed ](fg:@YELLOW@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+loaded_msg = "on"
+unloaded_msg = "off"
+allowed_msg = ""
+denied_msg = "denied"
+not_allowed_msg = ""
+
+# ------------------------------------------------------------------ right ---
+
+[status]
+disabled = false
+format = "[](fg:@PILL@)[  $status ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+map_symbol = false
+pipestatus = true
+pipestatus_format = "[](fg:@PILL@)[  $pipestatus ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+
+[cmd_duration]
+min_time = 1500
+format = "[](fg:@PILL@)[  $duration ](fg:@YELLOW@ bg:@PILL@)[](fg:@PILL@) "
+show_milliseconds = false
+show_notifications = false
+
+[jobs]
+format = "[](fg:@PILL@)[  $number ](fg:@TEAL@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+number_threshold = 1
+symbol_threshold = 1
+
+[memory_usage]
+disabled = true
+threshold = 85
+format = "[](fg:@PILL@)[  $ram_pct ](fg:@ORANGE@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""
+
+[battery]
+format = "[](fg:@PILL@)[ $symbol$percentage ](bg:@PILL@)[](fg:@PILL@) "
+full_symbol = " "          # nf-fa-battery_full
+charging_symbol = " "      # nf-fa-bolt
+discharging_symbol = " "   # nf-fa-battery_half
+unknown_symbol = " "
+empty_symbol = " "         # nf-fa-battery_empty
+
+[[battery.display]]
+threshold = 15
+style = "fg:@RED@ bg:@PILL@"
+
+[[battery.display]]
+threshold = 40
+style = "fg:@ORANGE@ bg:@PILL@"
+
+[time]
+disabled = false
+format = "[](fg:@PILL_ALT@)[  $time ](fg:@DIM@ bg:@PILL_ALT@)[](fg:@PILL_ALT@)"
+time_format = "%H:%M"
+utc_time_offset = "local"
+
+# ------------------------------------------------------------- the prompt ---
+#
+# One glyph on its own line: a chevron coloured by the last exit code,
+# and a different shape per vi mode so the prompt tells you where you are.
+
+[character]
+success_symbol = "[](bold fg:@ACCENT_FG@)"    # nf-fa-chevron_right
+error_symbol = "[](bold fg:@RED@)"
+vimcmd_symbol = "[](bold fg:@GREEN@)"      # nf-fa-chevron_left
+vimcmd_replace_symbol = "[](bold fg:@PURPLE@)"
+vimcmd_replace_one_symbol = "[](bold fg:@PURPLE@)"
+vimcmd_visual_symbol = "[](bold fg:@YELLOW@)"
+
+[line_break]
+disabled = false
+
+# ------------------------------------------------------------------- off ---
+#
+# Modules that are accurate but never worth the width.
+
+[shell]
+disabled = true
+
+[shlvl]
+disabled = true
+
+[cmake]
+disabled = true
+
+[gradle]
+disabled = true
+
+[buf]
+disabled = true
+
+[sudo]
+disabled = false
+format = "[](fg:@PILL@)[  ](fg:@RED@ bg:@PILL@)[](fg:@PILL@) "
+symbol = ""

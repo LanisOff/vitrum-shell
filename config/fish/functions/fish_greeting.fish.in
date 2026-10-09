@@ -1,0 +1,17 @@
+function fish_greeting --description "vitrum's short greeting"
+    # Three lines once per shell: the mark, the host and kernel, the uptime.
+    # Installed once by vitrum; yours to edit.
+    # Not wanted? `set -U fish_greeting ""` turns it off for good.
+    set -l accent (set_color @ACCENT_RAW@)
+    set -l dim (set_color @DIM_RAW@)
+    set -l fg (set_color @FG_RAW@)
+    set -l off (set_color normal)
+    set -l host (hostname 2>/dev/null; or echo localhost)
+    set -l up (uptime -p 2>/dev/null | string replace 'up ' '')
+
+    echo ''
+    printf '  %s\uf1b2%s  %svitrum%s %s%s%s\n' $accent $off $fg $off $dim (uname -r) $off
+    printf '  %s\uf108%s  %s%s%s\n' $dim $off $dim $host $off
+    test -n "$up"; and printf '  %s\uf017%s  %sup %s%s\n' $dim $off $dim $up $off
+    echo ''
+end

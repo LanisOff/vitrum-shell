@@ -1,0 +1,142 @@
+[
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b",
+  "title": "Prefix"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b %",
+  "title": "Split side by side"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b \"",
+  "title": "Split top and bottom"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b c",
+  "title": "New window"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b n",
+  "title": "Next window"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b p",
+  "title": "Previous window"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b 1",
+  "title": "Window 1 (… 9)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b w",
+  "title": "Pick a window"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b s",
+  "title": "Pick a session"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Comma",
+  "title": "Rename window"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b $",
+  "title": "Rename session"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Left",
+  "title": "Pane to the left (arrows)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b o",
+  "title": "Next pane"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b x",
+  "title": "Close pane"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b &",
+  "title": "Close window"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b d",
+  "title": "Detach"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b [",
+  "title": "Copy mode"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b ]",
+  "title": "Paste"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b :",
+  "title": "Command prompt"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b ?",
+  "title": "List keys"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b z",
+  "title": "Zoom the pane"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Ctrl+Left",
+  "title": "Resize pane (Ctrl+arrows)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Shift+i",
+  "title": "Install plugins (tpm)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Tab",
+  "title": "Pick text off the screen (extrakto)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b e",
+  "title": "Open a URL from the screen"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Shift+f",
+  "title": "Sessions, windows, panes (fzf)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Ctrl+s",
+  "title": "Save the session (resurrect)"
+ },
+ {
+  "section": "tmux",
+  "keys": "Ctrl+b Ctrl+r",
+  "title": "Restore the session"
+ }
+]

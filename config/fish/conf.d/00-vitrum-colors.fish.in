@@ -1,0 +1,64 @@
+# ============================================================================
+#  vitrum — fish colours
+# ============================================================================
+#
+#  Rendered by vitrum-theme from the same palette the desktop, the
+#  prompt, tmux and Neovim use. Do not hand-edit: run
+#
+#      vitrum-theme
+#
+#  after changing the accent or the appearance in System Settings.
+#
+#  fish wants hex without the leading hash, which is why these are the _RAW
+#  variants of the palette tokens.
+# ============================================================================
+
+set -g fish_color_normal            @FG_RAW@
+set -g fish_color_command           @ACCENT_FG_RAW@
+set -g fish_color_keyword           @PINK_RAW@
+set -g fish_color_quote             @GREEN_RAW@
+set -g fish_color_redirection       @PURPLE_RAW@
+set -g fish_color_end               @ORANGE_RAW@
+set -g fish_color_error             @RED_RAW@
+set -g fish_color_param             @FG2_RAW@
+set -g fish_color_option            @TEAL_RAW@
+set -g fish_color_comment           @DIM_RAW@
+set -g fish_color_selection         --background=@PILL_RAW@
+set -g fish_color_search_match      --background=@PILL_ALT_RAW@
+set -g fish_color_operator          @MINT_RAW@
+set -g fish_color_escape            @PINK_RAW@
+set -g fish_color_autosuggestion    @MUTED_RAW@
+set -g fish_color_cancel            @RED_RAW@
+set -g fish_color_valid_path        --underline
+set -g fish_color_history_current   --bold
+set -g fish_color_host              @TEAL_RAW@
+set -g fish_color_host_remote       @ORANGE_RAW@
+set -g fish_color_user              @GREEN_RAW@
+set -g fish_color_cwd               @ACCENT_FG_RAW@
+set -g fish_color_cwd_root          @RED_RAW@
+set -g fish_color_status            @RED_RAW@
+
+# The completion pager, styled like a Spotlight result list.
+set -g fish_pager_color_progress             @DIM_RAW@
+set -g fish_pager_color_background
+set -g fish_pager_color_prefix               @ACCENT_RAW@ --bold
+set -g fish_pager_color_completion           @FG2_RAW@
+set -g fish_pager_color_description          @DIM_RAW@
+set -g fish_pager_color_selected_background  --background=@ACCENT_RAW@
+set -g fish_pager_color_selected_prefix      @ON_ACCENT_RAW@ --bold
+set -g fish_pager_color_selected_completion  @ON_ACCENT_RAW@
+set -g fish_pager_color_selected_description @ON_ACCENT_RAW@
+
+# ------------------------------------------------------------------- fzf ---
+#
+# fzf lives here rather than in config.fish because its colours come from the
+# same palette, and this file is the one theme-sync regenerates.
+
+# fzf in the same style: rounded border, the accent on the pointer.
+set -gx FZF_DEFAULT_OPTS "\
+--height 45% --layout=reverse --border=rounded --margin=1 --padding=1 \
+--prompt='\uf002  ' --pointer='\uf054' --marker='\uf00c' \
+--color=bg+:#@PILL_RAW@,bg:-1,spinner:#@ACCENT_RAW@,hl:#@ACCENT_RAW@ \
+--color=fg:#@FG2_RAW@,header:#@DIM_RAW@,info:#@PURPLE_RAW@,pointer:#@ACCENT_RAW@ \
+--color=marker:#@GREEN_RAW@,fg+:#@FG_RAW@,prompt:#@ACCENT_RAW@,hl+:#@ACCENT_RAW@ \
+--color=border:#@LINE_RAW@"

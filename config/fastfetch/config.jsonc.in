@@ -1,0 +1,95 @@
+// ===========================================================================
+//  vitrum — fastfetch. Installed once by vitrum; yours to edit.
+//  The keys use the palette's accent; the logo is the vitrum mark (rendered
+//  by the installer to @VITRUM_STATE@/fastfetch/logo.png; fastfetch falls back
+//  to ASCII when it is missing). kitty shows the image; a TTY gets text.
+// ===========================================================================
+{
+  "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
+
+  "logo": {
+    "type": "auto",
+    "source": "@VITRUM_STATE@/fastfetch/logo.png",
+    "width": 30,
+    "height": 15,
+    "padding": { "top": 2, "left": 2, "right": 4 }
+  },
+
+  "display": {
+    "separator": "  ",
+    "key": { "width": 13 },
+    "color": {
+      "keys": "38;2;@ACCENT_SGR@",
+      "title": "38;2;@ACCENT_SGR@"
+    },
+    "percent": { "type": 9 },
+    "bar": {
+      "char": { "elapsed": "━", "total": "━" },
+      "border": null,
+      "width": 12
+    }
+  },
+
+  "modules": [
+    "break",
+
+    {
+      "type": "title",
+      "key": "\uf1b2",
+      "format": "{user-name}@{host-name}"
+    },
+    {
+      "type": "custom",
+      "format": "────────────────────────────────────────",
+      "outputColor": "38;2;@LINE_SGR@"
+    },
+
+    // ---- the machine ------------------------------------------------------
+    { "type": "os",       "key": "\uf17c  OS" },
+    { "type": "host",     "key": "\uf108  Host" },
+    { "type": "kernel",   "key": "\uf085  Kernel" },
+    { "type": "uptime",   "key": "\uf017  Uptime" },
+    { "type": "packages", "key": "\uf487  Packages" },
+    { "type": "shell",    "key": "\uf489  Shell" },
+
+    "break",
+
+    // ---- the desktop ------------------------------------------------------
+    { "type": "wm",           "key": "\uf2d0  WM" },
+    { "type": "wmtheme",      "key": "\uf043  WM Theme" },
+    { "type": "theme",        "key": "\uf1fc  Theme" },
+    { "type": "icons",        "key": "\uf03e  Icons" },
+    { "type": "font",         "key": "\uf031  Font" },
+    { "type": "cursor",       "key": "\uf245  Cursor" },
+    { "type": "terminal",     "key": "\uf120  Terminal" },
+    { "type": "terminalfont", "key": "\uf031  Term Font" },
+    {
+      "type": "command",
+      "key": "\uf1b2  Desktop",
+      "text": "cat \"$HOME/.local/share/vitrum/version\" 2>/dev/null | sed 's/^/vitrum /' || echo vitrum"
+    },
+
+    "break",
+
+    // ---- the hardware -----------------------------------------------------
+    { "type": "display", "key": "\uf26c  Display", "compactType": "original" },
+    { "type": "cpu",     "key": "\uf2db  CPU", "showPeCoreCount": true },
+    { "type": "gpu",     "key": "\uf1b2  GPU" },
+    { "type": "memory",  "key": "\uf1c0  Memory" },
+    { "type": "swap",    "key": "\uf0c7  Swap" },
+    { "type": "disk",    "key": "\uf0a0  Disk" },
+    { "type": "battery", "key": "\uf240  Battery" },
+    { "type": "poweradapter", "key": "\uf0e7  Power" },
+
+    "break",
+
+    // ---- the sixteen colours, as swatches ---------------------------------
+    {
+      "type": "colors",
+      "paddingLeft": 2,
+      "symbol": "circle"
+    },
+
+    "break"
+  ]
+}

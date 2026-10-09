@@ -1,0 +1,136 @@
+#!/usr/bin/env python3
+"""vitrum-thumbs — still pictures of windows, for the screen-share picker.
+
+    vitrum-thumbs <dir> <window-id>...
+
+Writes <dir>/<id>.ppm (about 480 px wide) for each window it can, then
+<dir>/done. niri has no protocol for copying one window, and its screenshots
+always go to the clipboard, so a picture is one frame of a screen cast:
+org.gnome.Mutter.ScreenCast (niri --session) → PipeWire → GStreamer. Windows
+on other workspaces or off screen are captured too. Whatever fails is skipped;
+the picker keeps the app's icon for it.
+"""
+import os
+import sys
+
+import dbus
+from dbus.mainloop.glib import DBusGMainLoop
+import gi
+
+gi.require_version("Gst", "1.0")
+from gi.repository import GLib, Gst  # noqa: E402
+
+MUTTER = "org.gnome.Mutter.ScreenCast"
+PATH = "/org/gnome/Mutter/ScreenCast"
+WIDTH = 480
+# Plain first; niri may only offer GPU buffers, which need GL to download.
+# The height is given too: left to videoscale, it came out as one line.
+PIPELINES = [
+    "pipewiresrc path={node} always-copy=true num-buffers=6 ! videoconvert ! videoscale ! "
+    "video/x-raw,format=RGBx,width={w},height={h},pixel-aspect-ratio=1/1 ! appsink name=sink sync=false max-buffers=1 drop=true",
+    "pipewiresrc path={node} num-buffers=6 ! glupload ! glcolorconvert ! gldownload ! videoconvert ! videoscale ! "
+    "video/x-raw,format=RGBx,width={w},height={h},pixel-aspect-ratio=1/1 ! appsink name=sink sync=false max-buffers=1 drop=true",
+]
+
+
+def node_for(bus, window_id):
+    """Start a cast of the window; → (session, PipeWire node, (w, h)) or with None for the node."""
+    mutter = bus.get_object(MUTTER, PATH)
+    spath = mutter.CreateSession({}, dbus_interface=MUTTER)
+    session = bus.get_object(MUTTER, spath)
+    stream = session.RecordWindow({"window-id": dbus.UInt64(window_id), "cursor-mode": dbus.UInt32(0)},
+                                  dbus_interface=MUTTER + ".Session")
+    loop, node = GLib.MainLoop(), []
+
+    def added(n):
+        node.append(int(n))
+        loop.quit()
+    match = bus.add_signal_receiver(added, "PipeWireStreamAdded", MUTTER + ".Stream", MUTTER, str(stream))
+    session.Start(dbus_interface=MUTTER + ".Session")
+    GLib.timeout_add(2500, loop.quit)
+    loop.run()
+    match.remove()
+    size = None
+    try:
+        params = bus.get_object(MUTTER, str(stream)).Get(MUTTER + ".Stream", "Parameters",
+                                                        dbus_interface="org.freedesktop.DBus.Properties")
+        if "size" in params:
+            size = (int(params["size"][0]), int(params["size"][1]))
+    except dbus.DBusException:
+        pass
+    return session, (node[0] if node else None), size
+
+
+def frame(node, size):
+    """One RGBx frame of the stream, WIDTH wide → (width, height, bytes) or None."""
+    w, h = size if size and size[0] > 0 and size[1] > 0 else (16, 9)
+    height = max(2, round(WIDTH * h / w)) & ~1
+    for desc in PIPELINES:
+        try:
+            pipe = Gst.parse_launch(desc.format(node=node, w=WIDTH, h=height))
+        except GLib.Error:
+            continue
+        sink = pipe.get_by_name("sink")
+        pipe.set_state(Gst.State.PLAYING)
+        sample = sink.emit("try-pull-sample", 2 * Gst.SECOND)
+        result = None
+        if sample is not None:
+            s = sample.get_caps().get_structure(0)
+            w, h = s.get_value("width"), s.get_value("height")
+            buf = sample.get_buffer()
+            ok, info = buf.map(Gst.MapFlags.READ)
+            if ok:
+                result = (w, h, bytes(info.data))
+                buf.unmap(info)
+        pipe.set_state(Gst.State.NULL)
+        if result:
+            return result
+    return None
+
+
+def write_ppm(path, w, h, rgbx):
+    rgb = bytearray(w * h * 3)
+    stride = len(rgbx) // h if h else 0
+    for y in range(h):
+        row = rgbx[y * stride:y * stride + w * 4]
+        o = y * w * 3
+        rgb[o:o + w * 3:3] = row[0::4]
+        rgb[o + 1:o + w * 3:3] = row[1::4]
+        rgb[o + 2:o + w * 3:3] = row[2::4]
+    tmp = path + ".tmp"
+    with open(tmp, "wb") as f:
+        f.write(b"P6\n%d %d\n255\n" % (w, h))
+        f.write(rgb)
+    os.replace(tmp, path)
+
+
+def main(argv):
+    if len(argv) < 2:
+        print(__doc__.strip(), file=sys.stderr)
+        return 2
+    out, ids = argv[0], [int(x) for x in argv[1:] if x.isdigit()]
+    os.makedirs(out, exist_ok=True)
+    DBusGMainLoop(set_as_default=True)
+    Gst.init(None)
+    bus = dbus.SessionBus()
+    for wid in ids:
+        session = None
+        try:
+            session, node, size = node_for(bus, wid)
+            got = frame(node, size) if node is not None else None
+            if got:
+                write_ppm(os.path.join(out, "%d.ppm" % wid), *got)
+        except dbus.DBusException as e:
+            print("vitrum-thumbs: window %d: %s" % (wid, e.get_dbus_message()), file=sys.stderr)
+        finally:
+            if session is not None:
+                try:
+                    session.Stop(dbus_interface=MUTTER + ".Session")
+                except dbus.DBusException:
+                    pass
+    open(os.path.join(out, "done"), "w").close()
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

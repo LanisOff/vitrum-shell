@@ -1,0 +1,332 @@
+#!/usr/bin/env python3
+"""vitrum-portal — the screen-share backend for xdg-desktop-portal on niri.
+
+Apps (Discord, browsers, OBS) ask org.freedesktop.portal.ScreenCast; the
+portal hands the ScreenCast part to this backend
+(org.freedesktop.impl.portal.desktop.vitrum). It asks the shell to show its
+picker (vitrum-ipc screencast pick …), waits for the answer the shell writes to
+$XDG_RUNTIME_DIR/vitrum-screencast/<request>.json, then asks niri for the
+streams through niri's org.gnome.Mutter.ScreenCast and returns their PipeWire
+nodes.
+
+niri publishes that interface when it runs with --session (or with
+debug { dbus-interfaces-in-non-session-instances } in its config).
+"""
+import os
+import subprocess
+import sys
+import time
+from pathlib import Path
+
+import dbus
+import dbus.service
+from dbus.mainloop.glib import DBusGMainLoop
+from gi.repository import GLib
+
+sys.path.insert(0, os.path.join(os.environ.get("XDG_DATA_HOME", os.path.expanduser("~/.local/share")), "vitrum", "lib"))
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import vitrum_portal as P  # noqa: E402
+
+BUS_NAME = "org.freedesktop.impl.portal.desktop.vitrum"
+PORTAL_PATH = "/org/freedesktop/portal/desktop"
+SC_IFACE = "org.freedesktop.impl.portal.ScreenCast"
+SESSION_IFACE = "org.freedesktop.impl.portal.Session"
+OWN_IFACE = "dev.vitrum.ScreenCast"
+REQUEST_IFACE = "org.freedesktop.impl.portal.Request"
+PROPS = "org.freedesktop.DBus.Properties"
+MUTTER = "org.gnome.Mutter.ScreenCast"
+MUTTER_PATH = "/org/gnome/Mutter/ScreenCast"
+
+RUNTIME = Path(os.environ.get("XDG_RUNTIME_DIR", "/tmp")) / "vitrum-screencast"
+IPC = os.environ.get("VITRUM_IPC") or os.path.expanduser("~/.local/bin/vitrum-ipc")
+PICK_TIMEOUT_S = 180
+STREAM_TIMEOUT_S = 10
+OK, CANCELLED, FAILED = 0, 1, 2
+
+
+def log(*a):
+    print("vitrum-portal:", *a, file=sys.stderr, flush=True)
+
+
+class Request(dbus.service.Object):
+    """The portal's request handle: Close cancels a pending pick."""
+
+    def __init__(self, bus, path, on_close):
+        super().__init__(bus, path)
+        self.on_close = on_close
+
+    @dbus.service.method(REQUEST_IFACE)
+    def Close(self):
+        self.on_close()
+        self.remove_from_connection()
+
+
+class Session(dbus.service.Object):
+    """A screen-cast session: what was asked for, and niri's session once started."""
+
+    def __init__(self, bus, path, on_closed):
+        super().__init__(bus, path)
+        self.bus = bus
+        self.types = P.MONITOR
+        self.multiple = False
+        self.cursor_mode = 0
+        self.mutter_session = None
+        self.on_closed = on_closed
+        self.closed = False
+        self.app_id = ""
+        self.casting = False
+
+    def stop_mutter(self):
+        if self.mutter_session is not None:
+            try:
+                self.bus.get_object(MUTTER, self.mutter_session).Stop(dbus_interface=MUTTER + ".Session")
+            except dbus.DBusException as e:
+                log("stop:", e)
+            self.mutter_session = None
+
+    def close(self):
+        if self.closed:
+            return
+        self.closed = True
+        self.stop_mutter()
+        self.Closed()
+        try:
+            self.remove_from_connection()
+        except LookupError:
+            pass
+        self.on_closed(self)
+
+    @dbus.service.method(SESSION_IFACE)
+    def Close(self):
+        self.close()
+
+    @dbus.service.signal(SESSION_IFACE, signature="")
+    def Closed(self):
+        pass
+
+    @dbus.service.method(PROPS, in_signature="ss", out_signature="v")
+    def Get(self, iface, prop):
+        if prop == "version":
+            return dbus.UInt32(1)
+        raise dbus.exceptions.DBusException("no such property", name="org.freedesktop.DBus.Error.InvalidArgs")
+
+
+class ScreenCast(dbus.service.Object):
+    def __init__(self, bus):
+        super().__init__(bus, PORTAL_PATH)
+        self.bus = bus
+        self.sessions = {}
+        RUNTIME.mkdir(parents=True, exist_ok=True)
+        self._write_active()
+
+    # The shell's privacy dots read who is sharing from here.
+    def _write_active(self):
+        active = [{"session": path, "app": s.app_id} for path, s in self.sessions.items() if s.casting]
+        P.write_active(RUNTIME / "active.json", active)
+
+    def _closed(self, session_handle):
+        self.sessions.pop(str(session_handle), None)
+        self._write_active()
+
+    @dbus.service.method(OWN_IFACE)
+    def StopAll(self):
+        for s in list(self.sessions.values()):
+            if s.casting:
+                s.close()
+
+    @dbus.service.method(OWN_IFACE, in_signature="o")
+    def Stop(self, session_handle):
+        s = self.sessions.get(str(session_handle))
+        if s is not None:
+            s.close()
+
+    # ------------------------------------------------------------ properties
+    def _props(self):
+        return {
+            "AvailableSourceTypes": dbus.UInt32(P.MONITOR | P.WINDOW),
+            "AvailableCursorModes": dbus.UInt32(P.CURSOR_HIDDEN | P.CURSOR_EMBEDDED | P.CURSOR_METADATA),
+            "version": dbus.UInt32(5),
+        }
+
+    @dbus.service.method(PROPS, in_signature="ss", out_signature="v")
+    def Get(self, iface, prop):
+        props = self._props()
+        if iface == SC_IFACE and prop in props:
+            return props[prop]
+        raise dbus.exceptions.DBusException("no such property", name="org.freedesktop.DBus.Error.InvalidArgs")
+
+    @dbus.service.method(PROPS, in_signature="s", out_signature="a{sv}")
+    def GetAll(self, iface):
+        return self._props() if iface == SC_IFACE else {}
+
+    # --------------------------------------------------------------- methods
+    @dbus.service.method(SC_IFACE, in_signature="oosa{sv}", out_signature="ua{sv}")
+    def CreateSession(self, handle, session_handle, app_id, options):
+        s = Session(self.bus, session_handle, lambda sess: self._closed(session_handle))
+        s.app_id = str(app_id or "")
+        self.sessions[str(session_handle)] = s
+        return (dbus.UInt32(OK), {"session_id": dbus.String(str(session_handle).rsplit("/", 1)[-1])})
+
+    @dbus.service.method(SC_IFACE, in_signature="oosa{sv}", out_signature="ua{sv}")
+    def SelectSources(self, handle, session_handle, app_id, options):
+        s = self.sessions.get(str(session_handle))
+        if s is None:
+            return (dbus.UInt32(FAILED), {})
+        s.types = int(options.get("types", P.MONITOR)) or P.MONITOR
+        s.multiple = bool(options.get("multiple", False))
+        s.cursor_mode = int(options.get("cursor_mode", 0))
+        return (dbus.UInt32(OK), {})
+
+    @dbus.service.method(SC_IFACE, in_signature="ooss a{sv}".replace(" ", ""), out_signature="ua{sv}",
+                         async_callbacks=("reply", "error"))
+    def Start(self, handle, session_handle, app_id, parent_window, options, reply, error):
+        s = self.sessions.get(str(session_handle))
+        if s is None:
+            reply(dbus.UInt32(FAILED), dbus.Dictionary({}, signature="sv"))
+            return
+        req_id = "r%d" % int(time.time() * 1000)
+        answer = RUNTIME / (req_id + ".json")
+        state = {"done": False}
+
+        def finish(code, results=None):
+            if state["done"]:
+                return
+            state["done"] = True
+            try:
+                answer.unlink()
+            except FileNotFoundError:
+                pass
+            # An async reply takes the out-arguments one by one, not as a tuple.
+            reply(dbus.UInt32(code), dbus.Dictionary(results or {}, signature="sv"))
+
+        Request(self.bus, handle, lambda: finish(CANCELLED))
+        try:
+            subprocess.Popen([IPC, "screencast", "pick", req_id, str(s.types), "1" if s.multiple else "0", app_id or ""],
+                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+        except OSError as e:
+            log("cannot reach the shell:", e)
+            finish(FAILED)
+            return
+
+        deadline = time.monotonic() + PICK_TIMEOUT_S
+
+        def poll():
+            if state["done"]:
+                return False
+            if answer.exists():
+                picked = P.parse_answer(answer.read_text(errors="replace"), s.types, s.multiple)
+                if not picked["ok"]:
+                    finish(CANCELLED)
+                else:
+                    self._start_streams(s, picked, finish, lambda: state["done"])
+                return False
+            if time.monotonic() > deadline:
+                finish(CANCELLED)
+                return False
+            return True
+
+        GLib.timeout_add(100, poll)
+
+    # ----------------------------------------------------------- niri side
+    def _start_streams(self, s, picked, finish, state_done=lambda: False):
+        cursor = dbus.UInt32(P.mutter_cursor(s.cursor_mode, picked["cursor"]))
+        try:
+            mutter = self.bus.get_object(MUTTER, MUTTER_PATH)
+            s.mutter_session = str(mutter.CreateSession({}, dbus_interface=MUTTER))
+            msess = self.bus.get_object(MUTTER, s.mutter_session)
+            paths = []
+            for src in picked["sources"]:
+                if src["type"] == "monitor":
+                    p = msess.RecordMonitor(src["connector"], {"cursor-mode": cursor}, dbus_interface=MUTTER + ".Session")
+                else:
+                    p = msess.RecordWindow({"window-id": dbus.UInt64(src["id"]), "cursor-mode": cursor},
+                                           dbus_interface=MUTTER + ".Session")
+                paths.append((str(p), src))
+        except dbus.DBusException as e:
+            log("niri's screencast interface:", e)
+            s.stop_mutter()
+            finish(FAILED)
+            return
+
+        nodes = {}
+        matches = []
+
+        def added(node_id, path=None):
+            if state_done():
+                return
+            nodes[path] = int(node_id)
+            if len(nodes) == len(paths):
+                for m in matches:
+                    m.remove()
+                matches.clear()
+                streams = []
+                for p, src in paths:
+                    try:
+                        params = self.bus.get_object(MUTTER, p).Get(MUTTER + ".Stream", "Parameters", dbus_interface=PROPS)
+                    except dbus.DBusException:
+                        params = {}
+                    pos, size = params.get("position"), params.get("size")
+                    clean = {}
+                    if pos is not None:
+                        clean["position"] = (int(pos[0]), int(pos[1]))
+                    if size is not None:
+                        clean["size"] = (int(size[0]), int(size[1]))
+                    node, props = P.stream_entry(nodes[p], src, clean)
+                    dprops = {"source_type": dbus.UInt32(props["source_type"])}
+                    for k in ("position", "size"):
+                        if k in props:
+                            dprops[k] = dbus.Struct((dbus.Int32(props[k][0]), dbus.Int32(props[k][1])), signature="ii")
+                    streams.append(dbus.Struct((dbus.UInt32(node), dbus.Dictionary(dprops, signature="sv")), signature="ua{sv}"))
+                s.casting = True
+                self._write_active()
+                finish(OK, {"streams": dbus.Array(streams, signature="(ua{sv})")})
+
+        # niri closes the session itself when it cannot cast (no GPU buffers):
+        # say so at once instead of waiting out the timeout.
+        # Later (a shared window closed), the share is over: tell the app.
+        def closed(*_args):
+            closed_match.remove()
+            s.mutter_session = None
+            if len(nodes) < len(paths):
+                log("niri closed the cast before it started")
+                for m in matches:
+                    m.remove()
+                finish(FAILED)
+            else:
+                s.close()
+        closed_match = self.bus.add_signal_receiver(closed, signal_name="Closed", dbus_interface=MUTTER + ".Session",
+                                                    bus_name=MUTTER, path=s.mutter_session)
+        for p, _src in paths:
+            matches.append(self.bus.add_signal_receiver(added, signal_name="PipeWireStreamAdded",
+                                                        dbus_interface=MUTTER + ".Stream", bus_name=MUTTER,
+                                                        path=p, path_keyword="path"))
+        try:
+            msess.Start(dbus_interface=MUTTER + ".Session")
+        except dbus.DBusException as e:
+            log("start:", e)
+            s.stop_mutter()
+            finish(FAILED)
+            return
+
+        def too_slow():
+            if len(nodes) < len(paths):
+                log("niri sent no stream in time")
+                for m in matches:
+                    m.remove()
+                matches.clear()
+                s.stop_mutter()
+                finish(FAILED)
+            return False
+        GLib.timeout_add_seconds(STREAM_TIMEOUT_S, too_slow)
+
+
+def main():
+    DBusGMainLoop(set_as_default=True)
+    bus = dbus.SessionBus()
+    name = dbus.service.BusName(BUS_NAME, bus, do_not_queue=True)  # noqa: F841 (kept alive)
+    ScreenCast(bus)
+    GLib.MainLoop().run()
+
+
+if __name__ == "__main__":
+    main()

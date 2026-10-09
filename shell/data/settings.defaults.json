@@ -1,0 +1,267 @@
+{
+  "density": "compact",
+  "fonts": {
+    "preset": "sans",
+    "sans": "Inter",
+    "mono": "JetBrains Mono",
+    "nerd": "JetBrainsMono Nerd Font",
+    "scale": 1
+  },
+  "materials": {
+    "default": "frosted",
+    "glassPreset": "lens",
+    "groups": {
+      "bar": "glass",
+      "lock": "glass",
+      "launcher": "glass"
+    },
+    "glassAdvanced": {}
+  },
+  "palette": {
+    "source": "wallpaper",
+    "preset": "graphite",
+    "accent": ""
+  },
+  "scheme": {
+    "mode": "auto",
+    "light": "07:00",
+    "dark": "19:30"
+  },
+  "motion": {
+    "speed": 1.0,
+    "reduce": false
+  },
+  "bar": {
+    "position": "top",
+    "primary": "",
+    "layout": {
+      "left": [
+        [
+          "workspaces"
+        ]
+      ],
+      "center": [
+        [
+          "context"
+        ]
+      ],
+      "activities": [
+        [
+          "recording"
+        ],
+        [
+          "sharing"
+        ],
+        [
+          "timer"
+        ],
+        [
+          "emerge"
+        ],
+        [
+          "shutdown"
+        ],
+        [
+          "vitrum"
+        ]
+      ],
+      "right": [
+        [
+          "privacy"
+        ],
+        [
+          "cpu",
+          "memory",
+          "temperature",
+          "gpu"
+        ],
+        [
+          "tray",
+          "keyboard",
+          "network",
+          "vpn",
+          "bluetooth",
+          "phone",
+          "volume",
+          "microphone",
+          "awake",
+          "dnd",
+          "notifications",
+          "updates"
+        ]
+      ]
+    },
+    "minimap": false
+  },
+  "dock": {
+    "enabled": true,
+    "intellihide": true,
+    "magnify": true,
+    "magnifyAmount": 1.4,
+    "stacks": false,
+    "pinned": [
+      "kitty",
+      "org.kde.dolphin",
+      "zen"
+    ],
+    "iconSize": 44
+  },
+  "notifications": {
+    "position": "top-right",
+    "screen": "focused",
+    "timeout": 6
+  },
+  "launcher": {
+    "web": "https://www.google.com/search?q=%s"
+  },
+  "switcher": {
+    "quickTapMs": 1000
+  },
+  "capture": {
+    "dir": "~/Pictures/Screenshots",
+    "videoDir": "~/Videos/Recordings",
+    "copy": true,
+    "mode": "area",
+    "delay": 0,
+    "recorder": "auto",
+    "audio": true,
+    "fps": 60,
+    "ocrLanguages": "eng+rus",
+    "thumbnailSeconds": 6,
+    "editor": "vitrum",
+    "mic": false
+  },
+  "overview": {
+    "overlay": true
+  },
+  "lock": {
+    "dimMinutes": 4,
+    "idleMinutes": 5,
+    "screenOffMinutes": 10,
+    "beforeSleep": true,
+    "notifications": "full",
+    "ambientSeconds": 10,
+    "player": true,
+    "power": true
+  },
+  "sounds": {
+    "theme": "/usr/share/sounds/freedesktop/stereo",
+    "notification": true,
+    "screenshot": true,
+    "volume": false,
+    "lock": false,
+    "device": false,
+    "power": false
+  },
+  "cursor": {
+    "theme": "Bibata-Modern-Classic"
+  },
+  "icons": {
+    "theme": "Papirus-Dark",
+    "backplates": false
+  },
+  "windows": {
+    "focus": "shadow",
+    "unfocusedOpacity": 0.92,
+    "materials": [
+      {
+        "appId": "kitty",
+        "material": "glass"
+      }
+    ],
+    "pipFollows": true
+  },
+  "terminal": {
+    "opacity": 0.72
+  },
+  "toolkits": {
+    "kde": true,
+    "gtk": true
+  },
+  "wallpaper": {
+    "path": "",
+    "perOutput": {},
+    "dir": "~/Pictures/Wallpapers",
+    "transition": "grow",
+    "parallax": false,
+    "live": {
+      "enabled": true,
+      "pauseWhenCovered": true
+    },
+    "dayNight": true
+  },
+  "widgets": {
+    "items": []
+  },
+  "weather": {
+    "latitude": 0,
+    "longitude": 0,
+    "place": "",
+    "units": "metric"
+  },
+  "clock": {
+    "h24": true,
+    "seconds": false
+  },
+  "awake": {
+    "auto": true,
+    "media": true
+  },
+  "games": {
+    "mode": true,
+    "hud": true,
+    "extra": []
+  },
+  "screencast": {
+    "remember": {}
+  },
+  "media": {
+    "lyrics": true,
+    "lyricsInBar": false,
+    "visualizer": true
+  },
+  "audio": {
+    "noiseFilter": false
+  },
+  "corners": {
+    "enabled": true,
+    "delay": 150,
+    "topLeft": "overview",
+    "topRight": "notifications",
+    "bottomLeft": "none",
+    "bottomRight": "desktop"
+  },
+  "timers": {
+    "work": 25,
+    "short": 5,
+    "long": 15,
+    "rounds": 4
+  },
+  "picker": {
+    "history": []
+  },
+  "alerts": {
+    "enabled": true,
+    "gpu": 85,
+    "cpu": 90,
+    "diskPercent": 90,
+    "diskFreeGB": 10,
+    "smart": true
+  },
+  "calendar": {
+    "remindMinutes": 10
+  },
+  "keyboard": {
+    "perApp": true
+  },
+  "clipboard": {
+    "images": 500
+  },
+  "updates": {
+    "vitrum": {
+      "check": true,
+      "threshold": 3,
+      "hours": 6
+    }
+  }
+}

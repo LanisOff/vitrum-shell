@@ -1,0 +1,106 @@
+# ============================================================================
+#  vitrum — fish
+# ============================================================================
+#
+#  Rendered from config.fish.in at install time. The colours live in
+#  conf.d/00-vitrum-colors.fish, the prompt is Starship, and tmux — if you asked
+#  for it — is started from here.
+# ============================================================================
+
+# ------------------------------------------------------------------ tmux ----
+#
+# A new session for every terminal window.
+#
+# Not `new-session -A -s main`, which is what this used to be: that attaches
+# every window to one shared session, so two terminals show the same panes and
+# typing in one moves the cursor in the other. A terminal window should be its
+# own workspace. Each window gets a fresh session; it belongs to that window and
+# ends when the window closes; whatever is running in the terminal you opened
+# first keeps running there, untouched.
+#
+# Sessions you want to keep across windows are still yours to make — `tn work`
+# names one, `ta work` attaches to it from anywhere, and `tls` lists them.
+#
+# Four guards, all of which matter:
+#   * only interactive shells (scripts must not be hijacked)
+#   * not already inside tmux (no nesting)
+#   * not a TTY console, where the Nerd Font is not there to draw the bar
+#   * only if the marker file exists — that is the toggle, so turning this off
+#     is deleting a file rather than editing a config
+
+if status is-interactive
+    and not set -q TMUX
+    and not set -q INSIDE_EMACS
+    and test "$TERM" != linux
+    and test "$TERM" != dumb
+    and test -f @VITRUM_PREFIX@/tmux-autostart
+    and command -q tmux
+    # tmux names an unnamed session after the lowest free number, so the second
+    # window is "1", the third "2", and `tls` stays readable.
+    exec tmux new-session
+end
+
+# ------------------------------------------------------------ environment ----
+
+set -gx EDITOR (command -q nvim; and echo nvim; or echo nano)
+set -gx VISUAL $EDITOR
+set -gx PAGER less
+set -gx LESS "-R --use-color"
+set -gx MANPAGER "less -R --use-color -Dd+r -Du+b"
+
+# Wayland-native by preference; the desktop is a Wayland session.
+set -gx MOZ_ENABLE_WAYLAND 1
+set -gx QT_QPA_PLATFORM "wayland;xcb"
+set -gx _JAVA_AWT_WM_NONREPARENTING 1
+
+fish_add_path -g $HOME/.local/bin
+fish_add_path -g $HOME/.cargo/bin
+fish_add_path -g $HOME/go/bin
+
+# ---------------------------------------------------------------- prompt ----
+#
+# Starship draws everything. fish's own prompt functions are left alone so
+# that `starship` failing to launch leaves you with a working shell rather
+# than a blank line.
+
+if status is-interactive; and command -q starship
+    starship init fish | source
+end
+
+# ------------------------------------------------------------------ tools ----
+
+if status is-interactive
+    command -q zoxide; and zoxide init fish --cmd cd | source
+    command -q direnv; and direnv hook fish | source
+    command -q fzf; and fzf --fish | source 2>/dev/null
+end
+
+if command -q fd
+    set -gx FZF_DEFAULT_COMMAND "fd --type f --hidden --follow --exclude .git"
+    set -gx FZF_CTRL_T_COMMAND "$FZF_DEFAULT_COMMAND"
+end
+
+# ------------------------------------------------------------------- keys ----
+
+function fish_user_key_bindings
+    # Accept the autosuggestion with the right arrow as most shells offer it, and
+    # with Ctrl-F for people whose hands do not leave the home row.
+    bind \cf forward-char
+    bind \ce accept-autosuggestion
+    # Ctrl-G: jump to a directory with fzf, if it is installed.
+    if command -q fzf
+        bind \cg __vitrum_cd_fzf
+    end
+end
+
+function __vitrum_cd_fzf --description "Pick a directory with fzf and cd into it"
+    set -l dir (
+        if command -q fd
+            fd --type d --hidden --follow --exclude .git . $HOME 2>/dev/null
+        else
+            find $HOME -type d -not -path '*/.git/*' 2>/dev/null
+        end | fzf --prompt='\uf07b  ' --preview 'ls -A --color=always {} 2>/dev/null | head -50'
+    )
+    test -n "$dir"; and cd "$dir"
+    commandline -f repaint
+end

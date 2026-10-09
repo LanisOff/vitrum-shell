@@ -1,0 +1,64 @@
+# ============================================================================
+#  vitrum — kitty's colours. Written by vitrum-theme; do not edit.
+#  Rewritten whenever the palette or the scheme changes; kitty reloads it.
+#  Opacity: Settings → Windows → terminal opacity (terminal.opacity).
+#  Scheme: @MODE@       Source: @SOURCE@
+# ============================================================================
+
+foreground                  @FG@
+background                  @BG@
+background_opacity          @TERM_OPACITY@
+
+selection_foreground        @ON_ACCENT@
+selection_background        @ACCENT@
+
+cursor                      @ACCENT@
+cursor_text_color           background
+
+url_color                   @TEAL@
+
+active_border_color         @ACCENT@
+inactive_border_color       @LINE@
+bell_border_color           @ORANGE@
+
+active_tab_background       @ACCENT@
+active_tab_foreground       @ON_ACCENT@
+inactive_tab_background     @PILL@
+inactive_tab_foreground     @DIM@
+tab_bar_background          none
+
+mark1_background            @ACCENT@
+mark1_foreground            @ON_ACCENT@
+mark2_background            @PURPLE@
+mark3_background            @TEAL@
+
+# --------------------------------------------------------------- the ramp ---
+#
+#   0-7   normal      8-15  bright
+#   The hues are fixed per scheme (a red that changes with the wallpaper
+#   stops being information); black and white come from the palette.
+
+# black
+color0                      @ANSI0@
+color8                      @ANSI8@
+# red
+color1                      @ANSI1@
+color9                      @ANSI9@
+# green
+color2                      @ANSI2@
+color10                     @ANSI10@
+# yellow
+color3                      @ANSI3@
+color11                     @ANSI11@
+# blue
+color4                      @ANSI4@
+color12                     @ANSI12@
+# magenta
+color5                      @ANSI5@
+color13                     @ANSI13@
+# cyan
+color6                      @ANSI6@
+color14                     @ANSI14@
+# white
+color7                      @ANSI7@
+color15                     @ANSI15@

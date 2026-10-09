@@ -1,0 +1,98 @@
+# vitrum Plymouth theme: the mark in the middle, a ring of dots under it,
+# a password capsule for encrypted disks, messages at the bottom.
+
+Window.SetBackgroundTopColor(0.07, 0.075, 0.09);
+Window.SetBackgroundBottomColor(0.05, 0.055, 0.065);
+
+cx = Window.GetX() + Window.GetWidth() / 2;
+cy = Window.GetY() + Window.GetHeight() / 2;
+
+logo.image = Image("logo.png");
+logo.scale = Window.GetHeight() / 1080 * 0.5;
+logo.image = logo.image.Scale(logo.image.GetWidth() * logo.scale, logo.image.GetHeight() * logo.scale);
+logo.sprite = Sprite(logo.image);
+logo.sprite.SetX(cx - logo.image.GetWidth() / 2);
+logo.sprite.SetY(cy - logo.image.GetHeight() / 2 - Window.GetHeight() * 0.04);
+logo.sprite.SetZ(10);
+
+# Spinner: twelve dots, one bright, the rest fading behind it.
+dot.image = Image("dot.png");
+spin.count = 12;
+spin.radius = Window.GetHeight() * 0.018;
+spin.y = cy + Window.GetHeight() * 0.13;
+for (i = 0; i < spin.count; i++) {
+    spin.sprite[i] = Sprite(dot.image);
+    angle = i / spin.count * 2 * Math.Pi;
+    spin.sprite[i].SetX(cx + spin.radius * Math.Sin(angle) - dot.image.GetWidth() / 2);
+    spin.sprite[i].SetY(spin.y - spin.radius * Math.Cos(angle) - dot.image.GetHeight() / 2);
+    spin.sprite[i].SetZ(10);
+}
+spin.step = 0;
+# While the password prompt is up the spinner stays off (refresh would bring it back).
+global.asking = 0;
+
+fun refresh_callback() {
+    if (global.asking) return;
+    spin.step++;
+    head = Math.Int(spin.step / 4) % spin.count;
+    for (i = 0; i < spin.count; i++) {
+        d = (head - i + spin.count) % spin.count;
+        spin.sprite[i].SetOpacity(1 - d / spin.count);
+    }
+}
+Plymouth.SetRefreshFunction(refresh_callback);
+
+# Encrypted disk: a capsule with dots for the typed characters.
+prompt.box = Image("capsule.png");
+prompt.sprite = Sprite(prompt.box);
+prompt.sprite.SetX(cx - prompt.box.GetWidth() / 2);
+prompt.sprite.SetY(spin.y - prompt.box.GetHeight() / 2);
+prompt.sprite.SetZ(20);
+prompt.sprite.SetOpacity(0);
+prompt.bullet = Image("bullet.png");
+bullets = [];
+# Top level, so the callbacks update it (names first assigned inside a function are local to it).
+label.sprite = Sprite();
+label.sprite.SetZ(20);
+
+fun show_spinner(o) { for (i = 0; i < spin.count; i++) spin.sprite[i].SetOpacity(o); }
+
+fun display_password_callback(text, count) {
+    global.asking = 1;
+    prompt.sprite.SetOpacity(1);
+    show_spinner(0);
+    global.label.image = Image.Text(text, 0.75, 0.77, 0.82);
+    global.label.sprite.SetImage(global.label.image);
+    global.label.sprite.SetX(cx - global.label.image.GetWidth() / 2);
+    global.label.sprite.SetY(spin.y - prompt.box.GetHeight() / 2 - global.label.image.GetHeight() - 12);
+    global.label.sprite.SetOpacity(1);
+    for (i = 0; bullets[i]; i++) bullets[i].SetOpacity(0);
+    gap = prompt.bullet.GetWidth() * 1.8;
+    width = count * gap;
+    for (i = 0; i < count && i < 24; i++) {
+        global.bullets[i] = Sprite(prompt.bullet);
+        global.bullets[i].SetX(cx - width / 2 + i * gap);
+        global.bullets[i].SetY(spin.y - prompt.bullet.GetHeight() / 2);
+        global.bullets[i].SetZ(21);
+    }
+}
+Plymouth.SetDisplayPasswordFunction(display_password_callback);
+
+fun display_normal_callback() {
+    global.asking = 0;
+    prompt.sprite.SetOpacity(0);
+    global.label.sprite.SetOpacity(0);
+    for (i = 0; bullets[i]; i++) bullets[i].SetOpacity(0);
+    show_spinner(1);
+}
+Plymouth.SetDisplayNormalFunction(display_normal_callback);
+
+message.sprite = Sprite();
+message.sprite.SetZ(30);
+fun message_callback(text) {
+    message.image = Image.Text(text, 0.64, 0.66, 0.70);
+    message.sprite.SetImage(message.image);
+    message.sprite.SetX(cx - message.image.GetWidth() / 2);
+    message.sprite.SetY(Window.GetY() + Window.GetHeight() * 0.9);
+}
+Plymouth.SetMessageFunction(message_callback);

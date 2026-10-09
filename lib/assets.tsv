@@ -1,0 +1,5 @@
+# Assets fetched from upstream on every distribution (not packaged on Gentoo).
+# Columns (TAB): name  url  sha256  kind(file|tar)  dest (~ = $HOME; for tar, the directory to unpack into)
+material-symbols	https://github.com/google/material-design-icons/raw/bd8cb85bd4bad964fe6918f79665bb40c3a8efef/variablefont/MaterialSymbolsRounded%5BFILL,GRAD,opsz,wght%5D.ttf	c2182b6337495e64cc9e2311c52522567ac277d25a842bd027f9c9e3a5cc6d86	file	~/.local/share/fonts/vitrum/MaterialSymbolsRounded.ttf
+bibata	https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Classic.tar.xz	7d3495864e5bbef02f5e77de760b2905903b63c71495a78ef6306d19a3b556d8	tar	~/.local/share/icons
+apple-emoji	https://github.com/samuelngs/apple-emoji-ttf/releases/download/macos-26-20260722-484daf4e/AppleColorEmoji-Linux.ttf	e37c7af6265ac4a0af6d57bc65e86109a776d9966e8343334557f63da482516f	file	~/.local/share/fonts/vitrum/AppleColorEmoji.ttf

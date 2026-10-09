@@ -1,0 +1,27 @@
+#!/usr/bin/env bash
+# Compile the shell's fragment shaders (*.frag under shell/) to the .qsb files
+# Qt Quick loads, next to them. Needs qsb (Qt Shader Tools); the .qsb files are
+# committed, so only someone changing a shader runs this.
+#   tools/build-shaders            on a machine with qsb
+#   VITRUM_HOST=user@host tools/build-shaders   compile there (no qsb here)
+set -euo pipefail
+cd "$(dirname "$0")/.."
+mapfile -t frags < <(find shell -name '*.frag' | sort)
+[[ ${#frags[@]} -gt 0 ]] || exit 0
+qsb_cmd() { printf 'qsb=$(command -v qsb || ls /usr/lib*/qt6/bin/qsb 2>/dev/null | head -n 1); [ -n "$qsb" ] || { echo "no qsb" >&2; exit 1; }\n'; }
+if [[ -n "${VITRUM_HOST:-}" ]]; then
+  tmp="/tmp/vitrum-shaders-$$"
+  ssh "$VITRUM_HOST" "mkdir -p $tmp" </dev/null
+  rsync -aR "${frags[@]}" "$VITRUM_HOST:$tmp/"
+  { qsb_cmd; for f in "${frags[@]}"; do printf '"$qsb" --glsl "100 es,120,150" --hlsl 50 --msl 12 -o %q %q\n' "$tmp/$f.qsb" "$tmp/$f"; done; } | ssh "$VITRUM_HOST" bash -s
+  for f in "${frags[@]}"; do rsync -a "$VITRUM_HOST:$tmp/$f.qsb" "$f.qsb"; done
+  ssh "$VITRUM_HOST" "rm -rf $tmp" </dev/null
+else
+  eval "$(qsb_cmd)"
+  for f in "${frags[@]}"; do "$qsb" --glsl "100 es,120,150" --hlsl 50 --msl 12 -o "$f.qsb" "$f"; done
+fi
+# The source's checksum beside it: tests catch a .qsb older than its shader.
+for f in "${frags[@]}"; do
+  sum="$(shasum -a 256 "$f" 2>/dev/null || sha256sum "$f")"; printf '%s\n' "${sum%% *}" > "$f.sum"
+  echo "built $f.qsb"
+done

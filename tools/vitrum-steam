@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""vitrum-steam — the installed Steam games, for the launcher's Games tab.
+
+    vitrum-steam            JSON: [{appid, name, lastPlayed, cover}], last played first
+
+Reads Steam's own files (no Steam running needed): the library folders, each
+game's appmanifest, the last-played times from the user config, and the
+600×900 covers from the library cache. Proton, the runtimes and the
+redistributables are tools, not games, and are left out.
+"""
+import json
+import os
+import re
+import sys
+from pathlib import Path
+
+TOOLS = re.compile(r"^(Proton|Steam Linux Runtime|Steamworks Common Redistributables|Steam Runtime)", re.I)
+TOKEN = re.compile(r'"((?:[^"\\]|\\.)*)"|([{}])')
+
+
+def parse_vdf(text):
+    """Valve's KeyValues text → nested dicts."""
+    stack, cur, key = [], {}, None
+    for m in TOKEN.finditer(text):
+        s, brace = m.group(1), m.group(2)
+        if brace == "{":
+            new = {}
+            if key is not None:
+                cur[key] = new
+            stack.append(cur)
+            cur, key = new, None
+        elif brace == "}":
+            cur = stack.pop() if stack else cur
+            key = None
+        elif key is None:
+            key = s.replace('\\"', '"').replace("\\\\", "\\")
+        else:
+            cur[key] = s.replace('\\"', '"').replace("\\\\", "\\")
+            key = None
+    return cur
+
+
+def _read(path):
+    try:
+        return parse_vdf(Path(path).read_text(encoding="utf-8", errors="replace"))
+    except OSError:
+        return {}
+
+
+def libraries(steam):
+    folders = _read(steam / "steamapps" / "libraryfolders.vdf").get("libraryfolders", {})
+    paths = [Path(v["path"]) for v in folders.values() if isinstance(v, dict) and v.get("path")]
+    if steam not in paths:
+        paths.insert(0, steam)
+    return [p for p in paths if (p / "steamapps").is_dir()]
+
+
+def last_played(steam):
+    out = {}
+    for conf in (steam / "userdata").glob("*/config/localconfig.vdf"):
+        apps = (_read(conf).get("UserLocalConfigStore", {}).get("Software", {}).get("Valve", {})
+                .get("Steam", {}).get("apps", {}))
+        for appid, data in apps.items():
+            last = data.get("LastPlayed") if isinstance(data, dict) else None
+            if isinstance(last, str) and last.isdigit():
+                out[appid] = max(out.get(appid, 0), int(last))
+    return out
+
+
+def cover(steam, appid):
+    base = steam / "appcache" / "librarycache"
+    for p in (base / appid / "library_600x900.jpg", base / ("%s_library_600x900.jpg" % appid)):
+        if p.is_file():
+            return str(p)
+    for p in sorted((base / appid).glob("**/library_600x900*.jpg")):
+        return str(p)
+    for p in (base / appid / "header.jpg", base / ("%s_header.jpg" % appid)):
+        if p.is_file():
+            return str(p)
+    return ""
+
+
+def games(steam):
+    steam = Path(steam)
+    played = last_played(steam)
+    out = {}
+    for lib in libraries(steam):
+        for acf in (lib / "steamapps").glob("appmanifest_*.acf"):
+            st = _read(acf).get("AppState", {})
+            appid, name = st.get("appid", ""), st.get("name", "")
+            if not appid.isdigit() or not name or TOOLS.match(name):
+                continue
+            last = max(int(st.get("LastPlayed", "0") or 0), played.get(appid, 0))
+            out[appid] = {"appid": int(appid), "name": name, "lastPlayed": last, "cover": cover(steam, appid)}
+    return sorted(out.values(), key=lambda g: (-g["lastPlayed"], g["name"].lower()))
+
+
+def find_steam():
+    for p in (Path.home() / ".local/share/Steam", Path.home() / ".steam/steam",
+              Path.home() / ".var/app/com.valvesoftware.Steam/data/Steam"):
+        if (p / "steamapps").is_dir():
+            return p.resolve()
+    return None
+
+
+def main():
+    steam = Path(os.environ["VITRUM_STEAM"]) if os.environ.get("VITRUM_STEAM") else find_steam()
+    json.dump(games(steam) if steam else [], sys.stdout)
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

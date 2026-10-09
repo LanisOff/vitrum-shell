@@ -1,0 +1,33 @@
+#!/usr/bin/env bash
+# vitrum-clip — keeps the clipboard history (cliphist), fed by
+# `wl-paste --watch vitrum-clip store [image]` (the session starts one for text
+# and one for pictures).
+#
+#   vitrum-clip store         stdin into the history, never trimmed by count
+#   vitrum-clip store image   the same, then the pictures beyond clipboard.images
+#                             (settings, default 500) go, oldest first
+#   vitrum-clip prune         only the trimming
+set -uo pipefail
+
+cap() {
+  # The shell's own settings file (Settings.qml: always ~/.config).
+  local f="$HOME/.config/vitrum/settings.json" n=""
+  [[ -f "$f" ]] && n="$(python3 -c 'import json,sys
+try:
+    v = json.load(open(sys.argv[1])).get("clipboard", {}).get("images")
+    print(int(v) if isinstance(v, (int, float)) and not isinstance(v, bool) and v >= 0 else "")
+except Exception: print("")' "$f" 2>/dev/null)"
+  printf '%s' "${n:-500}"
+}
+
+prune() {
+  local keep; keep="$(cap)"
+  cliphist list 2>/dev/null | grep -E $'^[0-9]+\t\\[\\[ binary data ' | tail -n +"$((keep + 1))" | cliphist delete 2>/dev/null
+  return 0
+}
+
+case "${1:-}" in
+  store) cliphist -max-items 1000000000 store; [[ "${2:-}" == image ]] && prune; exit 0 ;;
+  prune) prune ;;
+  *) sed -n '2,11p' "$0" >&2; exit 2 ;;
+esac

@@ -1,0 +1,128 @@
+#!/bin/bash
+# vitrum-root — the few things the desktop does as root, and nothing else.
+#
+#   vitrum-root wg-list              WireGuard configs in /etc/wireguard
+#   vitrum-root wg-up <name>         wg-quick up <name>   (a config that exists)
+#   vitrum-root wg-down <name>       wg-quick down <name>
+#   vitrum-root disks                the whole disks (for health checks)
+#   vitrum-root smart <device>       smartctl health and attributes, as JSON
+#   vitrum-root login-sync           the caller's login-screen files (wallpaper,
+#                                    palette, day/night times), checked, into
+#                                    /var/lib/vitrum/login/<user> for the greeter
+#
+# The shell runs it through pkexec; a polkit rule (installed with it) lets the
+# user who installed vitrum do so from their active session without a
+# password. Every argument is checked here: names must be configs that exist,
+# devices must be whole disks.
+set -euo pipefail
+PATH=/usr/sbin:/usr/bin:/sbin:/bin
+
+wg_name() {
+  local n="${1:-}"
+  [[ "$n" =~ ^[A-Za-z0-9_=+.-]{1,15}$ && -f "/etc/wireguard/$n.conf" ]] || { echo "no such WireGuard config: $n" >&2; exit 2; }
+  printf '%s\n' "$n"
+}
+
+case "${1:-}" in
+  wg-list)
+    for f in /etc/wireguard/*.conf; do [[ -f "$f" ]] && basename "$f" .conf; done; exit 0 ;;
+  wg-up)   n="$(wg_name "${2:-}")"; exec wg-quick up "$n" ;;
+  wg-down) n="$(wg_name "${2:-}")"; exec wg-quick down "$n" ;;
+  disks)
+    lsblk -dnpo NAME,TYPE | awk '$2 == "disk" && $1 !~ /zram|loop/ {print $1}'; exit 0 ;;
+  smart)
+    d="${2:-}"
+    # The name of a whole disk, the node itself (no symlink), and a device.
+    [[ "$d" =~ ^/dev/(sd[a-z]{1,2}|nvme[0-9]{1,2}n[0-9]{1,2}|nvme[0-9]{1,2})$ ]] || { echo "not a disk: $d" >&2; exit 2; }
+    [[ ! -L "$d" ]] && { [[ -b "$d" ]] || [[ -c "$d" ]]; } || { echo "not a disk: $d" >&2; exit 2; }
+    exec smartctl -H -A -j "$d" ;;
+  login-sync)
+    # Who asked: pkexec says (never an argument). The greeter runs as the sddm
+    # user and must not read a home it cannot trust (a FIFO there would hang
+    # it), so only regular files the user owns, of sane size, pictures that
+    # are pictures, and JSON rebuilt from the keys it knows, are copied.
+    exec python3 - "${PKEXEC_UID:-$(id -u)}" "${VITRUM_LOGIN_ROOT:-/var/lib/vitrum/login}" <<'PY'
+import json, os, pwd, re, stat, sys
+
+uid, root = int(sys.argv[1]), sys.argv[2]
+pw = pwd.getpwuid(uid)
+if not re.fullmatch(r"[A-Za-z0-9_][A-Za-z0-9_.-]{0,31}", pw.pw_name):
+    sys.exit("odd user name")
+# Tests (never as root, so never through pkexec) point it at their own home.
+home = os.environ.get("VITRUM_LOGIN_HOME") if os.geteuid() != 0 and os.environ.get("VITRUM_LOGIN_HOME") else pw.pw_dir
+src = os.path.join(home, ".local/share/vitrum/login")
+dst = os.path.join(root, pw.pw_name)
+
+def read(name, cap):
+    try:
+        fd = os.open(os.path.join(src, name), os.O_RDONLY | os.O_NOFOLLOW | os.O_NONBLOCK)
+    except OSError:
+        return None
+    try:
+        st = os.fstat(fd)
+        if not stat.S_ISREG(st.st_mode) or st.st_uid != uid or st.st_size > cap:
+            return None
+        data = b""
+        while len(data) <= cap:
+            chunk = os.read(fd, 1 << 16)
+            if not chunk:
+                break
+            data += chunk
+        return data if len(data) <= cap else None
+    finally:
+        os.close(fd)
+
+def picture(data):
+    return data and (data[:3] == b"\xff\xd8\xff" or data[:8] == b"\x89PNG\r\n\x1a\n"
+                     or (data[:4] == b"RIFF" and data[8:12] == b"WEBP"))
+
+def as_json(data):
+    try:
+        return json.loads(data.decode("utf-8")) if data else None
+    except (ValueError, UnicodeDecodeError):
+        return None
+
+out = {}
+for name in ("day", "night"):
+    d = read(name, 40 << 20)
+    if picture(d):
+        out[name] = d
+info = as_json(read("login.json", 64 << 10))
+if isinstance(info, dict):
+    clean = {}
+    for k in ("light", "dark"):
+        if isinstance(info.get(k), str) and re.fullmatch(r"\d{2}:\d{2}", info[k]):
+            clean[k] = info[k]
+    if isinstance(info.get("font"), str) and re.fullmatch(r"[\w .-]{1,64}", info["font"]):
+        clean["font"] = info["font"]
+    if isinstance(info.get("h24"), bool):
+        clean["h24"] = info["h24"]
+    out["login.json"] = json.dumps(clean).encode()
+pal = as_json(read("palette.json", 256 << 10))
+dark = pal.get("palette", {}).get("dark") if isinstance(pal, dict) and isinstance(pal.get("palette"), dict) else None
+if isinstance(dark, dict):
+    keys = ("bg", "surface", "text", "textDim", "accent", "onAccent", "danger")
+    clean = {k: dark[k] for k in keys if isinstance(dark.get(k), str) and re.fullmatch(r"#[0-9A-Fa-f]{6}([0-9A-Fa-f]{2})?", dark[k])}
+    out["palette.json"] = json.dumps({"palette": {"dark": clean}}).encode()
+
+os.makedirs(dst, mode=0o755, exist_ok=True)
+os.chmod(dst, 0o755)
+for name in ("day", "night", "login.json", "palette.json"):
+    path = os.path.join(dst, name)
+    if name not in out:
+        try:
+            os.unlink(path)
+        except FileNotFoundError:
+            pass
+        continue
+    tmp = path + ".tmp"
+    fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC | os.O_NOFOLLOW, 0o644)
+    with os.fdopen(fd, "wb") as f:
+        f.write(out[name])
+    os.chmod(tmp, 0o644)
+    os.replace(tmp, path)
+PY
+    ;;
+  *)
+    sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' >&2; exit 2 ;;
+esac

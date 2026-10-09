@@ -1,0 +1,491 @@
+{
+ "wifi": {
+  "material": "wifi",
+  "nerd": "󰖩"
+ },
+ "wifi-off": {
+  "material": "wifi_off",
+  "nerd": "󰖪"
+ },
+ "ethernet": {
+  "material": "lan",
+  "nerd": "󰈀"
+ },
+ "network-off": {
+  "material": "signal_disconnected"
+ },
+ "bluetooth": {
+  "material": "bluetooth",
+  "nerd": "󰂯"
+ },
+ "bluetooth-connected": {
+  "material": "bluetooth_connected",
+  "nerd": "󰂱"
+ },
+ "bluetooth-off": {
+  "material": "bluetooth_disabled",
+  "nerd": "󰂲"
+ },
+ "volume-high": {
+  "material": "volume_up",
+  "nerd": "󰕾"
+ },
+ "volume-low": {
+  "material": "volume_down",
+  "nerd": "󰕿"
+ },
+ "volume-mute": {
+  "material": "volume_off",
+  "nerd": "󰖁"
+ },
+ "mic": {
+  "material": "mic",
+  "nerd": "󰍬"
+ },
+ "mic-off": {
+  "material": "mic_off",
+  "nerd": "󰍭"
+ },
+ "cpu": {
+  "material": "memory",
+  "nerd": "󰻟"
+ },
+ "memory": {
+  "material": "memory_alt",
+  "nerd": "󰍛"
+ },
+ "temperature": {
+  "material": "thermostat",
+  "nerd": "󰔏"
+ },
+ "gpu": {
+  "material": "developer_board",
+  "nerd": "󰢮"
+ },
+ "notifications": {
+  "material": "notifications",
+  "nerd": "󰂚"
+ },
+ "dnd": {
+  "material": "do_not_disturb_on",
+  "nerd": "󰂛"
+ },
+ "recording": {
+  "material": "radio_button_checked",
+  "nerd": "󰑊"
+ },
+ "keyboard": {
+  "material": "keyboard",
+  "nerd": "󰌌"
+ },
+ "battery": {
+  "material": "battery_full",
+  "nerd": "󰁹"
+ },
+ "power": {
+  "material": "power_settings_new",
+  "nerd": "󰐥"
+ },
+ "lock": {
+  "material": "lock",
+  "nerd": "󰌾"
+ },
+ "logout": {
+  "material": "logout",
+  "nerd": "󰍃"
+ },
+ "restart": {
+  "material": "restart_alt",
+  "nerd": "󰜉"
+ },
+ "sleep": {
+  "material": "bedtime",
+  "nerd": "󰒲"
+ },
+ "search": {
+  "material": "search",
+  "nerd": "󰍉"
+ },
+ "apps": {
+  "material": "apps",
+  "nerd": "󰀻"
+ },
+ "calendar": {
+  "material": "calendar_month",
+  "nerd": "󰃭"
+ },
+ "music": {
+  "material": "music_note",
+  "nerd": "󰝚"
+ },
+ "play": {
+  "material": "play_arrow",
+  "nerd": "󰐊"
+ },
+ "pause": {
+  "material": "pause",
+  "nerd": "󰏤"
+ },
+ "next": {
+  "material": "skip_next",
+  "nerd": "󰒭"
+ },
+ "previous": {
+  "material": "skip_previous",
+  "nerd": "󰒮"
+ },
+ "close": {
+  "material": "close",
+  "nerd": "󰅖"
+ },
+ "settings": {
+  "material": "settings",
+  "nerd": "󰒓"
+ },
+ "light": {
+  "material": "light_mode",
+  "nerd": "󰖙"
+ },
+ "dark": {
+  "material": "dark_mode",
+  "nerd": "󰖔"
+ },
+ "screenshot": {
+  "material": "screenshot_region",
+  "nerd": "󰹑"
+ },
+ "camera": {
+  "material": "photo_camera",
+  "nerd": "󰄀"
+ },
+ "video": {
+  "material": "videocam",
+  "nerd": "󰕧"
+ },
+ "ocr": {
+  "material": "document_scanner",
+  "nerd": "󱄺"
+ },
+ "timer": {
+  "material": "timer",
+  "nerd": "󱎫"
+ },
+ "add": {
+  "material": "add",
+  "nerd": "󰐕"
+ },
+ "edit": {
+  "material": "edit",
+  "nerd": "󰏫"
+ },
+ "check": {
+  "material": "check",
+  "nerd": "󰄬"
+ },
+ "chevron": {
+  "material": "chevron_right",
+  "nerd": "󰅂"
+ },
+ "expand": {
+  "material": "expand_more",
+  "nerd": "󰅀"
+ },
+ "folder": {
+  "material": "folder",
+  "nerd": "󰉋"
+ },
+ "file": {
+  "material": "draft",
+  "nerd": "󰈔"
+ },
+ "image": {
+  "material": "image",
+  "nerd": "󰋩"
+ },
+ "terminal": {
+  "material": "terminal",
+  "nerd": "󰆍"
+ },
+ "calculator": {
+  "material": "calculate",
+  "nerd": "󰃬"
+ },
+ "emoji": {
+  "material": "mood",
+  "nerd": "󰞅"
+ },
+ "clipboard": {
+  "material": "content_paste",
+  "nerd": "󰅇"
+ },
+ "web": {
+  "material": "travel_explore",
+  "nerd": "󰖟"
+ },
+ "profile-performance": {
+  "material": "speed",
+  "nerd": "󰓅"
+ },
+ "profile-balanced": {
+  "material": "balance",
+  "nerd": "󱐋"
+ },
+ "profile-saver": {
+  "material": "eco",
+  "nerd": "󰌪"
+ },
+ "brightness": {
+  "material": "brightness_6",
+  "nerd": "󰃟"
+ },
+ "trash": {
+  "material": "delete",
+  "nerd": "󰆴"
+ },
+ "pin": {
+  "material": "push_pin",
+  "nerd": "󰐃"
+ },
+ "help": {
+  "material": "help",
+  "nerd": "󰋖"
+ },
+ "weather-clear": {
+  "material": "clear_day",
+  "nerd": "󰖙"
+ },
+ "weather-night": {
+  "material": "bedtime",
+  "nerd": "󰖔"
+ },
+ "weather-cloudy": {
+  "material": "cloud",
+  "nerd": "󰖐"
+ },
+ "weather-partly": {
+  "material": "partly_cloudy_day",
+  "nerd": "󰖕"
+ },
+ "weather-rain": {
+  "material": "rainy",
+  "nerd": "󰖗"
+ },
+ "weather-snow": {
+  "material": "weather_snowy",
+  "nerd": "󰖘"
+ },
+ "weather-storm": {
+  "material": "thunderstorm",
+  "nerd": "󰖓"
+ },
+ "weather-fog": {
+  "material": "foggy",
+  "nerd": "󰖑"
+ },
+ "widgets": {
+  "material": "widgets",
+  "nerd": "󱩲"
+ },
+ "desktop": {
+  "material": "desktop_windows",
+  "nerd": "󰇄"
+ },
+ "window": {
+  "material": "web_asset",
+  "nerd": "󰖰"
+ },
+ "screen": {
+  "material": "monitor",
+  "nerd": "󰍹"
+ },
+ "area": {
+  "material": "crop_free",
+  "nerd": "󰆞"
+ },
+ "copy": {
+  "material": "content_copy",
+  "nerd": "󰆏"
+ },
+ "open": {
+  "material": "open_in_new",
+  "nerd": "󰏌"
+ },
+ "history": {
+  "material": "history",
+  "nerd": "󰋚"
+ },
+ "clear": {
+  "material": "clear_all",
+  "nerd": "󰵟"
+ },
+ "layout": {
+  "material": "language",
+  "nerd": "󰫀"
+ },
+ "user": {
+  "material": "person",
+  "nerd": "󰀄"
+ },
+ "update": {
+  "material": "system_update",
+  "nerd": "󰚰"
+ },
+ "clock": {
+  "material": "schedule"
+ },
+ "materials": {
+  "material": "blur_on"
+ },
+ "toolbar": {
+  "material": "toolbar"
+ },
+ "typography": {
+  "material": "text_fields"
+ },
+ "palette": {
+  "material": "palette"
+ },
+ "motion": {
+  "material": "animation"
+ },
+ "coffee": {
+  "material": "coffee",
+  "nerd": "󰅶"
+ },
+ "videocam": {
+  "material": "videocam",
+  "nerd": "󰕧"
+ },
+ "screen-share": {
+  "material": "screen_share",
+  "nerd": "󱒃"
+ },
+ "vpn": {
+  "material": "vpn_lock",
+  "nerd": "󰖂"
+ },
+ "shield": {
+  "material": "shield",
+  "nerd": "󰒘"
+ },
+ "gamepad": {
+  "material": "sports_esports",
+  "nerd": "󰊗"
+ },
+ "build": {
+  "material": "build",
+  "nerd": "󱌢"
+ },
+ "stop": {
+  "material": "stop",
+  "nerd": "󰓛"
+ },
+ "colorize": {
+  "material": "colorize",
+  "nerd": "󰈊"
+ },
+ "crop": {
+  "material": "crop",
+  "nerd": "󰆞"
+ },
+ "brush": {
+  "material": "brush",
+  "nerd": "󰃣"
+ },
+ "text": {
+  "material": "title",
+  "nerd": "󰊞"
+ },
+ "rect": {
+  "material": "crop_square",
+  "nerd": "󰝣"
+ },
+ "blur": {
+  "material": "blur_on",
+  "nerd": "󰂵"
+ },
+ "undo": {
+  "material": "undo",
+  "nerd": "󰕌"
+ },
+ "save": {
+  "material": "save",
+  "nerd": "󰆓"
+ },
+ "arrow": {
+  "material": "arrow_outward",
+  "nerd": "󰁜"
+ },
+ "mixer": {
+  "material": "tune",
+  "nerd": "󰘮"
+ },
+ "headphones": {
+  "material": "headphones",
+  "nerd": "󰋋"
+ },
+ "speaker": {
+  "material": "speaker",
+  "nerd": "󰓃"
+ },
+ "noise": {
+  "material": "graphic_eq",
+  "nerd": "󱑽"
+ },
+ "phone": {
+  "material": "smartphone",
+  "nerd": "󰄜"
+ },
+ "alert": {
+  "material": "warning",
+  "nerd": "󰀦"
+ },
+ "disk": {
+  "material": "hard_drive",
+  "nerd": "󰋊"
+ },
+ "reply": {
+  "material": "reply",
+  "nerd": "󰑚"
+ },
+ "send": {
+  "material": "send",
+  "nerd": "󰒊"
+ },
+ "speed": {
+  "material": "speed",
+  "nerd": "󰓅"
+ },
+ "lyrics": {
+  "material": "lyrics",
+  "nerd": "󰲸"
+ },
+ "corner": {
+  "material": "select_all",
+  "nerd": "󰒅"
+ },
+ "hourglass": {
+  "material": "hourglass_top",
+  "nerd": "󰔟"
+ },
+ "pip": {
+  "material": "picture_in_picture_alt",
+  "nerd": "󰺝"
+ },
+ "event": {
+  "material": "event",
+  "nerd": "󰃰"
+ },
+ "sync": {
+  "material": "sync",
+  "nerd": "󰓦"
+ },
+ "link": {
+  "material": "link",
+  "nerd": "󰌷"
+ },
+ "battery-phone": {
+  "material": "battery_full",
+  "nerd": "󰁹"
+ }
+}

@@ -1,0 +1,156 @@
+--- a/src/backend/tty.rs
++++ b/src/backend/tty.rs
+@@ -687,6 +687,13 @@
+                             warn!("failed to get connector properties");
+                         };
+ 
++                        set_color_range(
++                            &device.drm,
++                            *crtc,
++                            surface.connector,
++                            &surface.compositor.pending_mode(),
++                        );
++
+                         if let Some(ramp) = surface.pending_gamma_change.take() {
+                             let ramp = ramp.as_deref();
+                             let res = if let Some(gamma_props) = &mut surface.gamma_props {
+@@ -1514,6 +1521,8 @@
+ 
+         let vrr_enabled = compositor.vrr_enabled();
+ 
++        set_color_range(&device.drm, crtc, connector.handle(), &mode);
++
+         let vblank_frame_name =
+             tracy_client::FrameName::new_leak(format!("vblank on {connector_name}"));
+         let time_since_presentation_plot_name = tracy_client::PlotName::new_leak(format!(
+@@ -2490,6 +2499,7 @@
+                         warn!("error changing mode: {err:?}");
+                         continue;
+                     }
++                    set_color_range(&device.drm, crtc, surface.connector, &mode);
+ 
+                     let wl_mode = Mode::from(mode);
+                     output.change_current_state(Some(wl_mode), None, None, None);
+@@ -3266,6 +3276,122 @@
+ 
+ const DRM_MODE_COLORIMETRY_DEFAULT: u64 = 0;
+ 
++/// The RGB range of the signal, as the monitor expects it.
++///
++/// NVIDIA's driver takes the planes' COLOR_RANGE (which KMS defines for YCbCr
++/// planes only) as the range of the whole output, and left alone it sends
++/// limited range (16-235) on every mode. A sink reads the CTA video formats
++/// (VICs: 1080p60, 1080p120, ...) on HDMI as limited and everything else (a
++/// 1080p240 monitor mode, DisplayPort) as full, so those came out with grey
++/// blacks and dim whites. Other drivers ignore COLOR_RANGE on RGB planes.
++fn set_color_range(drm: &DrmDevice, crtc: crtc::Handle, conn: connector::Handle, mode: &DrmMode) {
++    use smithay::reexports::drm::Device as _;
++
++    let nvidia = drm
++        .get_driver()
++        .is_ok_and(|d| d.name().to_string_lossy().starts_with("nvidia"));
++    if !nvidia {
++        return;
++    }
++    let hdmi = drm.get_connector(conn, false).is_ok_and(|c| {
++        matches!(
++            c.interface(),
++            connector::Interface::HDMIA | connector::Interface::HDMIB
++        )
++    });
++    let full = !(hdmi && is_cta_video_mode(mode));
++    let want = if full {
++        "YCbCr full range"
++    } else {
++        "YCbCr limited range"
++    };
++
++    let planes = match drm.planes(&crtc) {
++        Ok(planes) => planes,
++        Err(err) => {
++            debug!("couldn't get planes to set COLOR_RANGE: {err:?}");
++            return;
++        }
++    };
++    let all = planes.primary.iter().chain(&planes.overlay).chain(&planes.cursor);
++    for plane in all {
++        let Ok(props) = drm.get_properties(plane.handle) else {
++            continue;
++        };
++        for (prop, _) in props {
++            let Ok(info) = drm.get_property(prop) else {
++                continue;
++            };
++            if info.name().to_str() != Ok("COLOR_RANGE") {
++                continue;
++            }
++            let property::ValueType::Enum(values) = info.value_type() else {
++                continue;
++            };
++            let Some(value) = values
++                .values()
++                .1
++                .iter()
++                .find(|v| v.name().to_str() == Ok(want))
++            else {
++                continue;
++            };
++            match drm.set_property(plane.handle, prop, value.value()) {
++                Ok(()) => debug!("plane {:?}: COLOR_RANGE {want}", plane.handle),
++                Err(err) => debug!("couldn't set COLOR_RANGE: {err:?}"),
++            }
++        }
++    }
++}
++
++/// A CTA-861 video format (VIC) by its timing; HDMI sinks take these as
++/// limited range. Rates divided by 1.001 (59.94 Hz and so on) match too.
++fn is_cta_video_mode(mode: &DrmMode) -> bool {
++    // (width, height, htotal, vtotal, pixel clock in kHz, interlaced)
++    const VICS: &[(u16, u16, u16, u16, u32, bool)] = &[
++        (720, 480, 858, 525, 27_000, false),       // 2, 3: 480p60
++        (1280, 720, 1650, 750, 74_250, false),     // 4: 720p60
++        (1920, 1080, 2200, 1125, 74_250, true),    // 5: 1080i60
++        (720, 576, 864, 625, 27_000, false),       // 17, 18: 576p50
++        (1280, 720, 1980, 750, 74_250, false),     // 19: 720p50
++        (1920, 1080, 2640, 1125, 74_250, true),    // 20: 1080i50
++        (1920, 1080, 2200, 1125, 148_500, false),  // 16: 1080p60
++        (1920, 1080, 2640, 1125, 148_500, false),  // 31: 1080p50
++        (1920, 1080, 2750, 1125, 74_250, false),   // 32: 1080p24
++        (1920, 1080, 2640, 1125, 74_250, false),   // 33: 1080p25
++        (1920, 1080, 2200, 1125, 74_250, false),   // 34: 1080p30
++        (1280, 720, 1980, 750, 148_500, false),    // 41: 720p100
++        (1280, 720, 1650, 750, 148_500, false),    // 47: 720p120
++        (1920, 1080, 2200, 1125, 297_000, false),  // 63: 1080p120
++        (1920, 1080, 2640, 1125, 297_000, false),  // 64: 1080p100
++        (3840, 2160, 5500, 2250, 297_000, false),  // 93: 2160p24
++        (3840, 2160, 5280, 2250, 297_000, false),  // 94: 2160p25
++        (3840, 2160, 4400, 2250, 297_000, false),  // 95: 2160p30
++        (3840, 2160, 5280, 2250, 594_000, false),  // 96: 2160p50
++        (3840, 2160, 4400, 2250, 594_000, false),  // 97: 2160p60
++        (4096, 2160, 5500, 2250, 297_000, false),  // 98: 4096x2160p24
++        (4096, 2160, 5280, 2250, 297_000, false),  // 99: 4096x2160p25
++        (4096, 2160, 4400, 2250, 297_000, false),  // 100: 4096x2160p30
++        (4096, 2160, 5280, 2250, 594_000, false),  // 101: 4096x2160p50
++        (4096, 2160, 4400, 2250, 594_000, false),  // 102: 4096x2160p60
++        (3840, 2160, 5280, 2250, 1_188_000, false), // 117: 2160p100
++        (3840, 2160, 4400, 2250, 1_188_000, false), // 118: 2160p120
++    ];
++    let (w, h) = mode.size();
++    let htotal = mode.hsync().2;
++    let vtotal = mode.vsync().2;
++    let clock = mode.clock();
++    let interlaced = mode.flags().contains(ModeFlags::INTERLACE);
++    VICS.iter().any(|&(vw, vh, ht, vt, c, i)| {
++        vw == w
++            && vh == h
++            && ht == htotal
++            && vt == vtotal
++            && i == interlaced
++            && u64::from(clock.abs_diff(c)) * 1000 <= u64::from(c) * 2
++    })
++}
++
+ fn reset_hdr(props: &ConnectorProperties) -> anyhow::Result<()> {
+     let (info, value) = props.find(c"HDR_OUTPUT_METADATA")?;
+     let property::ValueType::Blob = info.value_type() else {

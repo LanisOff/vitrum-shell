@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""vitrum-phone — your phone through KDE Connect, for the bar.
+
+    vitrum-phone                 JSON: [{id, name, type, reachable, charge, charging}]
+    vitrum-phone ring <id>       make it ring (find my phone)
+    vitrum-phone ping <id>       a ping notification on it
+    vitrum-phone share <id> <path-or-url>   send a file or a link
+    vitrum-phone browse <id>     open its files (SFTP) in the file manager
+
+Talks to kdeconnectd over D-Bus (it starts on demand). Prints [] when KDE
+Connect is not installed.
+"""
+import json
+import os
+import sys
+from pathlib import Path
+
+import dbus
+
+SERVICE = "org.kde.kdeconnect"
+ROOT = "/modules/kdeconnect"
+
+
+def prop(bus, path, iface, name, default=None):
+    try:
+        return bus.get_object(SERVICE, path).Get(iface, name, dbus_interface="org.freedesktop.DBus.Properties")
+    except dbus.DBusException:
+        return default
+
+
+def devices(bus):
+    daemon = bus.get_object(SERVICE, ROOT)
+    out = []
+    for dev in daemon.devices(False, True, dbus_interface="org.kde.kdeconnect.daemon"):
+        path = "%s/devices/%s" % (ROOT, dev)
+        d = {"id": str(dev), "name": str(prop(bus, path, "org.kde.kdeconnect.device", "name", "")),
+             "type": str(prop(bus, path, "org.kde.kdeconnect.device", "type", "phone")),
+             "reachable": bool(prop(bus, path, "org.kde.kdeconnect.device", "isReachable", False)),
+             "charge": -1, "charging": False}
+        if d["reachable"]:
+            charge = prop(bus, path + "/battery", "org.kde.kdeconnect.device.battery", "charge")
+            if charge is not None:
+                d["charge"] = int(charge)
+                d["charging"] = bool(prop(bus, path + "/battery", "org.kde.kdeconnect.device.battery", "isCharging", False))
+        out.append(d)
+    return out
+
+
+def call(bus, dev, plugin, iface, method, *args):
+    obj = bus.get_object(SERVICE, "%s/devices/%s/%s" % (ROOT, dev, plugin))
+    getattr(obj, method)(*args, dbus_interface=iface)
+
+
+def main(argv):
+    try:
+        bus = dbus.SessionBus()
+        if not argv:
+            json.dump(devices(bus), sys.stdout)
+            return 0
+        cmd, dev = argv[0], argv[1] if len(argv) > 1 else ""
+        if cmd == "ring":
+            call(bus, dev, "findmyphone", "org.kde.kdeconnect.device.findmyphone", "ring")
+        elif cmd == "ping":
+            call(bus, dev, "ping", "org.kde.kdeconnect.device.ping", "sendPing")
+        elif cmd == "share" and len(argv) > 2:
+            target = argv[2]
+            url = target if "://" in target else Path(os.path.abspath(target)).as_uri()
+            call(bus, dev, "share", "org.kde.kdeconnect.device.share", "shareUrl", url)
+        elif cmd == "browse":
+            call(bus, dev, "sftp", "org.kde.kdeconnect.device.sftp", "startBrowsing")
+        else:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+    except dbus.DBusException as e:
+        if not argv:
+            json.dump([], sys.stdout)
+            return 0
+        print("vitrum-phone: %s" % e.get_dbus_message(), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

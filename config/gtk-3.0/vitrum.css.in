@@ -1,0 +1,75 @@
+/*
+ * vitrum — GTK colours. Written by vitrum-theme from the palette (@MODE@);
+ * do not edit, it is rewritten on every change. Your own rules go in gtk.css.
+ *
+ * Both naming schemes are set: the GTK 3 theme_* colours (Adwaita and most
+ * themes) and the libadwaita ones (GTK 4 apps).
+ */
+
+/* GTK 3 */
+@define-color theme_bg_color @BG_ALT@;
+@define-color theme_fg_color @FG@;
+@define-color theme_base_color @BG@;
+@define-color theme_text_color @FG@;
+@define-color theme_selected_bg_color @ACCENT@;
+@define-color theme_selected_fg_color @ON_ACCENT@;
+@define-color insensitive_bg_color @BG_ALT@;
+@define-color insensitive_fg_color @DIM@;
+@define-color borders @LINE@;
+@define-color unfocused_borders @LINE@;
+@define-color warning_color @ORANGE@;
+@define-color error_color @RED@;
+@define-color success_color @GREEN@;
+
+/* libadwaita */
+@define-color accent_color @ACCENT@;
+@define-color accent_bg_color @ACCENT@;
+@define-color accent_fg_color @ON_ACCENT@;
+@define-color window_bg_color @BG_ALT@;
+@define-color window_fg_color @FG@;
+@define-color view_bg_color @BG@;
+@define-color view_fg_color @FG@;
+@define-color headerbar_bg_color @BG_ELEV@;
+@define-color headerbar_fg_color @FG@;
+@define-color headerbar_border_color @LINE@;
+@define-color sidebar_bg_color @BG_ELEV@;
+@define-color sidebar_fg_color @FG@;
+@define-color card_bg_color @BG_ELEV@;
+@define-color card_fg_color @FG@;
+@define-color popover_bg_color @BG_ELEV@;
+@define-color popover_fg_color @FG@;
+@define-color dialog_bg_color @BG_ELEV@;
+@define-color dialog_fg_color @FG@;
+@define-color destructive_color @RED@;
+@define-color destructive_bg_color @RED@;
+@define-color success_bg_color @GREEN@;
+@define-color warning_bg_color @ORANGE@;
+@define-color error_bg_color @RED@;
+
+/* Menus (right click, menu bars): rounded, padded, a soft shadow, the hovered
+   entry an accent capsule — like the shell's own menus. */
+.csd.popup decoration, .popup decoration {
+  border-radius: 10px;
+  box-shadow: 0 6px 18px alpha(black, 0.35), 0 0 0 1px @LINE@;
+}
+menu, .menu, .context-menu {
+  background-color: @BG_ELEV@;
+  border-radius: 10px;
+  padding: 6px;
+}
+menu menuitem {
+  border-radius: 6px;
+  padding: 6px 10px;
+  min-height: 18px;
+}
+menu menuitem:hover {
+  background-color: @ACCENT@;
+  color: @ON_ACCENT@;
+}
+menu menuitem:hover label, menu menuitem:hover accelerator, menu menuitem:hover arrow {
+  color: @ON_ACCENT@;
+}
+menu separator {
+  margin: 4px 6px;
+  background-color: @LINE@;
+}

@@ -1,0 +1,51 @@
+# vitrum — MangoHud in the desktop's colours. Written by vitrum-theme; do not
+# edit (it is rewritten on every theme change). Per-game tweaks go in
+# ~/.config/MangoHud/<game>.conf, which MangoHud reads on top of this.
+#
+# Loaded hidden into Steam's games (vitrum's `steam` starts Steam with
+# MANGOHUD=1; not the whole session — GTK draws with Vulkan too). It shows
+# with game mode, with Mod+Shift+F, or with Right Shift+F12 in the game.
+
+no_display
+control=mangohud
+toggle_hud=Shift_R+F12
+
+position=top-left
+offset_x=14
+offset_y=14
+horizontal
+hud_compact
+round_corners=12
+background_alpha=0.55
+background_color=@BG_RAW@
+font_size=18
+text_color=@FG_RAW@
+text_outline=0
+
+fps
+fps_color_change
+fps_value=60,120
+fps_color=@RED_RAW@,@YELLOW_RAW@,@GREEN_RAW@
+frametime
+frametime_color=@ACCENT_RAW@
+frame_timing=0
+
+gpu_stats
+gpu_temp
+gpu_text=GPU
+gpu_color=@ACCENT_RAW@
+gpu_load_change
+gpu_load_value=60,90
+gpu_load_color=@GREEN_RAW@,@YELLOW_RAW@,@RED_RAW@
+vram
+vram_color=@PURPLE_RAW@
+
+cpu_stats
+cpu_temp
+cpu_text=CPU
+cpu_color=@BLUE_RAW@
+cpu_load_change
+cpu_load_value=60,90
+cpu_load_color=@GREEN_RAW@,@YELLOW_RAW@,@RED_RAW@
+ram
+ram_color=@PURPLE_RAW@

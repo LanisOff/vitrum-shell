@@ -1,0 +1,87 @@
+--- a/src/layout/opening_window.rs
++++ b/src/layout/opening_window.rs
+@@ -44,6 +44,11 @@
+         self.anim.is_done()
+     }
+ 
++    /// The scale the built-in animation (no custom shader) draws the window at.
++    pub fn window_scale(&self) -> f64 {
++        (self.anim.value() / 2. + 0.5).max(0.)
++    }
++
+     // We can't depend on view_rect here, because the result of window opening can be snapshot and
+     // then rendered elsewhere.
+     pub fn render(
+--- a/src/layout/tile.rs
++++ b/src/layout/tile.rs
+@@ -4,6 +4,7 @@
+ use niri_config::utils::MergeWith as _;
+ use niri_config::{Color, CornerRadius, GradientInterpolation};
+ use niri_ipc::WindowLayout;
++use smithay::backend::renderer::element::utils::RescaleRenderElement;
+ use smithay::backend::renderer::element::{Element, Kind};
+ use smithay::backend::renderer::gles::GlesRenderer;
+ use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
+@@ -26,6 +27,7 @@
+ use crate::render_helpers::renderer::NiriRenderer;
+ use crate::render_helpers::resize::ResizeRenderElement;
+ use crate::render_helpers::shadow::ShadowRenderElement;
++use crate::render_helpers::shaders::{ProgramType, Shaders};
+ use crate::render_helpers::snapshot::RenderSnapshot;
+ use crate::render_helpers::solid_color::{SolidColorBuffer, SolidColorRenderElement};
+ use crate::render_helpers::xray::{Xray, XrayPos};
+@@ -133,6 +135,7 @@
+         Offscreen = OffscreenRenderElement,
+         ExtraDamage = ExtraDamage,
+         BackgroundEffect = BackgroundEffectElement,
++        BackgroundEffectRescaled = RescaleRenderElement<BackgroundEffectElement>,
+     }
+ }
+ 
+@@ -1337,12 +1340,21 @@
+         if let Some(open) = &self.open_animation {
+             let mut ctx = ctx.as_gles();
+             let mut elements = Vec::new();
++            // The background effect stays out of the offscreen: there it has nothing behind it
++            // to blur or refract, so an opening window showed plain translucent until the
++            // animation ended. It is drawn in place instead, at the animation's scale. A custom
++            // open shader transforms the window its own way, so then it stays as it was.
++            let in_place = Shaders::get(ctx.renderer).program(ProgramType::Open).is_none();
+             self.render_inner(
+                 ctx.r(),
+                 Point::new(0., 0.),
+                 xray_pos,
+                 focus_ring,
+-                &mut |elem| elements.push(elem),
++                &mut |elem| {
++                    if !(in_place && matches!(elem, TileRenderElement::BackgroundEffect(_))) {
++                        elements.push(elem);
++                    }
++                },
+             );
+             match open.render(
+                 ctx.renderer,
+@@ -1356,6 +1368,23 @@
+                     self.window().set_offscreen_data(Some(data));
+                     push(elem.into());
+                     pushed = true;
++
++                    if in_place {
++                        let center = self.animated_tile_size().to_point().downscale(2.);
++                        let origin = (location + center).to_physical_precise_round(scale);
++                        let window_scale = open.window_scale();
++                        self.render_inner(ctx.r(), location, xray_pos, false, &mut |elem| {
++                            if let TileRenderElement::BackgroundEffect(effect) = elem {
++                                push(TileRenderElement::BackgroundEffectRescaled(
++                                    RescaleRenderElement::from_element(
++                                        effect,
++                                        origin,
++                                        window_scale,
++                                    ),
++                                ));
++                            }
++                        });
++                    }
+                 }
+                 Err(err) => {
+                     warn!("error rendering window opening animation: {err:?}");

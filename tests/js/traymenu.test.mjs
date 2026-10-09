@@ -1,0 +1,12 @@
+import { load, eq } from "./lib.mjs";
+const t = load("traymenu.js");
+eq(t.label("_Quit"), "Quit", "mnemonic dropped");
+eq(t.label("Save __as"), "Save _as", "doubled underscore is literal");
+eq(t.label("Open _New __window"), "Open New _window", "both in one");
+eq(t.label(null), "", "no text");
+eq(t.trailing({ hasChildren: true, buttonType: 1, checkState: 2 }), "submenu", "a submenu wins");
+eq(t.trailing({ hasChildren: false, buttonType: 1, checkState: 2 }), "check", "ticked checkbox");
+eq(t.trailing({ hasChildren: false, buttonType: 2, checkState: 2 }), "check", "chosen radio");
+eq(t.trailing({ hasChildren: false, buttonType: 1, checkState: 0 }), "none", "unticked");
+eq(t.trailing({ hasChildren: false, buttonType: 0, checkState: 2 }), "none", "plain entry");
+eq(t.trailing(null), "none", "nothing");

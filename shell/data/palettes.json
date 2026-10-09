@@ -1,0 +1,18 @@
+{
+  "graphite": {
+    "dark":  { "bg": "#0e0f11", "surface": "#1b1d21", "surfaceHigh": "#24272c", "surfaceHighest": "#2e3238", "outline": "#3c4148", "text": "#e6e8eb", "textDim": "#a3a9b1", "accent": "#8ab4f8", "onAccent": "#0b1f3f", "danger": "#f28b82", "warning": "#fdd663", "success": "#81c995" },
+    "light": { "bg": "#f4f5f7", "surface": "#ffffff", "surfaceHigh": "#eef0f3", "surfaceHighest": "#e3e6ea", "outline": "#c9ced5", "text": "#1b1d21", "textDim": "#5b616a", "accent": "#1a73e8", "onAccent": "#ffffff", "danger": "#c5221f", "warning": "#b06000", "success": "#188038" }
+  },
+  "ink": {
+    "dark":  { "bg": "#08080b", "surface": "#131318", "surfaceHigh": "#1c1c23", "surfaceHighest": "#26262f", "outline": "#363642", "text": "#ecebf3", "textDim": "#a4a2b4", "accent": "#c3a6ff", "onAccent": "#2a1361", "danger": "#ff8e8e", "warning": "#ffd27a", "success": "#8ee0a8" },
+    "light": { "bg": "#f6f5fa", "surface": "#ffffff", "surfaceHigh": "#efedf6", "surfaceHighest": "#e4e1ee", "outline": "#ccc8da", "text": "#16151c", "textDim": "#5c5a6c", "accent": "#6a45d1", "onAccent": "#ffffff", "danger": "#c62828", "warning": "#a85d00", "success": "#1e7a43" }
+  },
+  "sand": {
+    "dark":  { "bg": "#12100d", "surface": "#1e1b17", "surfaceHigh": "#28241f", "surfaceHighest": "#332e28", "outline": "#463f37", "text": "#efe9e1", "textDim": "#b3a99c", "accent": "#e0a458", "onAccent": "#3a2306", "danger": "#f2948a", "warning": "#f6cf6b", "success": "#9ccc8e" },
+    "light": { "bg": "#f8f4ee", "surface": "#fffdf9", "surfaceHigh": "#f2ece3", "surfaceHighest": "#e8e0d4", "outline": "#d3c8b8", "text": "#211c16", "textDim": "#63594d", "accent": "#a3651e", "onAccent": "#ffffff", "danger": "#b3261e", "warning": "#9a5b00", "success": "#2f6f2a" }
+  },
+  "moss": {
+    "dark":  { "bg": "#0c100e", "surface": "#171c19", "surfaceHigh": "#202622", "surfaceHighest": "#2a312c", "outline": "#3a433d", "text": "#e5ece7", "textDim": "#a0ada4", "accent": "#8fd19e", "onAccent": "#0c3a1b", "danger": "#f2948a", "warning": "#f3d36b", "success": "#8fd19e" },
+    "light": { "bg": "#f2f6f3", "surface": "#ffffff", "surfaceHigh": "#e9efeb", "surfaceHighest": "#dde5df", "outline": "#c3cec6", "text": "#18201b", "textDim": "#55625a", "accent": "#2e7d4f", "onAccent": "#ffffff", "danger": "#b3261e", "warning": "#946000", "success": "#2e7d4f" }
+  }
+}

@@ -1,0 +1,714 @@
+--- a/niri-config/src/appearance.rs
++++ b/niri-config/src/appearance.rs
+@@ -1098,6 +1098,15 @@
+     /// edge normal so the refraction leans toward the corner along the whole edge.
+     /// 0 disables it, 1.0 matches the reference implementation.
+     pub depth_effect: f64,
++    /// Shape the glass from the surface's blur region instead of its geometry.
++    ///
++    /// 0 (default) keeps the plain rounded-rect silhouette. Above 0, every
++    /// rectangle of the blur region becomes its own rounded rectangle (radius
++    /// `geometry-corner-radius`, capped at half its size) with its own rim, and
++    /// rectangles that touch melt into one piece with concave fillets of this
++    /// radius where they meet: an island and a panel that touches it read as one
++    /// drop of glass. Rectangles that do not touch stay separate pieces.
++    pub shape_fillet: f64,
+ }
+ 
+ impl Default for LiquidGlass {
+@@ -1133,6 +1142,7 @@
+             edge_padding: -1.0,
+             corner_fan: 1.5,
+             depth_effect: 1.0,
++            shape_fillet: 0.0,
+         }
+     }
+ }
+@@ -1196,6 +1206,8 @@
+     pub corner_fan: Option<FloatOrInt<0, 100>>,
+     #[knuffel(child, unwrap(argument))]
+     pub depth_effect: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub shape_fillet: Option<FloatOrInt<0, 200>>,
+ }
+ 
+ impl MergeWith<LiquidGlassPart> for LiquidGlass {
+@@ -1230,6 +1242,7 @@
+             edge_padding,
+             corner_fan,
+             depth_effect,
++            shape_fillet,
+         );
+     }
+ }
+--- a/src/render_helpers/liquid_glass.rs
++++ b/src/render_helpers/liquid_glass.rs
+@@ -28,6 +28,7 @@
+     pub edge_padding: f64,
+     pub corner_fan: f64,
+     pub depth_effect: f64,
++    pub shape_fillet: f64,
+ }
+ 
+ impl From<niri_config::LiquidGlass> for LiquidGlassOptions {
+@@ -61,6 +62,7 @@
+             edge_padding: config.edge_padding,
+             corner_fan: config.corner_fan,
+             depth_effect: config.depth_effect,
++            shape_fillet: config.shape_fillet,
+         }
+     }
+ }
+--- a/src/render_helpers/background_effect.rs
++++ b/src/render_helpers/background_effect.rs
+@@ -1,8 +1,8 @@
+ use std::sync::{Arc, Mutex};
+ 
+ use niri_config::CornerRadius;
+-use smithay::backend::renderer::gles::GlesRenderer;
+-use smithay::utils::{Logical, Point, Rectangle, Scale};
++use smithay::backend::renderer::gles::{GlesRenderer, Uniform, UniformName, UniformType};
++use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
+ use smithay::wayland::compositor::{with_states, SurfaceData};
+ use wayland_server::protocol::wl_surface::WlSurface;
+ 
+@@ -75,6 +75,248 @@
+     pub clip: Option<(Rectangle<f64, Logical>, CornerRadius)>,
+     /// Scale to use for rounding to physical pixels.
+     pub scale: f64,
++    /// Glass pieces rebuilt from the blur region (`shape-fillet`), in the same
++    /// coordinate space as `geometry`.
++    pub shapes: Option<Arc<GlassShapes>>,
++}
++
++/// Most pieces one surface can have in `shape-fillet` mode. A region that needs
++/// more falls back to the plain silhouette. Must match the shader's arrays.
++pub const MAX_GLASS_SHAPES: usize = 16;
++
++/// The glass of a surface in `shape-fillet` mode.
++#[derive(Debug, Clone, PartialEq)]
++pub struct GlassShapes {
++    /// Sorted by component.
++    pub shapes: Vec<GlassShape>,
++    /// Radius of the concave fillet where touching pieces meet.
++    pub fillet: f64,
++}
++
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub struct GlassShape {
++    pub rect: Rectangle<f64, Logical>,
++    pub radius: f64,
++    /// Pieces with the same component melt into one.
++    pub component: u32,
++}
++
++/// What the shader gets of `GlassShapes`: pieces relative to the clip geometry,
++/// in the same units as its `geo_size`.
++#[derive(Debug, Clone, PartialEq)]
++pub struct ShapeUniforms {
++    /// x, y, w, h
++    pub rects: Vec<[f32; 4]>,
++    /// radius, component, 0, 0
++    pub meta: Vec<[f32; 4]>,
++    pub fillet: f32,
++}
++
++impl GlassShapes {
++    /// Relative to `origin` (the clip geometry's corner), scaled by `zoom`.
++    pub fn uniforms(&self, origin: Point<f64, Logical>, zoom: f64) -> ShapeUniforms {
++        ShapeUniforms {
++            rects: self
++                .shapes
++                .iter()
++                .map(|s| {
++                    let loc = (s.rect.loc - origin).upscale(zoom);
++                    let size = s.rect.size.upscale(zoom);
++                    [loc.x as f32, loc.y as f32, size.w as f32, size.h as f32]
++                })
++                .collect(),
++            meta: self
++                .shapes
++                .iter()
++                .map(|s| [(s.radius * zoom) as f32, s.component as f32, 0., 0.])
++                .collect(),
++            fillet: (self.fillet * zoom) as f32,
++        }
++    }
++}
++
++/// Uniform names of the shape arrays, for compiling the shader.
++pub fn shape_uniform_names() -> Vec<UniformName<'static>> {
++    let mut names = vec![
++        UniformName::new("lg_shape_count", UniformType::_1f),
++        UniformName::new("lg_shape_fillet", UniformType::_1f),
++    ];
++    for i in 0..MAX_GLASS_SHAPES {
++        names.push(UniformName::new(format!("lg_shape_rect[{i}]"), UniformType::_4f));
++        names.push(UniformName::new(format!("lg_shape_meta[{i}]"), UniformType::_4f));
++    }
++    names
++}
++
++/// Sets the shape uniforms; `None` turns shaped glass off. Every draw with the
++/// glass program must call this: uniforms keep their value between draws.
++pub fn push_shape_uniforms(shapes: Option<&ShapeUniforms>, out: &mut Vec<Uniform<'static>>) {
++    let n = shapes.map_or(0, |s| s.rects.len().min(MAX_GLASS_SHAPES));
++    out.push(Uniform::new("lg_shape_count", n as f32));
++    out.push(Uniform::new("lg_shape_fillet", shapes.map_or(0., |s| s.fillet)));
++    if let Some(s) = shapes {
++        for i in 0..n {
++            out.push(Uniform::new(format!("lg_shape_rect[{i}]"), s.rects[i]));
++            out.push(Uniform::new(format!("lg_shape_meta[{i}]"), s.meta[i]));
++        }
++    }
++}
++
++/// x0, y0, x1, y1
++type Edges = (i32, i32, i32, i32);
++
++/// Rebuilds the rectangles a client made its blur region from.
++///
++/// Returns the pieces (edges, corner radius, component) in surface-local
++/// coordinates, sorted by component, and the rects the effect should be drawn
++/// in (the fillets lie outside the region itself).
++///
++/// A wl_region arrives as y-banded spans, so one rectangle can come in as
++/// several pieces stacked on top of each other: those are joined back first.
++/// Pieces that touch form one component. Where a narrower piece sits on a
++/// wider one it is pushed into it, so the seam between them is interior, not a
++/// rim. A region drawn with rounded corners comes as dozens of scanlines; that
++/// is more than MAX_GLASS_SHAPES and falls back.
++pub fn glass_shapes(
++    rects: &[Rectangle<i32, Logical>],
++    max_radius: f64,
++) -> Option<(Vec<(Edges, f64, u32)>, Vec<Rectangle<i32, Logical>>)> {
++    if rects.is_empty() || rects.len() > 4 * MAX_GLASS_SHAPES {
++        return None;
++    }
++    let mut v: Vec<Edges> = rects
++        .iter()
++        .filter(|r| r.size.w > 0 && r.size.h > 0)
++        .map(|r| (r.loc.x, r.loc.y, r.loc.x + r.size.w, r.loc.y + r.size.h))
++        .collect();
++
++    // Join pieces split by banding: same x-range, stacked edge to edge.
++    loop {
++        let mut joined = None;
++        'find: for i in 0..v.len() {
++            for j in 0..v.len() {
++                let (a, b) = (v[i], v[j]);
++                if i != j && a.0 == b.0 && a.2 == b.2 && a.3 == b.1 {
++                    joined = Some((i, j, (a.0, a.1, a.2, b.3)));
++                    break 'find;
++                }
++            }
++        }
++        match joined {
++            Some((i, j, r)) => {
++                v[i] = r;
++                v.remove(j);
++            }
++            None => break,
++        }
++    }
++    if v.is_empty() || v.len() > MAX_GLASS_SHAPES {
++        return None;
++    }
++
++    let overlap = |a: Edges, b: Edges| (a.2.min(b.2) - a.0.max(b.0), a.3.min(b.3) - a.1.max(b.1));
++
++    // Components: pieces that touch along an edge (or overlap).
++    let mut comp: Vec<usize> = (0..v.len()).collect();
++    fn root(comp: &mut [usize], mut i: usize) -> usize {
++        while comp[i] != i {
++            comp[i] = comp[comp[i]];
++            i = comp[i];
++        }
++        i
++    }
++    for i in 0..v.len() {
++        for j in i + 1..v.len() {
++            let (ox, oy) = overlap(v[i], v[j]);
++            if (ox > 0 && oy >= 0) || (oy > 0 && ox >= 0) {
++                let (ri, rj) = (root(&mut comp, i), root(&mut comp, j));
++                comp[ri] = rj;
++            }
++        }
++    }
++
++    // Radii from the pieces as drawn, before any is pushed into its neighbour.
++    let radius: Vec<f64> = v
++        .iter()
++        .map(|r| max_radius.min((r.2 - r.0) as f64 / 2.).min((r.3 - r.1) as f64 / 2.).max(0.))
++        .collect();
++
++    // Push the narrower of two pieces sharing an edge into the wider one.
++    let orig = v.clone();
++    for i in 0..orig.len() {
++        for j in 0..orig.len() {
++            if i == j {
++                continue;
++            }
++            let (a, b) = (orig[i], orig[j]);
++            let (ox, oy) = overlap(a, b);
++            // a on top of b, a no wider than b and within it.
++            if oy == 0 && ox > 0 && a.3 == b.1 && a.0 >= b.0 && a.2 <= b.2 && (a.2 - a.0) < (b.2 - b.0) {
++                v[i].3 = v[i].3.max(a.3 + (b.3 - b.1).min(64));
++            }
++            // a below b.
++            if oy == 0 && ox > 0 && a.1 == b.3 && a.0 >= b.0 && a.2 <= b.2 && (a.2 - a.0) < (b.2 - b.0) {
++                v[i].1 = v[i].1.min(a.1 - (b.3 - b.1).min(64));
++            }
++            // a left of b, a no taller than b and within it.
++            if ox == 0 && oy > 0 && a.2 == b.0 && a.1 >= b.1 && a.3 <= b.3 && (a.3 - a.1) < (b.3 - b.1) {
++                v[i].2 = v[i].2.max(a.2 + (b.2 - b.0).min(64));
++            }
++            // a right of b.
++            if ox == 0 && oy > 0 && a.0 == b.2 && a.1 >= b.1 && a.3 <= b.3 && (a.3 - a.1) < (b.3 - b.1) {
++                v[i].0 = v[i].0.min(a.0 - (b.2 - b.0).min(64));
++            }
++        }
++    }
++
++    let mut pieces: Vec<(Edges, f64, u32)> = (0..v.len())
++        .map(|i| (v[i], radius[i], root(&mut comp, i) as u32))
++        .collect();
++    pieces.sort_by_key(|p| p.2);
++
++    // Where to draw: a lone piece is its own rect; a melted component needs its
++    // whole bounding box (the fillets sit outside the pieces). Overlapping boxes
++    // are joined, so no pixel is drawn twice.
++    // (Pushing a piece into its neighbour never grows the box.)
++    let mut boxes: Vec<Edges> = Vec::new();
++    let mut k = 0;
++    while k < pieces.len() {
++        let c = pieces[k].2;
++        let bb = pieces[k..]
++            .iter()
++            .take_while(|p| p.2 == c)
++            .fold((i32::MAX, i32::MAX, i32::MIN, i32::MIN), |b, p| {
++                (b.0.min(p.0 .0), b.1.min(p.0 .1), b.2.max(p.0 .2), b.3.max(p.0 .3))
++            });
++        boxes.push(bb);
++        k += pieces[k..].iter().take_while(|p| p.2 == c).count();
++    }
++    loop {
++        let mut joined = None;
++        'boxes: for i in 0..boxes.len() {
++            for j in i + 1..boxes.len() {
++                let (ox, oy) = overlap(boxes[i], boxes[j]);
++                if ox > 0 && oy > 0 {
++                    joined = Some((i, j));
++                    break 'boxes;
++                }
++            }
++        }
++        match joined {
++            Some((i, j)) => {
++                let (a, b) = (boxes[i], boxes[j]);
++                boxes[i] = (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3));
++                boxes.remove(j);
++            }
++            None => break,
++        }
++    }
++    let boxes = boxes
++        .into_iter()
++        .map(|b| Rectangle::new(Point::new(b.0, b.1), Size::from((b.2 - b.0, b.3 - b.1))))
++        .collect();
++
++    Some((pieces, boxes))
+ }
+ 
+ impl RenderParams {
+@@ -242,6 +484,8 @@
+     surface_geo: Rectangle<f64, Logical>,
+     surface_anim_scale: Scale<f64>,
+     padding: f64,
++    shape_fillet: f64,
++    shape_radius: f64,
+ ) -> Option<RenderParams> {
+     // Effects not requested by the surface itself are drawn to match the geometry.
+     let mut clip = true;
+@@ -249,6 +493,7 @@
+     let mut effect_geometry = geometry;
+ 
+     let mut subregion = None;
++    let mut shapes = None;
+     if let Some(rects) = blur_region {
+         if rects.is_empty() {
+             // Surface has a set, but empty blur region.
+@@ -266,6 +511,36 @@
+                 let mut surface_geo = surface_geo.upscale(surface_anim_scale);
+                 surface_geo.loc += geometry.loc;
+ 
++                // `shape-fillet`: the glass takes the shape of the region's pieces,
++                // and is drawn over their boxes so the fillets have room.
++                let glass = (shape_fillet > 0.)
++                    .then(|| glass_shapes(&rects, shape_radius))
++                    .flatten();
++                let rects = match glass {
++                    Some((pieces, boxes)) => {
++                        let to_geo = |x: i32, y: i32| {
++                            Point::<f64, Logical>::new(x as f64, y as f64).upscale(surface_anim_scale)
++                                + surface_geo.loc
++                        };
++                        shapes = Some(Arc::new(GlassShapes {
++                            shapes: pieces
++                                .iter()
++                                .map(|&((x0, y0, x1, y1), radius, component)| {
++                                    let (a, b) = (to_geo(x0, y0), to_geo(x1, y1));
++                                    GlassShape {
++                                        rect: Rectangle::new(a, Size::from((b.x - a.x, b.y - a.y))),
++                                        radius: radius * surface_anim_scale.x,
++                                        component,
++                                    }
++                                })
++                                .collect(),
++                            fillet: shape_fillet * surface_anim_scale.x,
++                        }));
++                        Arc::new(boxes)
++                    }
++                    None => rects,
++                };
++
+                 subregion = Some(TransformedRegion {
+                     rects,
+                     scale: surface_anim_scale,
+@@ -304,6 +579,7 @@
+         subregion,
+         clip,
+         scale,
++        shapes,
+     })
+ }
+ 
+@@ -388,6 +664,12 @@
+             _ => 0.0,
+         };
+ 
++        // Shaped glass is drawn by the xray path only.
++        let shape_fillet = match &background_effect.options.liquid_glass {
++            Some(lg) if background_effect.options.xray => lg.shape_fillet,
++            _ => 0.0,
++        };
++
+         let Some(params) = render_params_for_tile(
+             geometry,
+             scale,
+@@ -397,6 +679,8 @@
+             surface_geo,
+             surface_anim_scale,
+             padding,
++            shape_fillet,
++            f64::from(radius.top_left),
+         ) else {
+             return;
+         };
+--- a/src/render_helpers/xray.rs
++++ b/src/render_helpers/xray.rs
+@@ -14,7 +14,7 @@
+ use smithay::utils::{Buffer, Logical, Physical, Point, Rectangle, Scale, Size, Transform};
+ 
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+-use crate::render_helpers::background_effect::RenderParams;
++use crate::render_helpers::background_effect::{push_shape_uniforms, RenderParams, ShapeUniforms};
+ use crate::render_helpers::effect_buffer::EffectBuffer;
+ use crate::render_helpers::liquid_glass::LiquidGlassOptions;
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+@@ -84,6 +84,7 @@
+     program: Option<GlesTexProgram>,
+     liquid_glass: Option<LiquidGlassOptions>,
+     padding_pixels: f32,
++    shapes: Option<Rc<ShapeUniforms>>,
+ }
+ 
+ impl Xray {
+@@ -193,6 +194,9 @@
+                     Rectangle::new(crop.loc - geo_in_backdrop.loc, crop.size).downscale(zoom);
+                 geometry.loc += params.geometry.loc;
+ 
++                // geo_size here is the clip geometry as is.
++                let shapes = params.shapes.as_ref().map(|s| Rc::new(s.uniforms(clip_geo.loc, 1.)));
++
+                 let elem = XrayElement {
+                     buffer: self.background[ctx.target as usize].clone(),
+                     id: background.id().clone(),
+@@ -210,6 +214,7 @@
+                     program: program.clone(),
+                     liquid_glass: liquid_glass_options,
+                     padding_pixels,
++                    shapes,
+                 };
+                 push(elem);
+             }
+@@ -245,6 +250,9 @@
+             let input_to_clip_geo = Mat3::from_scale(buf_size / clip_geo_size)
+                 * Mat3::from_translation(-clip_pos_in_backdrop / buf_size);
+ 
++            // geo_size here is the clip geometry in (zoomed) backdrop units.
++            let shapes = params.shapes.as_ref().map(|s| Rc::new(s.uniforms(clip_geo.loc, zoom)));
++
+             let elem = XrayElement {
+                 buffer: self.backdrop[ctx.target as usize].clone(),
+                 id: backdrop.id().clone(),
+@@ -262,6 +270,7 @@
+                 program: program.clone(),
+                 liquid_glass: liquid_glass_options,
+                 padding_pixels,
++                shapes,
+             };
+             push(elem);
+         }
+@@ -346,6 +355,8 @@
+             ]);
+         }
+ 
++        push_shape_uniforms(self.shapes.as_deref(), &mut uniforms);
++
+         uniforms
+     }
+ }
+--- a/src/render_helpers/framebuffer_effect.rs
++++ b/src/render_helpers/framebuffer_effect.rs
+@@ -204,6 +204,9 @@
+             ]);
+         }
+ 
++        // Shaped glass is xray-only.
++        crate::render_helpers::background_effect::push_shape_uniforms(None, &mut uniforms);
++
+         uniforms
+     }
+ }
+--- a/src/render_helpers/shaders/mod.rs
++++ b/src/render_helpers/shaders/mod.rs
+@@ -181,7 +181,10 @@
+                     UniformName::new("lg_padding_pixels", UniformType::_1f),
+                     UniformName::new("lg_corner_fan", UniformType::_1f),
+                     UniformName::new("lg_depth_effect", UniformType::_1f),
+-                ],
++                ]
++                .into_iter()
++                .chain(crate::render_helpers::background_effect::shape_uniform_names())
++                .collect::<Vec<_>>(),
+             )
+             .map_err(|err| {
+                 warn!("error compiling postprocess_and_clip shader: {err:?}");
+--- a/src/render_helpers/shaders/clipped_surface.frag
++++ b/src/render_helpers/shaders/clipped_surface.frag
+@@ -69,7 +69,97 @@
+ // toward the corner along the whole edge, not just inside the corner fan.
+ uniform float lg_depth_effect;
+ 
++// Shaped glass (`shape-fillet`): the silhouette comes from up to 16 rounded
++// rectangles instead of the geometry. Pieces with the same component melt into
++// one with round fillets where they meet; components stay apart. Coordinates
++// in geo px, y down, relative to the clip geometry.
++uniform float lg_shape_count;
++uniform float lg_shape_fillet;
++uniform vec4 lg_shape_rect[16];   // x, y, w, h
++uniform vec4 lg_shape_meta[16];   // radius, component, -, -
++
++bool g_shape_mode;
++float g_shape_dist;      // signed distance to the silhouette (px, < 0 inside)
++vec2 g_shape_normal;     // inward unit normal, kwin convention (y up)
++float g_shape_half;      // local "min half size" of the glass at this pixel
++vec2 g_frame_min;        // bounding box of the nearest component
++vec2 g_frame_max;
++
+ float niri_rounding_alpha(vec2 coords, vec2 size, vec4 corner_radius);
++
++float shapeBox(vec2 p, vec4 rect, float r)
++{
++    vec2 hb = rect.zw * 0.5;
++    vec2 q = abs(p - (rect.xy + hb)) - hb + r;
++    return min(max(q.x, q.y), 0.0) + length(max(q, 0.0)) - r;
++}
++
++// hg_sdf fOpUnionRound: a circular fillet of radius r in concave corners.
++float roundUnion(float a, float b, float r)
++{
++    vec2 u = max(vec2(r - a, r - b), vec2(0.0));
++    return max(r, min(a, b)) - length(u);
++}
++
++float shapeField(vec2 p)
++{
++    float total = 1e6;
++    float cur = 1e6;
++    float comp = -1.0;
++    for (int i = 0; i < 16; i++) {
++        if (float(i) >= lg_shape_count) break;
++        vec4 m = lg_shape_meta[i];
++        float d = shapeBox(p, lg_shape_rect[i], m.x);
++        if (m.y != comp) {
++            total = min(total, cur);
++            cur = d;
++            comp = m.y;
++        } else {
++            cur = roundUnion(cur, d, lg_shape_fillet);
++        }
++    }
++    return min(total, cur);
++}
++
++void shapeEval(vec2 p)
++{
++    g_shape_dist = shapeField(p);
++
++    // Inward normal from the field's gradient (geo px are y down).
++    float e = 1.0;
++    vec2 grad = vec2(shapeField(p + vec2(e, 0.0)) - shapeField(p - vec2(e, 0.0)),
++                     shapeField(p + vec2(0.0, e)) - shapeField(p - vec2(0.0, e)));
++    float gl = length(grad);
++    vec2 inward = gl > 1e-4 ? -grad / gl : vec2(0.0);
++    g_shape_normal = vec2(inward.x, -inward.y);
++
++    // The nearest piece names the component; its pieces, weighted by how near
++    // they are, give the local thickness and the frame -- both continuous
++    // across a fillet, where the nearest piece flips.
++    float best = 1e6;
++    float comp = -1.0;
++    for (int i = 0; i < 16; i++) {
++        if (float(i) >= lg_shape_count) break;
++        float d = shapeBox(p, lg_shape_rect[i], lg_shape_meta[i].x);
++        if (d < best) { best = d; comp = lg_shape_meta[i].y; }
++    }
++    float wsum = 0.0;
++    float halfSum = 0.0;
++    g_frame_min = vec2(1e6);
++    g_frame_max = vec2(-1e6);
++    for (int i = 0; i < 16; i++) {
++        if (float(i) >= lg_shape_count) break;
++        if (lg_shape_meta[i].y != comp) continue;
++        vec4 r = lg_shape_rect[i];
++        float d = shapeBox(p, r, lg_shape_meta[i].x);
++        float w = exp(-(d - best) / 12.0);
++        wsum += w;
++        halfSum += w * min(r.z, r.w) * 0.5;
++        g_frame_min = min(g_frame_min, r.xy);
++        g_frame_max = max(g_frame_max, r.xy + r.zw);
++    }
++    g_shape_half = wsum > 0.0 ? halfSum / wsum : 1.0;
++}
+ vec4 postprocess(vec4 color);
+ vec2 refractionDir(vec2 uv);
+ 
+@@ -190,14 +280,16 @@
+     // A/H = strength×0.05 / edge-thickness; ≥ 1.5 时边缘出现镜像回折 (Kyant0 demo 比例 = 2:1)
+     // profile: d(u) = A × (1 - sqrt(1 - (1-u)^2)), u = δ/H   (circleMap)
+     // 方向: 虚拟圆角法线（SDF 梯度的解析版 + 角部外扩）+ Kyant0 depthEffect 径向项
+-    float minHalfSize = min(halfBlurSize.x, halfBlurSize.y);
++    float minHalfSize = g_shape_mode ? g_shape_half : min(halfBlurSize.x, halfBlurSize.y);
+     float bandPx = max(minHalfSize * lg_edge_thickness, 8.0 * niri_scale);
+     float edgeProximity = exp(dist / bandPx);
+ 
+     // 窗口像素 -> 采集区 UV。input_to_geo 把 crop-UV 映射到 window-UV，其列向量的
+     // 长度给出两个方向各自的缩放；用它归一后位移才是各向同性的。旧版直接用
+     // geo_size，窗口越偏离正方形，位移方向越歪、幅度整体也偏大。
+-    vec2 uvScale = 1.0 / ((halfBlurSize * 2.0)
++    // Shaped glass: halfBlurSize is the piece's frame, but UVs span the geometry.
++    vec2 frameSize = g_shape_mode ? geo_size : halfBlurSize * 2.0;
++    vec2 uvScale = 1.0 / (frameSize
+                           * vec2(length(input_to_geo[0].xy), length(input_to_geo[1].xy)));
+ 
+     float depth = max(0.0, -dist);
+@@ -206,7 +298,7 @@
+     // 距离剖面仍走真实轮廓，只有方向用这个放大的弧。
+     float rAt = min(cornerRadiusAt(position, cornerRadius), minHalfSize);
+     float fan = clamp(lg_corner_fan * rAt, rAt, minHalfSize);
+-    vec2 fanNormal = glassInwardNormal(position, halfBlurSize, fan);
++    vec2 fanNormal = g_shape_mode ? g_shape_normal : glassInwardNormal(position, halfBlurSize, fan);
+ 
+     // Glass normal for outline/glow effects (kept from the old kwin path).
+     // Deliberately the *geometric* normal: the depth term below is a non-physical
+@@ -224,7 +316,7 @@
+     // along the edge to ~0.12 at the other end -- which is the "wraps around the
+     // corner" of the reference implementation.
+     vec2 kwinNormal = fanNormal;
+-    if (abs(lg_depth_effect) > 1e-4) {
++    if (abs(lg_depth_effect) > 1e-4 && !g_shape_mode) {
+         float rl = length(position);
+         if (rl > 1e-4) {
+             kwinNormal = normalize(fanNormal - lg_depth_effect * (position / rl));
+@@ -359,7 +451,7 @@
+ 
+ // HyprGlass-inspired: Center dome lens distortion
+ vec2 applyDomeLens(vec2 uv, float lensDistortion, float edgeProximity) {
+-    if (lensDistortion < 0.001) {
++    if (lensDistortion < 0.001 || g_shape_mode) {
+         return vec2(0.0, 0.0);
+     }
+ 
+@@ -431,7 +523,9 @@
+     float sideBlend = max(2.0 * niri_scale, min(halfBlurSize.x, halfBlurSize.y) * 0.05);
+     float dTB = halfBlurSize.y - abs(position.y);          // distance to the top / bottom edge
+     float dLR = halfBlurSize.x - abs(position.x);          // distance to the left / right edge
+-    float vertical = smoothstep(-sideBlend, sideBlend, dLR - dTB);   // 1 = top / bottom
++    float vertical = g_shape_mode
++        ? smoothstep(-0.2, 0.2, abs(g_shape_normal.y) - abs(g_shape_normal.x))
++        : smoothstep(-sideBlend, sideBlend, dLR - dTB);   // 1 = top / bottom
+     float horizontal = 1.0 - vertical;
+ 
+     float rimMask = clamp(0.25 * s.concaveFactor, 0.0, glowStrength) * vertical;
+@@ -508,12 +602,12 @@
+                   float glowStrength, float edgeLighting)
+ {
+     vec2 halfBlurSize = blurSize * 0.5;
+-    float minHalfSize = min(halfBlurSize.x, halfBlurSize.y);
++    float minHalfSize = g_shape_mode ? g_shape_half : min(halfBlurSize.x, halfBlurSize.y);
+ 
+     // Position in pixel coords relative to center (same as kwin)
+     vec2 position = windowUV * blurSize - halfBlurSize.xy;
+     position.y = -position.y; // Invert Y for kwin convention
+-    float dist = roundedRectangleDist(position, halfBlurSize, cornerRadius);
++    float dist = g_shape_mode ? g_shape_dist : roundedRectangleDist(position, halfBlurSize, cornerRadius);
+ 
+     // Outside rectangle = no effect
+     if (dist >= 0.0) {
+@@ -604,6 +698,18 @@
+                      * step(0.0, windowUV.y) * step(windowUV.y, 1.0);
+     float lgEnabled = step(0.0001, lg_refraction_strength);
+     float effectMask = insideGeo * lgEnabled;
++
++    g_shape_mode = lg_shape_count > 0.5;
++    vec2 frameUV = windowUV;
++    vec2 frameSize = geo_size;
++    if (g_shape_mode) {
++        vec2 p = windowUV * geo_size;
++        shapeEval(p);
++        // The glass math runs in the nearest component's frame.
++        frameSize = max(g_frame_max - g_frame_min, vec2(1.0));
++        frameUV = (p - g_frame_min) / frameSize;
++        if (g_shape_dist > 1.0) effectMask = 0.0;
++    }
+ 
+     if (effectMask > 0.0) {
+         // Normalize strength (config 0-100 -> shader 0-1)
+@@ -614,8 +720,8 @@
+ 
+         vec4 result = glass_effect(
+             v_coords,       // uv_tex
+-            windowUV,       // window UV (0-1 within window)
+-            color, geo_size, cr,
++            frameUV,        // window UV (0-1 within window, or the shape's frame)
++            color, frameSize, cr,
+             normStrength,
+             lg_power_factor,           // refractionNormalPow
+             lg_fringing,               // refractionRGBFringing
+@@ -630,8 +736,12 @@
+ 
+     color = postprocess(color);
+ 
+-    color = color * niri_rounding_alpha(windowUV * geo_size, geo_size, corner_radius)
+-                  * insideGeo;
++    if (g_shape_mode) {
++        color = color * clamp(0.5 - g_shape_dist * niri_scale, 0.0, 1.0) * insideGeo;
++    } else {
++        color = color * niri_rounding_alpha(windowUV * geo_size, geo_size, corner_radius)
++                      * insideGeo;
++    }
+ 
+     color = color * alpha;
+ 

@@ -1,0 +1,162 @@
+#!/usr/bin/env bash
+# vitrum — keep the desktop up to date, and undo a change that went wrong.
+#
+#   vitrum update            pull the vitrum checkout and reinstall what changed
+#   vitrum behind [--json]   how many commits the checkout is behind (nothing pulled)
+#   vitrum snapshot [name]   save your vitrum configs (the last ten are kept)
+#   vitrum snapshots         list them
+#   vitrum rollback [name]   put a snapshot back (the newest by default)
+#   vitrum doctor            check the install (what is broken, and how to fix it)
+#
+# The installer records where it ran from; update pulls that checkout
+# (fast-forward only) and runs its installer, which snapshots first and only
+# rebuilds what changed. Your settings and edits are kept. A checkout without
+# an origin (a copy) follows the vitrum repository ($VITRUM_REPO overrides it).
+set -uo pipefail
+
+STATE="${XDG_DATA_HOME:-$HOME/.local/share}/vitrum"
+REPO="${VITRUM_REPO:-https://github.com/LanisOff/vitrum-shell}"
+SNAPS="$STATE/snapshots"
+KEEP=10
+# What a snapshot holds, relative to $HOME: the configs vitrum writes for you.
+# Not ~/.local/share/vitrum: that is the installer's own bookkeeping (what is
+# built, which version, what to restore on uninstall) and your calendar and
+# its passwords — none of it belongs to an older state of your configs.
+PATHS=(.config/vitrum .config/quickshell/vitrum .config/kitty .config/fish .config/starship.toml
+       .config/tmux .config/fastfetch .config/gtk-3.0 .config/gtk-4.0 .config/MangoHud
+       .config/Kvantum/vitrum .config/qt6ct)
+
+say() { printf '%s\n' "$*"; }
+die() { printf 'vitrum: %s\n' "$*" >&2; exit 1; }
+
+source_dir() {
+  local s; s="$(cat "$STATE/source" 2>/dev/null)" || true
+  [[ -n "$s" && -x "$s/install.sh" ]] || die "do not know where vitrum was installed from — run its install.sh once"
+  printf '%s\n' "$s"
+}
+
+snapshot() {
+  local label="${1:-}" within="${2:-0}" stamp have=() p newest
+  # --unless-within N: nothing to do when the newest snapshot is younger than N s
+  # (one install run per stage would otherwise make one each).
+  if (( within > 0 )); then
+    newest="$(ls -1t "$SNAPS"/*.tar.gz 2>/dev/null | head -1)"
+    if [[ -n "$newest" ]] && (( $(date +%s) - $(stat -c %Y "$newest" 2>/dev/null || stat -f %m "$newest") < within )); then
+      say "a snapshot was just made"; return 0
+    fi
+  fi
+  stamp="${VITRUM_SNAPSHOT_STAMP:-$(date +%Y%m%d-%H%M%S)}"
+  for p in "${PATHS[@]}"; do [[ -e "$HOME/$p" ]] && have+=("$p"); done
+  [[ ${#have[@]} -gt 0 ]] || { say "nothing to save yet"; return 0; }
+  # Configs can hold secrets: the snapshots are yours alone.
+  umask 077
+  mkdir -p "$SNAPS" && chmod 700 "$SNAPS"
+  local f="$SNAPS/$stamp${label:+-$label}.tar.gz"
+  tar -czf "$f" -C "$HOME" "${have[@]}" 2>/dev/null \
+    || { rm -f "$f"; die "could not write $f"; }
+  # The newest KEEP stay.
+  ls -1 "$SNAPS"/*.tar.gz 2>/dev/null | sort -r | tail -n +$((KEEP + 1)) | xargs -r rm -f
+  say "saved $(basename "$f" .tar.gz)"
+}
+
+snapshots() {
+  ls -1 "$SNAPS"/*.tar.gz 2>/dev/null | sort -r | while read -r f; do
+    printf '%s  %s\n' "$(basename "$f" .tar.gz)" "$(du -h "$f" | cut -f1)"
+  done
+}
+
+rollback() {
+  local want="${1:-}" f
+  if [[ -n "$want" ]]; then f="$SNAPS/$want.tar.gz"; [[ -f "$f" ]] || f="$(ls -1 "$SNAPS"/*"$want"*.tar.gz 2>/dev/null | sort | tail -1)"
+  else f="$(ls -1 "$SNAPS"/*.tar.gz 2>/dev/null | grep -v -- '-before-rollback' | sort | tail -1)"; fi
+  [[ -n "$f" && -f "$f" ]] || die "no snapshots${want:+ matching $want} (vitrum snapshot makes one; updates make them by themselves)"
+  # What is there now is saved first, so the rollback can be undone too.
+  snapshot before-rollback >/dev/null
+  tar -xzf "$f" -C "$HOME" || die "could not restore $f"
+  say "restored $(basename "$f" .tar.gz)"
+  command -v vitrum-theme >/dev/null 2>&1 && vitrum-theme --quiet >/dev/null 2>&1
+  command -v vitrum-shell >/dev/null 2>&1 && vitrum-shell --restart
+  return 0
+}
+
+# The checkout's origin (the vitrum repository when it has none), fetched,
+# and the branch it follows (origin's main or master when none is set).
+# 1: origin cannot be reached; 2: nothing on it to follow.
+upstream() {
+  local src="$1" br
+  git -C "$src" remote get-url origin >/dev/null 2>&1 || git -C "$src" remote add origin "$REPO"
+  GIT_TERMINAL_PROMPT=0 git -C "$src" fetch --quiet origin 2>/dev/null || return 1
+  git -C "$src" rev-parse --abbrev-ref --symbolic-full-name '@{u}' >/dev/null 2>&1 && return 0
+  for br in main master; do
+    if git -C "$src" rev-parse --verify --quiet "refs/remotes/origin/$br" >/dev/null; then
+      git -C "$src" branch --quiet --set-upstream-to "origin/$br" >/dev/null 2>&1 && return 0
+    fi
+  done
+  return 2
+}
+
+# How far behind the checkout is — for the bar's update island. Local edits
+# do not matter here; nothing is pulled.
+behind() {
+  local src n=0 err="" log=""
+  src="$(source_dir)"
+  if ! git -C "$src" rev-parse --git-dir >/dev/null 2>&1; then err="not a git checkout"
+  else
+    upstream "$src"; case $? in 1) err="could not reach $(git -C "$src" remote get-url origin)";; 2) err="no branch to follow";; esac
+  fi
+  if [[ -z "$err" ]]; then
+    n="$(git -C "$src" rev-list --count 'HEAD..@{u}' 2>/dev/null || echo 0)"
+    log="$(git -C "$src" log --no-decorate -n 30 --format='%h%x09%cr%x09%s' 'HEAD..@{u}' 2>/dev/null)"
+  fi
+  if [[ "${1:-}" != "--json" ]]; then
+    [[ -n "$err" ]] && die "$err"
+    say "$n new commit(s)"; [[ -n "$log" ]] && printf '%s\n' "$log" | sed 's/^/  /'
+    return 0
+  fi
+  python3 - "$n" "$err" "$(git -C "$src" remote get-url origin 2>/dev/null)" "$log" <<'PY'
+import json, sys
+n, err, url, log = int(sys.argv[1] or 0), sys.argv[2], sys.argv[3], sys.argv[4]
+commits = []
+for line in log.splitlines():
+    p = line.split("\t", 2)
+    if len(p) == 3:
+        commits.append({"hash": p[0], "when": p[1], "subject": p[2]})
+out = {"behind": n, "commits": commits, "url": url}
+if err:
+    out["error"] = err
+print(json.dumps(out, indent=1))
+PY
+}
+
+update() {
+  local src; src="$(source_dir)"
+  if ! git -C "$src" rev-parse --git-dir >/dev/null 2>&1; then
+    say "$src is not a git checkout — reinstalling it as it is"
+    exec "$src/install.sh" --yes "$@"
+  fi
+  upstream "$src"; case $? in
+    1) die "could not reach $(git -C "$src" remote get-url origin) (offline, or the repository is not there yet)" ;;
+    2) die "$src has no upstream branch to pull from (git branch --set-upstream-to origin/<branch>)" ;;
+  esac
+  [[ -z "$(git -C "$src" status --porcelain --untracked-files=no 2>/dev/null)" ]] \
+    || die "$src has local changes — commit or stash them, then run vitrum update again"
+  local before after
+  before="$(git -C "$src" rev-parse HEAD)"
+  say "fetching $(git -C "$src" remote get-url origin 2>/dev/null || echo origin)…"
+  git -C "$src" pull --ff-only --quiet || die "could not fast-forward $src (diverged from upstream?)"
+  after="$(git -C "$src" rev-parse HEAD)"
+  if [[ "$before" == "$after" ]]; then say "vitrum is up to date"; return 0; fi
+  say "new in vitrum:"
+  git -C "$src" log --oneline --no-decorate "$before..$after" | sed 's/^/  /'
+  exec "$src/install.sh" --yes "$@"
+}
+
+case "${1:-help}" in
+  update)    shift; update "$@" ;;
+  behind)    shift; behind "${1:-}" ;;
+  snapshot)  shift; [[ "${2:-}" == "--unless-within" ]] && snapshot "${1:-}" "${3:-0}" || snapshot "${1:-}" ;;
+  snapshots) snapshots ;;
+  rollback)  shift; rollback "${1:-}" ;;
+  doctor)    shift; exec "$(source_dir)/install.sh" --doctor "$@" ;;
+  *)         sed -n '2,15p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac
