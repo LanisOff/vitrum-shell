@@ -27,6 +27,19 @@ inactive_tab_background     @PILL@
 inactive_tab_foreground     @DIM@
 tab_bar_background          none
 
+# Tabs as separate capsules, like tmux's windows: a rounded cap, the index and
+# the title on the pill, a cap, a space before the next. The caps and the space
+# sit on the bar's own background (fmt.bg.default), so the glass shows between.
+# The space is in the templates: kitty draws tab_separator in the tab colour.
+tab_bar_style               separator
+tab_separator               ""
+tab_bar_margin_width        6
+tab_bar_margin_height       4 2
+active_tab_font_style       bold
+inactive_tab_font_style     normal
+tab_title_template          "{fmt.fg._@PILL_RAW@}{fmt.bg.default}\ue0b6{fmt.fg._@DIM_RAW@}{fmt.bg._@PILL_RAW@}{bell_symbol}{activity_symbol}{index} {fmt.fg._@FG2_RAW@}{title}{fmt.fg._@PILL_RAW@}{fmt.bg.default}\ue0b4 "
+active_tab_title_template   "{fmt.fg._@ACCENT_RAW@}{fmt.bg.default}\ue0b6{fmt.fg._@ON_ACCENT_RAW@}{fmt.bg._@ACCENT_RAW@}{index} {title}{fmt.fg._@ACCENT_RAW@}{fmt.bg.default}\ue0b4 "
+
 mark1_background            @ACCENT@
 mark1_foreground            @ON_ACCENT@
 mark2_background            @PURPLE@

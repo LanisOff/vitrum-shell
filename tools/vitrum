@@ -145,7 +145,11 @@ update() {
   say "fetching $(git -C "$src" remote get-url origin 2>/dev/null || echo origin)…"
   git -C "$src" pull --ff-only --quiet || die "could not fast-forward $src (diverged from upstream?)"
   after="$(git -C "$src" rev-parse HEAD)"
-  if [[ "$before" == "$after" ]]; then say "vitrum is up to date"; return 0; fi
+  if [[ "$before" == "$after" ]]; then
+    say "vitrum is up to date"
+    # Nothing new, but a package or font may have gone missing since.
+    exec "$src/install.sh" --yes --check
+  fi
   say "new in vitrum:"
   git -C "$src" log --oneline --no-decorate "$before..$after" | sed 's/^/  /'
   exec "$src/install.sh" --yes "$@"

@@ -88,6 +88,23 @@ class CheckQml(unittest.TestCase):
         self.assertNotIn("needs", out)
 
 
+    # Pages the settings app loads by URL (panes/) get no implicit import of their
+    # own directory in Quickshell, so a sibling type is "not a type" there.
+    def test_sibling_type_in_a_url_loaded_panes_directory_is_flagged(self):
+        rc, out = run({
+            "panes/Bar.qml": "import QtQuick\nItem {\n}\n",
+            "panes/FooPane.qml": "import QtQuick\nItem {\n    Bar {}\n}\n",
+        })
+        self.assertIn("Bar needs", out)
+        self.assertEqual(rc, 1)
+
+    def test_sibling_type_outside_panes_is_fine(self):
+        rc, out = run({
+            "modules/Bar.qml": "import QtQuick\nItem {\n}\n",
+            "modules/Foo.qml": "import QtQuick\nItem {\n    Bar {}\n}\n",
+        })
+        self.assertNotIn("needs", out)
+
     def test_type_through_a_symlinked_qs_directory_is_fine(self):
         # The apps share the shell's directories through symlinks.
         import os

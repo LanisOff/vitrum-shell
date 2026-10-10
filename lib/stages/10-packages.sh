@@ -1,21 +1,8 @@
 #!/usr/bin/env bash
 # Stage: packages — everything the desktop needs at runtime, plus build deps.
 #
-# The list lives in lib/packages.tsv; this stage only decides which optional
-# groups apply and hands the missing names to the package backend.
-
-_package_needs() {
-  local needs=(required)
-  if lspci 2>/dev/null | grep -qiE '(VGA|3D).*NVIDIA'; then needs+=(nvidia); fi
-  [[ "${WANT_SDDM:-1}" == 1 ]] && needs+=(sddm)
-  [[ "${WANT_PLYMOUTH:-0}" == 1 ]] && needs+=(plymouth)
-  [[ "${WANT_LIVE_WALLPAPER:-1}" == 1 ]] && needs+=(live-wallpaper)
-  [[ "${WANT_TMUX:-0}" == 1 ]] && needs+=(tmux)
-  [[ "${WANT_NVIM:-0}" == 1 ]] && needs+=(nvim)
-  [[ "${WANT_EXTRAS:-1}" == 1 ]] && needs+=(extras)
-  [[ "${WANT_PHONE:-0}" == 1 ]] && needs+=(phone)
-  printf '%s\n' "${needs[@]}"
-}
+# The list lives in lib/packages.tsv; _package_needs (lib/packages.sh) decides
+# which optional groups apply, this stage hands the missing names to the backend.
 
 stage_packages() {
   stage "Packages"
@@ -32,12 +19,9 @@ stage_packages() {
   # Everything must be installable before anything is: one unavailable atom
   # fails the whole emerge transaction with a message about something else.
   local unavailable=()
-  for p in "${todo[@]}"; do pkg_available "${p%@*}" || unavailable+=("${p%@*}"); done
+  mapfile -t unavailable < <(pkg_unavailable "${todo[@]}")
   if [[ ${#unavailable[@]} -gt 0 ]]; then
-    if [[ "$PKG_BACKEND" == portage ]]; then
-      die "not available: ${unavailable[*]} — enable the overlays vitrum uses and sync them: sudo eselect repository enable guru gentoo-zh hyproverlay && for r in guru gentoo-zh hyproverlay; do sudo emaint sync -r \$r; done"
-    fi
-    die "not available in your repositories: ${unavailable[*]} — refresh the package databases and check your mirrors"
+    die "$(pkg_unavailable_message "${unavailable[@]}")"
   fi
 
   # Installed packages first: what gets built next links against them, and a

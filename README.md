@@ -58,6 +58,8 @@ vitrum rollback    # undo the last update (your configs are snapshotted first)
 vitrum doctor      # find out what is broken and how to fix it
 ```
 
+`vitrum update` also puts back packages and fonts that went missing.
+
 The bar shows a small island when the repository is a few commits ahead of
 you; click it to see what is new.
 

@@ -43,7 +43,8 @@ PanelWindow {
     property var tmuxBinds: []
     property var ownBinds: []
     // The keymap with the user's own binds over it, then tmux.
-    readonly property var binds: Lib.mergeBinds(desktopBinds, ownBinds).concat(tmuxBinds)
+    readonly property var binds: Lib.mergeBinds(Lib.effective(desktopBinds, Settings.get("keybinds.changes", {}), Settings.get("keybinds.own", []))
+                                                    .filter(b => !b.off), ownBinds).concat(tmuxBinds)
     // overrides.kdl: binds added there work as soon as niri reloads, so the
     // sheet reads it too (and again whenever it changes).
     FileView {

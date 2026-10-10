@@ -254,6 +254,11 @@
   "keyboard": {
     "perApp": true
   },
+  "keybinds": { "changes": {}, "own": [] },
+  "input": {
+    "mouse": { "speed": 0.0, "accel": false, "scroll": 1.0, "natural": false },
+    "touchpad": { "speed": 0.25, "natural": true, "tap": true }
+  },
   "clipboard": {
     "images": 500
   },

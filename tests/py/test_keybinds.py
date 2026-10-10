@@ -37,5 +37,19 @@ class Keybinds(unittest.TestCase):
             self.assertNotIn("had no known action", r.stdout + r.stderr)
 
 
+    def test_catalogue_is_the_whole_keymap_with_its_kdl(self):
+        import json
+        with tempfile.TemporaryDirectory() as tmp:
+            kdl, js = Path(tmp) / "b.kdl", Path(tmp) / "b.json"
+            subprocess.run([sys.executable, str(ROOT / "lib" / "keybinds.py"), str(ROOT / "KEYBINDS.md"), str(kdl), str(js)],
+                           check=True, capture_output=True)
+            cat = json.loads(js.read_text())
+            lines = [l for l in kdl.read_text().splitlines() if re.match(r"^\s{4}\S", l)]
+            self.assertEqual(sorted("    " + b["keys"] + " " + b["kdl"] for b in cat), sorted(lines))
+            overlay = [b for b in cat if b["keys"] == "Mod+Shift+Slash"]
+            self.assertEqual(len(overlay), 1)
+            self.assertTrue(overlay[0]["hidden"])
+            self.assertFalse(any(b.get("hidden") for b in cat if b["keys"] != "Mod+Shift+Slash"))
+
 if __name__ == "__main__":
     unittest.main()

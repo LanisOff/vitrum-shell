@@ -5,6 +5,8 @@ Writes:
   ~/.config/vitrum/niri/generated/look.kdl            gaps, focus treatment, cursor, overview colour
   ~/.config/vitrum/niri/generated/effects.kdl         materials: layer rules per vitrum-<group>, window rules
   ~/.config/vitrum/niri/generated/animations.kdl      the shell's spring tokens, for niri
+  ~/.config/vitrum/niri/generated/binds.kdl           the keymap: KEYBINDS.md with the keys changed in Settings
+  ~/.config/vitrum/niri/generated/input.kdl           mouse and touchpad
 
 Only files whose content changed are written, so niri only reloads when it must.
 The settings logic mirrors shell/lib/settings.js: wrong types and unknown enum
@@ -42,19 +44,20 @@ GLASS_KEYS = ["refraction-strength", "edge-thickness", "corner-fan", "depth-effe
               "edge-lighting", "saturation", "adaptive-dim", "adaptive-boost"]
 # Glass on a window (Settings → Windows → window materials) over the preset:
 # a window is big and its edge is far from the text, so it carries more bend
-# and edge light than a panel's; more dimming keeps a terminal readable on it.
+# than a panel's; more dimming keeps a terminal readable on it.
 # Of those, what makes refraction show at all: lens-distortion bends the whole
-# face, fringing splits colour at the rim, a lower power-factor carries the
-# bend further in from the edge.
-# Under blur the bend itself barely shows, so the frosted lens leans on a
-# glowing rim instead.
+# face, a lower power-factor carries the bend further in from the edge.
+# Nothing that colours the rim: fringing splits R and B there, edge-lighting
+# amplifies the colour behind it — along a window's long edge either reads as
+# a rainbow line (green over blue, purple over pink). The rim glows white
+# (glow-weight) instead.
 WINDOW_GLASS = {"refraction-strength": 8.0, "edge-thickness": 0.2, "power-factor": 2.2, "corner-fan": 1.7,
-                "glow-weight": 1.5, "edge-lighting": 1.4, "fringing": 0.8, "lens-distortion": 0.9,
+                "glow-weight": 1.5, "edge-lighting": 0.0, "fringing": 0.0, "lens-distortion": 0.9,
                 "saturation": 1.18, "adaptive-dim": 0.24, "adaptive-boost": 0.18}
 # Clear glass (no blur): what is behind stays sharp, so the bend is plain to
 # see; more dimming under the text instead of the blur's.
-WINDOW_CLEAR = {**WINDOW_GLASS, "refraction-strength": 8.5, "glow-weight": 1.0, "edge-lighting": 0.9,
-                "fringing": 0.7, "lens-distortion": 1.1, "adaptive-dim": 0.32}
+WINDOW_CLEAR = {**WINDOW_GLASS, "refraction-strength": 8.5, "glow-weight": 1.0,
+                "lens-distortion": 1.1, "adaptive-dim": 0.32}
 
 MATUGEN_ROLES = {
     "bg": "background", "surface": "surface", "surfaceHigh": "surface_container_high",

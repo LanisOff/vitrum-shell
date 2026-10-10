@@ -78,6 +78,10 @@
   "material": "keyboard",
   "nerd": "󰌌"
  },
+ "mouse": {
+  "material": "mouse",
+  "nerd": "󰍽"
+ },
  "battery": {
   "material": "battery_full",
   "nerd": "󰁹"
@@ -327,8 +331,12 @@
   "nerd": "󰀄"
  },
  "update": {
-  "material": "system_update",
-  "nerd": "󰚰"
+  "material": "deployed_code_update",
+  "nerd": "󰏔"
+ },
+ "vitrum-update": {
+  "material": "arrow_circle_down",
+  "nerd": "󰳛"
  },
  "clock": {
   "material": "schedule"

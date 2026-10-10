@@ -1,0 +1,8 @@
+# vitrum — icons for tmux-nerd-font-window-name, merged over the plugin's own
+# list. Installed once by vitrum; yours to edit: add a program as `name: "glyph"`.
+config:
+  # A program the plugin has no icon for: a terminal, not a question mark.
+  fallback-icon: "\uf489"
+
+icons:
+  micro: "\uf044"

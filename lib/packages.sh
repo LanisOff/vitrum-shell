@@ -11,6 +11,37 @@ _pkg_col() {
   esac
 }
 
+# The groups of lib/packages.tsv this run needs, one per line. Shared by the
+# packages stage and the start-of-run check (lib/prereqs.sh).
+_package_needs() {
+  local needs=(required)
+  if lspci 2>/dev/null | grep -qiE '(VGA|3D).*NVIDIA'; then needs+=(nvidia); fi
+  [[ "${WANT_SDDM:-1}" == 1 ]] && needs+=(sddm)
+  [[ "${WANT_PLYMOUTH:-0}" == 1 ]] && needs+=(plymouth)
+  [[ "${WANT_LIVE_WALLPAPER:-1}" == 1 ]] && needs+=(live-wallpaper)
+  [[ "${WANT_TMUX:-0}" == 1 ]] && needs+=(tmux)
+  [[ "${WANT_NVIM:-0}" == 1 ]] && needs+=(nvim)
+  [[ "${WANT_EXTRAS:-1}" == 1 ]] && needs+=(extras)
+  [[ "${WANT_PHONE:-0}" == 1 ]] && needs+=(phone)
+  printf '%s\n' "${needs[@]}"
+}
+
+# pkg_unavailable <pkg>... — those the package databases do not offer, one per
+# line (without any @-suffix). Needs pkg_available from the backend.
+pkg_unavailable() {
+  local p
+  for p in "$@"; do pkg_available "${p%@*}" || printf '%s\n' "${p%@*}"; done
+}
+
+# pkg_unavailable_message <name>... — what to tell the user about them.
+pkg_unavailable_message() {
+  if [[ "$PKG_BACKEND" == portage ]]; then
+    printf 'not available: %s — enable the overlays vitrum uses and sync them: sudo eselect repository enable guru gentoo-zh hyproverlay && for r in guru gentoo-zh hyproverlay; do sudo emaint sync -r $r; done' "$*"
+  else
+    printf 'not available in your repositories: %s — refresh the package databases and check your mirrors' "$*"
+  fi
+}
+
 # packages_for <need>... — the names to install for the active backend, one per
 # line. A row this distribution does not package is skipped with a note on stderr.
 packages_for() {

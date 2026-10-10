@@ -40,9 +40,7 @@ dynamic_background_opacity  yes
 background_blur             0
 
 tab_bar_edge                top
-tab_bar_style               powerline
-tab_powerline_style         round
-tab_title_template          "{index}: {title}"
+# The tabs themselves (capsules in the palette's colours) are in vitrum-colors.conf.
 
 allow_remote_control        socket-only
 listen_on                   unix:@kitty-{kitty_pid}

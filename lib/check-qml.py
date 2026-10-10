@@ -264,7 +264,11 @@ def reachable_dirs(path, raw, root):
     """Directories whose types this file can use: its own, every `import qs.<dir>`
     (relative to the config root), and every relative `import "<dir>"`."""
     here = os.path.dirname(os.path.abspath(path))
-    dirs = {os.path.realpath(here)}
+    # The settings app loads each page of panes/ by URL (a Loader), and Quickshell
+    # gives a file loaded that way no implicit import of its own directory, so a
+    # sibling type is "not a type" there. Kept narrow: only files directly inside
+    # a directory named `panes`; files referenced as types keep their directory.
+    dirs = set() if os.path.basename(here) == "panes" else {os.path.realpath(here)}
     # realpath: the apps reach the shell's directories through symlinks.
     for mod in re.findall(r"^\s*import\s+qs\.([\w.]+)", raw, re.M):
         dirs.add(os.path.realpath(os.path.join(root, *mod.split("."))))

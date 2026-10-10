@@ -20,9 +20,10 @@ import os
 import re
 import shutil
 import subprocess
+import sys
 from pathlib import Path
 
-from . import _hex, _rgb as _rgbf, _mix as _mixt, contrast, ensure_contrast
+from . import _hex, _rgb as _rgbf, _mix as _mixt, contrast, deep_merge, ensure_contrast
 
 
 def _mix(a: str, b: str, t: float) -> str:
@@ -42,6 +43,7 @@ TARGETS = [
     # The keys: keys-vitrum or keys-default, as components.json tmux_keys says.
     ("tmux/keys-{tmux_keys}.conf.in",       "tmux/keys.conf",                    False),
     ("tmux/vitrum.conf.in",                 "tmux/vitrum.conf",                  True),
+    ("tmux/tmux-nerd-font-window-name.yml.in", "tmux/tmux-nerd-font-window-name.yml", False),
     ("fastfetch/config.jsonc.in",           "fastfetch/config.jsonc",            False),
     ("gtk-3.0/vitrum.css.in",               "gtk-3.0/vitrum.css",                True),
     ("gtk-3.0/gtk.css.in",                  "gtk-3.0/gtk.css",                   False),
@@ -178,6 +180,80 @@ def _write(path: Path, text: str) -> bool:
     return True
 
 
+# Theme outputs rewritten with every palette, and the file of yours laid over
+# each: your keys win, the rest keeps following the wallpaper.
+LOCAL_OF = {"starship.toml": "starship.local.toml", "MangoHud/MangoHud.conf": "MangoHud/MangoHud.local.conf"}
+
+
+def overlay(dest: str, text: str, config: Path) -> str:
+    """The rendered text with the user's local file for dest laid over it."""
+    local = LOCAL_OF.get(dest)
+    if not local:
+        return text
+    try:
+        mine = (Path(config) / local).read_text(encoding="utf-8")
+    except (OSError, UnicodeDecodeError):
+        return text
+    if dest.endswith(".toml"):
+        return _toml_overlay(text, mine, local)
+    return _keys_overlay(text, mine)
+
+
+def _toml_overlay(text: str, mine: str, name: str) -> str:
+    """Table by table, key by key. A file that does not parse is left out (with
+    a warning) rather than taking the prompt down with it."""
+    try:
+        import tomllib
+        base, over = tomllib.loads(text), tomllib.loads(mine)
+    except Exception as e:  # ImportError (Python < 3.11) or a TOML error
+        print(f"vitrum-theme: ~/.config/{name} not applied: {e}", file=sys.stderr)
+        return text
+    if not over:
+        return text
+    return f"# Written by vitrum-theme with ~/.config/{name} laid over it.\n\n" + _toml_dump(deep_merge(base, over))
+
+
+def _toml_key(k: str) -> str:
+    return k if re.fullmatch(r"[A-Za-z0-9_-]+", k) else json.dumps(k, ensure_ascii=False)
+
+
+def _toml_value(v) -> str:
+    if isinstance(v, bool):
+        return "true" if v else "false"
+    if isinstance(v, (int, float)):
+        return repr(v)
+    if isinstance(v, list):
+        return "[" + ", ".join(_toml_value(x) for x in v) + "]"
+    if isinstance(v, dict):
+        return "{ " + ", ".join(f"{_toml_key(k)} = {_toml_value(x)}" for k, x in v.items()) + " }"
+    # JSON's string escapes are TOML's basic-string escapes.
+    return json.dumps(str(v), ensure_ascii=False)
+
+
+def _toml_dump(d: dict, path: tuple = ()) -> str:
+    """Plain keys first, then each sub-table as its own [a.b] section."""
+    lines = [f"{_toml_key(k)} = {_toml_value(v)}" for k, v in d.items() if not isinstance(v, dict)]
+    out = ""
+    if path and (lines or not any(isinstance(v, dict) for v in d.values())):
+        out += "[" + ".".join(_toml_key(k) for k in path) + "]\n"
+    if lines:
+        out += "\n".join(lines) + "\n\n"
+    for k, v in d.items():
+        if isinstance(v, dict):
+            out += _toml_dump(v, path + (k,))
+    return out
+
+
+def _keys_overlay(text: str, mine: str) -> str:
+    """key=value (or a bare flag) lines: a key of yours replaces vitrum's line,
+    a new one is added at the end. Comments in yours are skipped."""
+    key = lambda line: line.split("=", 1)[0].strip()
+    yours = [l.strip() for l in mine.splitlines() if l.strip() and not l.strip().startswith("#")]
+    keys = {key(l) for l in yours}
+    kept = [l for l in text.splitlines() if not (l.strip() and not l.strip().startswith("#") and key(l) in keys)]
+    return "\n".join(kept).rstrip("\n") + "\n\n# ~/.config/MangoHud/MangoHud.local.conf\n" + "\n".join(yours) + "\n"
+
+
 def _sha(text: str) -> str:
     return hashlib.sha256(text.encode("utf-8")).hexdigest()
 
@@ -274,7 +350,7 @@ def render_all(pal: dict, scheme: str, settings: dict, templates: Path, config: 
         if not src.is_file():
             continue
         out = Path(config) / dest
-        text = render(src.read_text(encoding="utf-8"), subs)
+        text = overlay(dest, render(src.read_text(encoding="utf-8"), subs), Path(config))
         if theme:
             if _write(out, text):
                 written.append(out)

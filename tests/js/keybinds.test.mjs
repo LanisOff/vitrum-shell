@@ -78,3 +78,47 @@ eq(merged.find(b => b.keys === "Mod+Q").title, "Close window", "with the user's 
 eq(merged.filter(b => b.section === "Your binds").map(b => b.keys).join(","), "Mod+P,Mod+Ctrl+T", "new ones in Your binds");
 eq(k.mergeBinds(base, []).length, 2, "nothing of the user's");
 eq(merged.find(b => b.keys.toLowerCase() === "mod+n").title, "Notifications", "others untouched");
+
+// hidden catalogue entries (niri's own overlay) are never listed
+{
+  const withHidden = [{ section: "niri", keys: "Mod+Shift+Slash", title: "Hotkey overlay", hidden: true },
+                      { section: "Desktop", keys: "Mod+Space", title: "Launcher" }];
+  eq(k.group(withHidden, "").map(s => s.section).join(","), "Desktop", "group skips hidden");
+  eq(k.mergeBinds(withHidden, []).length, 1, "mergeBinds skips hidden");
+}
+// effective: changes and own binds over the catalogue
+{
+  const cat = [{ section: "niri", keys: "Mod+Shift+Slash", title: "Overlay", hidden: true },
+               { section: "Desktop", keys: "Mod+Space", title: "Launcher" },
+               { section: "Desktop", keys: "Mod+N", title: "Notification Centre" },
+               { section: "Windows", keys: "Mod+Q", title: "Close window" }];
+  const e = k.effective(cat, { "Mod+Space": "Mod+Alt+Space", "Mod+N": null, "Mod+Gone": "Mod+G" },
+                        [{ keys: "Mod+Shift+B", command: "firefox", title: "Firefox" }]);
+  eq(e.length, 4, "hidden left out, own added");
+  eq(e[0].keys + "|" + e[0].default + "|" + e[0].changed, "Mod+Alt+Space|Mod+Space|true", "rebound");
+  eq(e[1].off + "|" + e[1].keys, "true|", "turned off");
+  eq(e[2].changed, false, "untouched");
+  eq(e[3].section + "|" + e[3].own + "|" + e[3].title, "Your binds|0|Firefox", "own bind");
+  // conflict
+  eq(k.conflict(e, "mod+q", "Mod+Space", -1).title, "Close window", "held by a vitrum bind");
+  eq(k.conflict(e, "Mod+Shift+B", "Mod+Space", -1).title, "Firefox", "held by an own bind");
+  eq(k.conflict(e, "Mod+Alt+Space", "Mod+Space", -1), null, "its own keys are no conflict");
+  eq(k.conflict(e, "Mod+N", "Mod+Space", -1), null, "a turned-off bind frees its keys");
+  eq(k.conflict(e, "Mod+Shift+B", "", 0), null, "editing the own bind itself");
+  eq(k.conflict(e, "Mod+Z", "Mod+Space", -1), null, "free keys");
+}
+// keyName / combo: Qt key events → niri names, layout-independent for the main block
+{
+  eq(k.keyName(0x54, "t", 0), "T", "letter");
+  eq(k.keyName(0x422, "е", 28), "T", "Cyrillic layout: scan code (xkb 28 = KEY_T+8)");
+  eq(k.keyName(0x2f, "/", 0), "Slash", "punctuation");
+  eq(k.keyName(0x31, "1", 0), "1", "digit");
+  eq(k.keyName(0x01000012, "", 0), "Left", "arrow");
+  eq(k.keyName(0x01000004, "\r", 0), "Return", "enter");
+  eq(k.keyName(0x01000030 + 4, "", 0), "F5", "function key");
+  eq(k.keyName(0x20, " ", 0), "Space", "space");
+  eq(k.keyName(0x01000020, "", 0), "", "Shift alone is not a key");
+  eq(k.keyName(0x01000022, "", 0), "", "Meta alone is not a key");
+  eq(k.combo({ super: true, shift: true, ctrl: true }, "T"), "Mod+Ctrl+Shift+T", "modifier order");
+  eq(k.combo({}, "Print"), "Print", "no modifiers");
+}

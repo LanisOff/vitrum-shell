@@ -5,20 +5,63 @@ import qs.services
 import qs.theme
 import qs.components
 import qs.common
+import "../lib/keybinds.js" as KB
 
 Page {
     id: page
     title: "Keyboard & shortcuts"
-    subtitle: "Layouts come from niri's config (input → keyboard → xkb in ~/.config/vitrum/niri/config.kdl)."
-    property var binds: []
+    subtitle: "Change any shortcut or turn it off, and add your own. Layouts come from niri's config (input → keyboard → xkb)."
     property string filter: ""
+    property var catalogue: []
+    readonly property var changes: Settings.get("keybinds.changes", {})
+    readonly property var own: Settings.get("keybinds.own", [])
+    readonly property var list: KB.effective(catalogue, changes, own)
+    property string editing: ""        // default keys of the vitrum bind being edited, or "own:<i>", or "own:new"
     FileView {
         path: Quickshell.env("HOME") + "/.config/vitrum/binds.json"
-        onLoaded: { try { page.binds = JSON.parse(text()); } catch (e) { page.binds = []; } }
+        onLoaded: { try { page.catalogue = JSON.parse(text()); } catch (e) { page.catalogue = []; } }
     }
     readonly property var shown: {
         const q = filter.trim().toLowerCase();
-        return q ? binds.filter(b => (b.keys + " " + b.title + " " + b.section).toLowerCase().indexOf(q) >= 0) : binds;
+        const vit = list.filter(b => b.own === undefined);
+        return q ? vit.filter(b => (b.keys + " " + b.default + " " + b.title + " " + b.section).toLowerCase().indexOf(q) >= 0) : vit;
+    }
+    property string editFrom: ""       // keys the open editor starts at (the default keys after a clashing Reset / Turn on), else the current ones
+    // Restore a bind's default keys; when another bind holds them, open the editor there instead.
+    function restore(def) {
+        if (KB.conflict(list, def, def, -1)) {
+            editFrom = def;
+            editing = def;
+            return;
+        }
+        setChange(def, def);
+    }
+    function setChange(def, keys) {
+        const c = Object.assign({}, changes);
+        if (keys === def) delete c[def]; else c[def] = keys;
+        // drop changes for binds vitrum no longer has
+        for (const k in c) if (!catalogue.some(b => b.keys === k)) delete c[k];
+        Settings.set("keybinds.changes", c);
+    }
+    function commit(def, keys) {
+        editing = ""; editFrom = "";
+        setChange(def, keys);
+    }
+    function swap(def, curKeys, keys, other) {
+        editing = "";
+        const c = Object.assign({}, changes);
+        if (keys === def) delete c[def]; else c[def] = keys;
+        if (curKeys === other.default) delete c[other.default]; else c[other.default] = curKeys;
+        Settings.set("keybinds.changes", c);
+    }
+    function commitOwn(i, e) {
+        editing = "";
+        setOwn(i, e);
+    }
+    function setOwn(i, entry) {
+        const o = own.slice();
+        if (entry === null) o.splice(i, 1); else if (i < 0) o.push(entry); else o[i] = entry;
+        Settings.set("keybinds.own", o);
     }
     Section {
         SettingRow {
@@ -58,17 +101,77 @@ Page {
         title: page.shown.length + " shortcuts"
         Repeater {
             model: page.shown
-            delegate: SettingRow {
+            delegate: Column {
+                id: rowBox
                 required property var modelData
-                label: modelData.title || modelData.action
-                hint: modelData.section
-                Rectangle {
-                    anchors.verticalCenter: parent.verticalCenter
-                    height: Tokens.islandHeight * 0.95; radius: Tokens.radiusInner; width: kk.implicitWidth + Tokens.padding
-                    color: Colors.alpha(Colors.text, 0.08)
-                    Label { id: kk; anchors.centerIn: parent; text: modelData.keys; font.family: Tokens.fontMono; size: Tokens.textSmall }
+                width: parent.width
+                SettingRow {
+                    width: parent.width
+                    label: rowBox.modelData.title
+                    hint: rowBox.modelData.changed ? rowBox.modelData.section + " · default " + KB.keyCaps(rowBox.modelData.default).join(" ")
+                                                   : rowBox.modelData.section
+                    opacity: rowBox.modelData.off ? 0.5 : 1
+                    Rectangle {
+                        visible: !rowBox.modelData.off
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: Tokens.islandHeight * 0.95; radius: Tokens.radiusInner; width: kk.implicitWidth + Tokens.padding
+                        color: Colors.alpha(Colors.text, 0.08)
+                        Label { id: kk; anchors.centerIn: parent; text: KB.keyCaps(rowBox.modelData.keys).join(" "); size: Tokens.textSmall }
+                    }
+                    Capsule { label: "Edit"; visible: !rowBox.modelData.off; onClicked: { page.editFrom = ""; page.editing = rowBox.modelData.default } }
+                    Capsule { label: "Reset"; visible: rowBox.modelData.changed; onClicked: page.restore(rowBox.modelData.default) }
+                    Capsule { label: rowBox.modelData.off ? "Turn on" : "Turn off"
+                              onClicked: rowBox.modelData.off ? page.restore(rowBox.modelData.default) : page.setChange(rowBox.modelData.default, null) }
+                }
+                Loader {
+                    width: parent.width
+                    active: page.editing === rowBox.modelData.default
+                    visible: active
+                    sourceComponent: KeyEditor {
+                        list: page.list; startKeys: page.editFrom || rowBox.modelData.keys; selfDefault: rowBox.modelData.default
+                        onSaved: keys => page.commit(rowBox.modelData.default, keys)
+                        onSwapped: (keys, other) => page.swap(rowBox.modelData.default, rowBox.modelData.keys, keys, other)
+                        onCancelled: page.editing = ""
+                    }
                 }
             }
+        }
+    }
+    Section {
+        title: "Your binds"
+        Repeater {
+            model: page.list.filter(b => b.own !== undefined)
+            delegate: Column {
+                id: ownBox
+                required property var modelData
+                width: parent.width
+                SettingRow {
+                    width: parent.width
+                    label: ownBox.modelData.title; hint: ownBox.modelData.command
+                    Label { anchors.verticalCenter: parent.verticalCenter; text: KB.keyCaps(ownBox.modelData.keys).join(" "); size: Tokens.textSmall }
+                    Capsule { label: "Edit"; onClicked: page.editing = "own:" + ownBox.modelData.own }
+                    Capsule { label: "Remove"; onClicked: page.setOwn(ownBox.modelData.own, null) }
+                }
+                Loader {
+                    width: parent.width
+                    active: page.editing === "own:" + ownBox.modelData.own
+                    visible: active
+                    sourceComponent: OwnBindEditor { list: page.list; index: ownBox.modelData.own; entry: page.own[ownBox.modelData.own]
+                                                     onDone: e => page.commitOwn(ownBox.modelData.own, e)
+                                                     onCancelled: page.editing = "" }
+                }
+            }
+        }
+        SettingRow {
+            label: "Add a bind"; hint: "A key combination that runs a command or an app."; divider: false
+            Capsule { label: "Add"; onClicked: page.editing = "own:new" }
+        }
+        Loader {
+            width: parent.width
+            active: page.editing === "own:new"; visible: active
+            sourceComponent: OwnBindEditor { list: page.list; index: -1; entry: ({ keys: "", command: "", title: "" })
+                                             onDone: e => page.commitOwn(-1, e)
+                                             onCancelled: page.editing = "" }
         }
     }
     Section {

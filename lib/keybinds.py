@@ -394,11 +394,18 @@ def main() -> int:
                 continue
             seen.add(combo)
             title = re.sub(r"\s+", " ", act_cell).strip()
-            lines.append(emit(combo, kind, value, title))
+            line = emit(combo, kind, value, title)
+            lines.append(line)
             catalogue.append(
                 {"section": section, "keys": combo, "action": value,
-                 "kind": kind, "title": title}
+                 "kind": kind, "title": title, "kdl": line.strip()[len(combo) + 1:]}
             )
+
+    # niri's own overlay bind lives in the header, not in `lines`. It is in the
+    # catalogue so every kdl line has an entry, but hidden so lists skip it.
+    catalogue.insert(0, {"section": "niri", "keys": "Mod+Shift+Slash", "action": "show-hotkey-overlay",
+                         "kind": "niri", "title": "Hotkey overlay", "kdl": "{ show-hotkey-overlay; }",
+                         "hidden": True})
 
     header = (
         "// Generated from keybinds.md by lib/keybinds.py. Do not edit.\n"
@@ -412,7 +419,8 @@ def main() -> int:
     with open(out_json, "w", encoding="utf-8") as f:
         json.dump(catalogue, f, indent=2)
 
-    print(f"keybinds: {len(catalogue)} binds from {len(set(c['section'] for c in catalogue))} sections")
+    shown = [c for c in catalogue if not c.get("hidden")]
+    print(f"keybinds: {len(shown)} binds from {len(set(c['section'] for c in shown))} sections")
     if unmatched:
         print(f"keybinds: {len(unmatched)} rows had no known action and were skipped:")
         for u in unmatched:

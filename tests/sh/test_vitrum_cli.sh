@@ -108,7 +108,8 @@ test_update_up_to_date_still_reinstalls_nothing() {
   _origin
   out="$("$V" update 2>&1)"
   assert_contains "$out" "up to date"
-  [[ ! -e "$HOME/installs" ]]
+  # only the prerequisite check, never a full reinstall
+  [[ ! -e "$HOME/installs" ]] || ! grep -qv -- "--check" "$HOME/installs"
 }
 test_update_without_git_reinstalls_the_copy() {
   mkdir -p "$HOME/copy" "$XDG_DATA_HOME/vitrum"
@@ -130,4 +131,11 @@ test_snapshot_unless_within_skips_a_recent_one() {
   out="$("$V" snapshot before-update --unless-within 600)"
   assert_contains "$out" "just made"
   assert_eq "$(ls "$XDG_DATA_HOME/vitrum/snapshots" | wc -l | tr -d ' ')" "1"
+}
+test_update_without_news_still_checks_prerequisites() {
+  _lonely
+  git clone -q "$HOME/lonely" "$HOME/upstream"
+  out="$(VITRUM_REPO="$HOME/upstream" "$V" update 2>&1)"
+  assert_contains "$out" "up to date"
+  assert_contains "$(cat "$HOME/installs")" "install.sh --yes --check"
 }

@@ -3,13 +3,13 @@ import { join } from "node:path";
 import { load, eq, ok, root } from "./lib.mjs";
 const P = load("settings-panes.js");
 
-// One list, ids unique, 22 sections in the agreed order of groups.
+// One list, ids unique, 23 sections in the agreed order of groups.
 const ids = P.panes.map(p => p.id);
 eq(new Set(ids).size, ids.length, "ids unique");
-eq(P.panes.length, 22, "22 sections");
+eq(P.panes.length, 23, "23 sections");
 eq(P.panes.filter(p => p.group === "Personal").length, 5, "Personal: 5");
 eq(P.panes.filter(p => p.group === "Desktop").length, 7, "Desktop: 7");
-eq(P.panes.filter(p => p.group === "System").length, 10, "System: 10");
+eq(P.panes.filter(p => p.group === "System").length, 11, "System: 11");
 
 // Old ids still open; unknown ones fall back to Appearance.
 eq(P.resolve("search"), "navigation", "search → navigation");
@@ -45,3 +45,6 @@ eq(hit("navigation", "hot corners"), true, "hot corners → Navigation");
 eq(hit("dock", "magnify"), true, "a setting's label");
 eq(hit("dock", "lyrics"), false, "not another section's setting");
 eq(hit("dock", ""), true, "empty query: everything");
+eq(P.find("mouse")[0].id, "input", "mouse → Mouse & touchpad");
+eq(P.find("sensitivity")[0].id, "input", "sensitivity → Mouse & touchpad");
+eq(P.panes.findIndex(x => x.id === "input"), P.panes.findIndex(x => x.id === "keyboard") + 1, "right after Keyboard");

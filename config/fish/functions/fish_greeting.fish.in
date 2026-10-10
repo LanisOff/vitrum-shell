@@ -6,7 +6,8 @@ function fish_greeting --description "vitrum's short greeting"
     set -l dim (set_color @DIM_RAW@)
     set -l fg (set_color @FG_RAW@)
     set -l off (set_color normal)
-    set -l host (hostname 2>/dev/null; or echo localhost)
+    # fish's own $hostname: Arch's base system has no hostname command.
+    set -l host $hostname
     set -l up (uptime -p 2>/dev/null | string replace 'up ' '')
 
     echo ''

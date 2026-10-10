@@ -60,7 +60,7 @@ _terminal_render() {
   local dest
   for dest in kitty/kitty.conf kitty/vitrum-colors.conf fish/config.fish fish/conf.d/00-vitrum-colors.fish \
               fish/conf.d/10-vitrum-abbr.fish fish/functions/fish_greeting.fish starship.toml \
-              tmux/tmux.conf tmux/keys.conf tmux/vitrum.conf fastfetch/config.jsonc \
+              tmux/tmux.conf tmux/keys.conf tmux/vitrum.conf tmux/tmux-nerd-font-window-name.yml fastfetch/config.jsonc \
               gtk-3.0/gtk.css gtk-3.0/vitrum.css gtk-4.0/gtk.css gtk-4.0/vitrum.css Kvantum/vitrum kdeglobals; do
     backup_path "$XDG_CONFIG_HOME/$dest"
   done

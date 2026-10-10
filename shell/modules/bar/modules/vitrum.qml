@@ -15,7 +15,7 @@ BarModule {
         id: row
         anchors.verticalCenter: parent.verticalCenter
         spacing: Tokens.gap / 2
-        Icon { name: "update"; color: Colors.accent; anchors.verticalCenter: parent.verticalCenter }
+        Icon { name: "vitrum-update"; color: Colors.accent; anchors.verticalCenter: parent.verticalCenter }
         Label { text: "vitrum"; font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
         Label { text: "+" + VitrumUpdate.behind; role: "dim"; numeric: true; anchors.verticalCenter: parent.verticalCenter }
     }

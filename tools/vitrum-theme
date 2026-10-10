@@ -28,6 +28,7 @@ def main(argv=None) -> int:
     ap.add_argument("--wallpaper", type=Path)
     ap.add_argument("--out-palette", type=Path, default=vt.DATA_HOME / "vitrum" / "palette.json")
     ap.add_argument("--niri-dir", type=Path, default=vt.CONFIG / "vitrum" / "niri" / "generated")
+    ap.add_argument("--binds", type=Path, default=vt.CONFIG / "vitrum" / "binds.json", help="the keybind catalogue the installer writes")
     ap.add_argument("--dry-run", action="store_true")
     ap.add_argument("--quiet", action="store_true")
     ap.add_argument("--no-color-scheme", action="store_true", help="do not touch the desktop color-scheme")
@@ -58,6 +59,11 @@ def main(argv=None) -> int:
         a.niri_dir / "effects.kdl": vt.effects_kdl(settings, caps),
         a.niri_dir / "animations.kdl": vt.animations_kdl(settings),
     }
+    from vitrum_theme import niri_input
+    outputs[a.niri_dir / "input.kdl"] = niri_input.input_kdl(settings)
+    catalogue = niri_input.load_catalogue(a.binds)
+    if catalogue is not None:
+        outputs[a.niri_dir / "binds.kdl"] = niri_input.binds_kdl(catalogue, settings)
     changed = 0
     for path, text in outputs.items():
         if a.dry_run:

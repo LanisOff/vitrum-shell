@@ -144,3 +144,31 @@ test_session_wrapper_systemd_returns_to_the_login_vt() {
   _session_wrapper
   assert_contains "$(cat "$VITRUM_SYSROOT/usr/local/bin/vitrum-session")" "org.freedesktop.login1.Seat SwitchTo u"
 }
+
+test_overrides_starter_written_once_and_kept() {
+  _load_session openrc
+  _session_overrides
+  f="$VITRUM_PREFIX/niri/overrides.kdl"
+  assert_contains "$(cat "$f")" "// binds {"
+  assert_contains "$(cat "$f")" "Mouse & touchpad"
+  printf 'binds { Mod+T { spawn "foot"; } }\n' > "$f"
+  _session_overrides
+  assert_eq "$(cat "$f")" 'binds { Mod+T { spawn "foot"; } }'
+  if grep -qs "overrides.kdl" "$BACKUP_DIR/.manifest"; then echo "overrides.kdl must not be in the manifest"; return 1; fi
+}
+test_input_kdl_included_before_overrides() {
+  _load_session openrc
+  _session_config
+  c="$(cat "$VITRUM_PREFIX/niri/config.kdl")"
+  assert_contains "$c" 'include optional=true "generated/input.kdl"'
+  i="$(grep -n 'generated/input.kdl' <<<"$c" | cut -d: -f1)"; o="$(grep -n '"overrides.kdl"' <<<"$c" | cut -d: -f1)"
+  [[ "$i" -lt "$o" ]] || { echo "input.kdl must come before overrides.kdl"; return 1; }
+}
+test_keybinds_reapply_settings_through_vitrum_theme() {
+  _load_session openrc
+  mkdir -p "$HOME/.local/bin"
+  printf '#!/bin/sh\necho "$@" > "%s/theme-args"\n' "$HOME" > "$HOME/.local/bin/vitrum-theme"
+  chmod +x "$HOME/.local/bin/vitrum-theme"
+  _session_keybinds
+  assert_contains "$(cat "$HOME/theme-args")" "--no-color-scheme"
+}

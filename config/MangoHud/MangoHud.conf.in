@@ -1,5 +1,7 @@
 # vitrum — MangoHud in the desktop's colours. Written by vitrum-theme; do not
-# edit (it is rewritten on every theme change). Per-game tweaks go in
+# edit (it is rewritten on every theme change). Your changes go in
+# ~/.config/MangoHud/MangoHud.local.conf: a key there replaces the one here,
+# a new one is added (run vitrum-theme to apply). Per-game tweaks go in
 # ~/.config/MangoHud/<game>.conf, which MangoHud reads on top of this.
 #
 # Loaded hidden into Steam's games (vitrum's `steam` starts Steam with

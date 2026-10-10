@@ -450,6 +450,158 @@ class FastfetchLogo(unittest.TestCase):
             self.assertNotIn("kitty-direct", run({}))
 
 
+class TerminalBars(unittest.TestCase):
+    """kitty's tabs are separate capsules like tmux's windows, not one
+    powerline strip; tmux names a program it has no icon for with a glyph."""
+
+    def rendered(self, cfg, scheme="dark"):
+        data = cfg.parent / "data"; data.mkdir(exist_ok=True)
+        R.render_all(palette(scheme), scheme, {}, templates=ROOT / "config", config=cfg, data=data, base=True)
+
+    def kitty_opts(self, cfg):
+        out = {}
+        for name in ("kitty/kitty.conf", "kitty/vitrum-colors.conf"):  # in kitty's order: the colours file is included last
+            for line in (cfg / name).read_text(encoding="utf-8").splitlines():
+                parts = line.split(None, 1)
+                if parts and not parts[0].startswith("#") and parts[0] != "include":
+                    out[parts[0]] = parts[1].strip() if len(parts) > 1 else ""
+        return out
+
+    def title(self, template, **kw):
+        # kitty evaluates the template as an f-string: {fmt.fg._RRGGBB}, {fmt.bg.default}…
+        class Col:
+            def __init__(self, w): self.w = w
+            def __getattr__(self, n): return f"<{self.w}:{n.lstrip('_').lower()}>"
+        class Fmt:
+            fg, bg = Col("fg"), Col("bg")
+            bold, nobold = "<b>", "</b>"
+        data = {"bell_symbol": "", "activity_symbol": "", "index": 1, "title": "fish", **kw}
+        return eval("f" + repr(template.strip('"')), {"__builtins__": {}}, {"fmt": Fmt, **data})
+
+    def test_kitty_tabs_are_capsules_in_the_palette(self):
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; cfg.mkdir()
+            self.rendered(cfg)
+            o = self.kitty_opts(cfg)
+            c = R.terminal_colours(palette("dark"), "dark")
+            pill, acc = c["pill"].lstrip("#").lower(), c["accent"].lstrip("#").lower()
+            self.assertEqual(o["tab_bar_style"], "separator")
+            # kitty paints tab_separator in the tab colour: the gap is the templates' own space.
+            self.assertEqual(o["tab_separator"], '""')
+            inactive = self.title(o["tab_title_template"])
+            self.assertTrue(inactive.startswith(f"<fg:{pill}><bg:default>\ue0b6"), inactive)
+            self.assertTrue(inactive.endswith(f"<fg:{pill}><bg:default>\ue0b4 "), inactive)
+            self.assertIn(f"<bg:{pill}>", inactive)
+            self.assertIn("1 ", inactive); self.assertIn("fish", inactive)
+            active = self.title(o["active_tab_title_template"])
+            self.assertTrue(active.startswith(f"<fg:{acc}><bg:default>\ue0b6"), active)
+            self.assertTrue(active.endswith(f"<fg:{acc}><bg:default>\ue0b4 "), active)
+            self.assertIn(f"<bg:{acc}>", active)
+            self.assertNotIn("italic", o.get("active_tab_font_style", ""))
+
+    def test_every_prompt_icon_is_drawn_large(self):
+        # kitty draws a Private Use icon over two cells only when a space follows
+        # it: in "~/Downloads" the home icon (before "/") came out small and the
+        # folder's (before " ") large. The path's separators carry spaces, so
+        # every icon in it is followed by one.
+        import tomllib
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; cfg.mkdir()
+            self.rendered(cfg)
+            self.assertNotIn("narrow_symbols", self.kitty_opts(cfg))
+            d = tomllib.loads((cfg / "starship.toml").read_text(encoding="utf-8"))["directory"]
+            subs = list(d["substitutions"].items())
+            self.assertEqual(subs[-1], ("/", " / "), "the separator goes last, after the /etc rule")
+            self.assertEqual(d["truncation_symbol"][1:2], " ", "the ellipsis icon is followed by a space too")
+
+    def test_tmux_has_an_icon_for_unknown_programs(self):
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; cfg.mkdir()
+            self.rendered(cfg)
+            yml = (cfg / "tmux/tmux-nerd-font-window-name.yml").read_text(encoding="utf-8")
+            m = re.search(r'fallback-icon:\s*"([^"]*)"', yml)
+            self.assertTrue(m and m.group(1) and m.group(1) != "?", yml)
+            self.assertRegex(yml, r'(?m)^\s+micro:\s*"[^"?]+"')
+
+
+class LocalOverlays(unittest.TestCase):
+    """starship.toml and MangoHud.conf are rewritten with every palette; your
+    starship.local.toml / MangoHud.local.conf lie over them and survive."""
+
+    def render(self, cfg, scheme="dark"):
+        data = cfg.parent / "data"; data.mkdir(exist_ok=True)
+        R.render_all(palette(scheme), scheme, {}, templates=ROOT / "config", config=cfg, data=data)
+
+    def test_starship_local_wins_by_key_and_colours_still_follow(self):
+        import tomllib
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; cfg.mkdir()
+            self.render(cfg)
+            base = tomllib.loads((cfg / "starship.toml").read_text(encoding="utf-8"))
+            (cfg / "starship.local.toml").write_text(
+                'add_newline = false\n[character]\nsuccess_symbol = "[>](bold red)"\n[custom.mine]\ncommand = "echo hi"\nwhen = true\n',
+                encoding="utf-8")
+            for scheme in ("light", "dark"):
+                self.render(cfg, scheme)
+                out = tomllib.loads((cfg / "starship.toml").read_text(encoding="utf-8"))
+                self.assertFalse(out["add_newline"])
+                self.assertEqual(out["character"]["success_symbol"], "[>](bold red)")
+                self.assertEqual(out["custom"]["mine"], {"command": "echo hi", "when": True})
+                # vitrum's other keys stay, in the scheme's colours.
+                self.assertEqual(out["os"]["symbols"], base["os"]["symbols"])
+                self.assertEqual(set(out["character"]) - {"success_symbol"}, set(base["character"]) - {"success_symbol"})
+                self.assertIn(palette(scheme)["accent"].lower(), (cfg / "starship.toml").read_text(encoding="utf-8").lower())
+
+    def test_starship_without_local_is_the_plain_render(self):
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; cfg.mkdir()
+            self.render(cfg)
+            self.assertIn("# ====", (cfg / "starship.toml").read_text(encoding="utf-8"))
+
+    def test_broken_starship_local_leaves_the_prompt_working(self):
+        import tomllib
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; cfg.mkdir()
+            (cfg / "starship.local.toml").write_text("[character\nnope", encoding="utf-8")
+            self.render(cfg)
+            out = tomllib.loads((cfg / "starship.toml").read_text(encoding="utf-8"))
+            self.assertIn("character", out)
+
+    def test_mangohud_local_replaces_and_adds_keys(self):
+        with tempfile.TemporaryDirectory() as t:
+            cfg = Path(t) / "c"; (cfg / "MangoHud").mkdir(parents=True)
+            (cfg / "MangoHud/MangoHud.local.conf").write_text("# mine\ntoggle_hud=F11\nfps_limit=60\nno_display=0\n", encoding="utf-8")
+            self.render(cfg)
+            lines = (cfg / "MangoHud/MangoHud.conf").read_text(encoding="utf-8").splitlines()
+            self.assertIn("toggle_hud=F11", lines)
+            self.assertEqual([l for l in lines if l.startswith("toggle_hud")], ["toggle_hud=F11"])
+            self.assertIn("fps_limit=60", lines)
+            self.assertNotIn("no_display", lines)
+            self.assertIn("no_display=0", lines)
+            self.assertIn("control=mangohud", lines)
+
+
+class FishGreeting(unittest.TestCase):
+    """Arch's base system has no `hostname` (it is in inetutils); fish reports an
+    unknown command even with 2>/dev/null, so the greeting must not call it."""
+
+    @unittest.skipUnless(__import__("shutil").which("fish"), "fish not installed")
+    def test_greeting_works_without_a_hostname_command(self):
+        import subprocess
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            subs = R.substitutions(R.terminal_colours(palette("dark"), "dark"), "dark", {}, "/bin/fish", config=t / "cfg")
+            greet = t / "fish_greeting.fish"
+            greet.write_text(R.render((ROOT / "config/fish/functions/fish_greeting.fish.in").read_text(encoding="utf-8"), subs))
+            (t / "bin").mkdir()
+            for name, out in (("uname", "7.2.9-arch1-1"), ("uptime", "up 5 minutes")):
+                stub = t / "bin" / name; stub.write_text(f"#!/bin/sh\necho '{out}'\n"); stub.chmod(0o755)
+            r = subprocess.run([__import__("shutil").which("fish"), "--no-config", "-c", f"source {greet}; fish_greeting"],
+                               env={"PATH": str(t / "bin"), "HOME": str(t)}, capture_output=True, text=True, timeout=30)
+            self.assertEqual(r.stderr, "")
+            self.assertIn("7.2.9-arch1-1", r.stdout)
+
+
 class NvimConfig(unittest.TestCase):
     def test_aerial_follows_its_branch_for_neovim_0_11(self):
         # aerial's master needs Neovim 0.12 and errors on 0.11 (Gentoo stable).

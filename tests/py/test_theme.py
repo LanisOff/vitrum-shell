@@ -251,15 +251,15 @@ class Kdl(unittest.TestCase):
         self.assertIsNone(vt.running_niri(socket="/tmp/elsewhere"))
 
     def test_window_glass_is_bolder_than_the_shells(self):
-        # A window's glass sits behind a terminal's text: more refraction and edge
-        # light than the panels', and more dimming under the text.
+        # A window's glass sits behind a terminal's text: more refraction and a
+        # stronger white rim than the panels', and more dimming under the text.
         s = self.settings(materials__glassPreset="lens", windows__materials=[{"appId": "kitty", "material": "glass"}])
         kdl = vt.effects_kdl(s)
         rule = kdl[kdl.index('match app-id="^kitty$"'):]
         lens = dict(zip(vt.GLASS_KEYS, vt.GLASS_PRESETS["lens"]))
         val = lambda k: float(re.search(rf"{k} ([0-9.]+)", rule).group(1))
         self.assertGreater(val("refraction-strength"), lens["refraction-strength"])
-        self.assertGreater(val("edge-lighting"), lens["edge-lighting"])
+        self.assertGreater(val("glow-weight"), lens["glow-weight"])
         self.assertGreater(val("adaptive-dim"), lens["adaptive-dim"])
         s2 = self.settings(windows__materials=[{"appId": "kitty", "material": "glass"}], materials__glassAdvanced={"refraction-strength": 2.0})
         kdl2 = vt.effects_kdl(s2)
@@ -283,6 +283,17 @@ class Kdl(unittest.TestCase):
         self.assertGreaterEqual(val(rule, "refraction-strength"), val(g, "refraction-strength"))
         for k in ("lens-distortion", "fringing", "power-factor"):
             self.assertIn(k, g, "the frosted lens sets what makes refraction show")
+
+    def test_window_glass_adds_no_colour_at_the_rim(self):
+        # On a window's long edge, fringing (R and B split) and edge-lighting (the
+        # colour behind, amplified) both draw a coloured line — a rainbow over a
+        # changing wallpaper (seen on the machine: green over blue, purple over pink).
+        val = lambda r, k: float(re.search(rf"{k} ([0-9.]+)", r).group(1))
+        for material in ("glass", "clear"):
+            s = self.settings(windows__materials=[{"appId": "kitty", "material": material}])
+            rule = vt.effects_kdl(s).split('match app-id="^kitty$"')[1]
+            self.assertEqual(val(rule, "fringing"), 0.0, material)
+            self.assertEqual(val(rule, "edge-lighting"), 0.0, material)
 
     def test_vitrum_apps_stay_opaque(self):
         # Settings, Disk Utility, About: forms to read, never faded when unfocused;
@@ -392,3 +403,148 @@ class Cli(unittest.TestCase):
                 self.assertTrue((Path(tmp) / "gen" / f"{f}.kdl").is_file())
             r2 = self.run_cli(tmp)
             self.assertIn("nothing changed", r2.stdout)
+
+
+class BindsAndInput(unittest.TestCase):
+    """Settings → keybinds / mouse: vitrum-theme writes niri's binds.kdl and input.kdl."""
+
+    def catalogue(self):
+        import subprocess, json as _j
+        with tempfile.TemporaryDirectory() as tmp:
+            kdl, js = Path(tmp) / "b.kdl", Path(tmp) / "b.json"
+            subprocess.run([sys.executable, str(ROOT / "lib/keybinds.py"), str(ROOT / "KEYBINDS.md"), str(kdl), str(js)],
+                           check=True, capture_output=True)
+            return _j.loads(js.read_text()), kdl.read_text()
+
+    def lines(self, text):
+        return [l for l in text.splitlines() if re.match(r"^\s{4}\S", l)]
+
+    def keys(self, text):
+        return [l.split()[0].lower() for l in self.lines(text)]
+
+    def settings(self, changes=None, own=None, inp=None):
+        return {"keybinds": {"changes": changes or {}, "own": own or []}, "input": inp or {}}
+
+    def test_no_changes_is_the_installers_keymap(self):
+        from vitrum_theme import niri_input as N
+        cat, kdl = self.catalogue()
+        self.assertEqual(sorted(self.lines(N.binds_kdl(cat, self.settings()))), sorted(self.lines(kdl)))
+
+    def test_rebind_turn_off_and_unknown(self):
+        from vitrum_theme import niri_input as N
+        cat, _ = self.catalogue()
+        out = N.binds_kdl(cat, self.settings({"Mod+Space": "Mod+Alt+Space", "Mod+N": None, "Mod+Nope": "Mod+X"}))
+        launcher = next(l for l in self.lines(out) if '"launcher" "toggle"' in l)
+        self.assertTrue(launcher.strip().startswith("Mod+Alt+Space "))
+        self.assertNotIn("mod+n", self.keys(out))
+        self.assertNotIn("mod+x", self.keys(out))
+
+    def test_never_a_duplicate_key(self):
+        from vitrum_theme import niri_input as N
+        cat, _ = self.catalogue()
+        # A change onto another bind's keys, and an own bind on a vitrum key (both by hand).
+        out = N.binds_kdl(cat, self.settings({"Mod+Space": "Mod+N"},
+                                             [{"keys": "Mod+Q", "command": "foot", "title": "Foot"},
+                                              {"keys": "mod+q", "command": "kitty", "title": "Kitty"}]))
+        ks = self.keys(out)
+        self.assertEqual(len(ks), len(set(ks)))
+        self.assertIn('"launcher" "toggle"', next(l for l in self.lines(out) if l.strip().lower().startswith("mod+n ")))
+        q = next(l for l in self.lines(out) if l.strip().lower().startswith("mod+q "))
+        self.assertIn('spawn-sh "kitty"', q)
+
+    def test_own_bind_quoting_and_malformed(self):
+        from vitrum_theme import niri_input as N
+        cat, _ = self.catalogue()
+        out = N.binds_kdl(cat, self.settings(own=[
+            {"keys": "Mod+Shift+B", "command": 'notify-send "hi \\\\ there"', "title": 'Say "hi"'},
+            {"keys": "", "command": "x"}, {"keys": "Mod+Shift+Y", "command": ""}, "junk"]))
+        b = next(l for l in self.lines(out) if l.strip().startswith("Mod+Shift+B "))
+        self.assertIn('hotkey-overlay-title="Say \\"hi\\""', b)
+        self.assertIn('spawn-sh "notify-send \\"hi \\\\\\\\ there\\""', b)
+        self.assertNotIn("mod+shift+y", self.keys(out))
+
+    def test_input_defaults_match_todays_config(self):
+        from vitrum_theme import niri_input as N
+        out = N.input_kdl(vt.load_settings(Path("/nonexistent"))[0])
+        self.assertIn('mouse {\n        accel-profile "flat"\n        accel-speed 0.00\n        scroll-factor 1.00\n    }', out)
+        for line in ("tap", "dwt", "natural-scroll", 'accel-profile "adaptive"', "accel-speed 0.25",
+                     'scroll-method "two-finger"', 'click-method "clickfinger"'):
+            self.assertIn("        " + line + "\n", out.split("touchpad {")[1])
+
+    def test_input_values_and_clamping(self):
+        from vitrum_theme import niri_input as N
+        out = N.input_kdl({"input": {"mouse": {"speed": 3, "accel": True, "scroll": 0, "natural": True},
+                                     "touchpad": {"speed": -2, "natural": False, "tap": False}}})
+        mouse, pad = out.split("touchpad {")
+        self.assertIn('accel-profile "adaptive"', mouse); self.assertIn("accel-speed 1.00", mouse)
+        self.assertIn("scroll-factor 0.10", mouse); self.assertIn("natural-scroll", mouse)
+        self.assertIn("accel-speed -1.00", pad)
+        self.assertNotIn("natural-scroll", pad); self.assertNotIn("        tap\n", pad)
+
+    def test_settings_types_survive_load(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "s.json"
+            p.write_text(json.dumps({"keybinds": {"changes": {"Mod+N": None, "Mod+T": "Mod+Y"}, "own": []},
+                                     "input": {"mouse": {"speed": 0}}}))
+            s, warnings = vt.load_settings(p)
+            self.assertEqual(warnings, [])
+            self.assertEqual(s["keybinds"]["changes"], {"Mod+N": None, "Mod+T": "Mod+Y"})
+            self.assertEqual(s["input"]["mouse"]["speed"], 0)
+
+    def test_missing_catalogue_is_none(self):
+        from vitrum_theme import niri_input as N
+        self.assertIsNone(N.load_catalogue(Path("/nonexistent/binds.json")))
+
+    def test_invalid_keys_never_reach_niri(self):
+        from vitrum_theme import niri_input as N
+        cat, _ = self.catalogue()
+        out = N.binds_kdl(cat, self.settings({"Mod+Space": "Mod + X", "Mod+T": "  "},
+                                             [{"keys": "Mod+{", "command": "x"}, {"keys": "Mod+Shift+Y z", "command": "x"}]))
+        launcher = next(l for l in self.lines(out) if '"launcher" "toggle"' in l)
+        self.assertTrue(launcher.strip().startswith("Mod+Space "))
+        self.assertIn("mod+t", self.keys(out))
+        self.assertNotIn("Mod+{", out)
+        self.assertNotIn("mod+shift+y", self.keys(out))
+
+    def test_old_format_or_empty_catalogue_is_none(self):
+        from vitrum_theme import niri_input as N
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "b.json"
+            p.write_text(json.dumps([{"section": "A", "keys": "Mod+Q", "action": "x", "kind": "k", "title": "Q"}]))
+            self.assertIsNone(N.load_catalogue(p))
+            p.write_text("[]")
+            self.assertIsNone(N.load_catalogue(p))
+            p.write_text(json.dumps([{"keys": "Mod+Q", "kdl": "{ close-window; }"}, {"hidden": True, "keys": "Mod+Z"}]))
+            self.assertIsNotNone(N.load_catalogue(p))
+
+    def test_canonical_keys(self):
+        from vitrum_theme import niri_input as N
+        self.assertEqual(N.canonical_keys("Control+Alt+Y"), "Ctrl+Alt+Y")
+        self.assertEqual(N.canonical_keys(" shift+mod+q "), "Mod+Shift+q")
+        self.assertEqual(N.canonical_keys("Win+Ctrl+Slash"), "Super+Ctrl+Slash")
+        self.assertEqual(N.canonical_keys("XF86AudioRaiseVolume"), "XF86AudioRaiseVolume")
+        for bad in ("Mod+", "+Q", "Mod++Q", "", "Foo+Q", "Mod+Mod+Q", "Mod+Shift+Y z", "Mod+{"):
+            self.assertIsNone(N.canonical_keys(bad), bad)
+
+    def test_catalogue_keys_are_canonical(self):
+        from vitrum_theme import niri_input as N
+        cat, _ = self.catalogue()
+        for b in cat:
+            if b.get("keys"):
+                self.assertEqual(N.canonical_keys(b["keys"]), b["keys"])
+
+    def test_alias_spellings_never_duplicate(self):
+        from vitrum_theme import niri_input as N
+        cat, _ = self.catalogue()
+        out = N.binds_kdl(cat, self.settings({"Mod+Space": "Control+Alt+Y"},
+                                             [{"keys": "Shift+Mod+Q", "command": "foot", "title": "F"},
+                                              {"keys": "Mod+", "command": "x"}, {"keys": "+Q", "command": "x"},
+                                              {"keys": "Mod++Q", "command": "x"}]))
+        ks = self.keys(out)
+        self.assertEqual(len(ks), len(set(ks)))
+        self.assertIn("ctrl+alt+y", ks)
+        self.assertNotIn("control+alt+y", ks)
+        self.assertIn('spawn-sh "foot"', next(l for l in self.lines(out) if l.strip().startswith("Mod+Shift+Q ")))
+        self.assertNotIn("Mod+ ", out)
+        self.assertNotIn("+Q ", out.replace("Shift+Q ", "").replace("Mod+Q ", ""))
+

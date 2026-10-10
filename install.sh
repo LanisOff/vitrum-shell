@@ -6,6 +6,7 @@
 #    ./install.sh                 install, or update an existing install
 #    ./install.sh --dry-run       print every action, change nothing
 #    ./install.sh --doctor        check an existing install, change nothing
+#    ./install.sh --check         only put back missing packages and fonts, then exit
 #    ./install.sh --only shell    run one stage
 #    ./install.sh --from niri     run from a stage onwards
 #    ./install.sh --skip niri     run everything except a stage (repeatable)
@@ -63,6 +64,8 @@ source "$VITRUM_DIR/lib/backend/detect.sh"
 source "$VITRUM_DIR/lib/packages.sh"
 # shellcheck source=lib/assets.sh
 source "$VITRUM_DIR/lib/assets.sh"
+# shellcheck source=lib/prereqs.sh
+source "$VITRUM_DIR/lib/prereqs.sh"
 # shellcheck source=lib/dm.sh
 source "$VITRUM_DIR/lib/dm.sh"
 
@@ -96,6 +99,7 @@ declare -a SKIP=()
 ONLY=""
 FROM=""
 DOCTOR_ONLY=0
+CHECK_ONLY=0
 FRESH=0
 
 usage() {
@@ -109,6 +113,7 @@ while [[ $# -gt 0 ]]; do
     --dry-run)  DRY_RUN=1 ;;
     --yes|-y)   ASSUME_YES=1 ;;
     --doctor)   DOCTOR_ONLY=1 ;;
+    --check)    CHECK_ONLY=1 ;;
     --fresh)    FRESH=1 ;;
     --only)     ONLY="${2:?--only needs a stage}"; shift ;;
     --from)     FROM="${2:?--from needs a stage}"; shift ;;
@@ -256,6 +261,11 @@ ui_kv "terminal" "fish + Starship$([[ "$WANT_TMUX" == 1 ]] && echo ", tmux")$([[
 ui_kv "backups" "$BACKUP_DIR"
 printf '\n'
 
+if [[ "$CHECK_ONLY" == "1" ]]; then
+  prereqs_check
+  exit 0
+fi
+
 if [[ "$MODE_LABEL" == "Install" && "$DRY_RUN" != "1" ]]; then
   confirm "go ahead?" y || die "nothing done"
 fi
@@ -269,6 +279,10 @@ if [[ "$DRY_RUN" != "1" ]]; then
     "$VITRUM_DIR/tools/vitrum" snapshot before-update --unless-within 600 >/dev/null 2>&1 && dim "configs saved: vitrum rollback puts them back"
   fi
 fi
+
+# Missing packages and fonts, whatever --only/--from/--skip left out. It warms
+# sudo up itself (sudo_keepalive) when it has something to install.
+prereqs_check
 
 # ----------------------------------------------------------- the stages ------
 

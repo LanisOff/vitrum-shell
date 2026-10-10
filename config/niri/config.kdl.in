@@ -233,5 +233,6 @@ include "generated/binds.kdl"
 include optional=true "generated/look.kdl"
 include optional=true "generated/effects.kdl"
 include optional=true "generated/animations.kdl"
+include optional=true "generated/input.kdl"      // Settings → Mouse & touchpad
 include optional=true "displays.kdl"     // written by Settings → Displays
 include optional=true "overrides.kdl"

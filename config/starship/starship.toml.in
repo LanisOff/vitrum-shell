@@ -1,7 +1,8 @@
 # ============================================================================
 #  vitrum — the Starship prompt. Written by vitrum-theme; do not edit
-#  (it is rewritten whenever the palette changes). Your own prompt: point
-#  STARSHIP_CONFIG at another file.
+#  (it is rewritten whenever the palette changes). Your changes go in
+#  ~/.config/starship.local.toml: laid over this table by table, key by key,
+#  so they survive every palette and update (run vitrum-theme to apply them).
 #
 #  In the template, an @-delimited NAME is a colour and \uXXXX a Nerd Font glyph (kept as
 #  escapes so it reads without the font). Segments are capsules: a left cap
@@ -123,6 +124,10 @@ read_only_style = "fg:@RED@ bg:@PILL@"
 "Developer"  = ""
 ".config"    = ""          # nf-fa-cog
 "/etc"       = ""
+# Spaces around the separators, last (after "/etc"): kitty draws an icon large
+# only when a space follows it, so "~/Downloads" had a small home and a large
+# arrow. Now every icon in the path is followed by one.
+"/"          = " / "
 
 # -------------------------------------------------------------------- git ---
 
