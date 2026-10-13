@@ -18,6 +18,23 @@ def run(files):
 
 
 class CheckQml(unittest.TestCase):
+
+    def test_property_named_like_an_anchor_line_is_flagged(self):
+        # Item's left/top/… are FINAL: "property real top" makes the type unavailable.
+        rc, out = run({"Use.qml": "import QtQuick\nItem {\n    readonly property real top: 1\n}\n"})
+        self.assertIn("FINAL", out)
+        rc, out = run({"Ok.qml": "import QtQuick\nItem {\n    property real topValue: 1\n    anchors.top: parent.top\n}\n"})
+        self.assertNotIn("FINAL", out)
+
+    def test_semicolon_after_grouped_property_is_flagged(self):
+        # "anchors { … }; text: …" does not parse in QML: the file fails to load.
+        rc, out = run({"Use.qml": "import QtQuick\nItem {\n    Text { anchors { left: parent.left }; text: \"x\" }\n}\n"})
+        self.assertIn("semicolon after a grouped property", out)
+        # A handler's block, then ";": the same parse error.
+        rc, out = run({"Use.qml": "import QtQuick\nItem {\n    MouseArea { onClicked: { a(); b(); }; enabled: true }\n}\n"})
+        self.assertIn("semicolon after a block", out)
+        rc, out = run({"Ok.qml": "import QtQuick\nItem {\n    Text { anchors { left: parent.left } text: \"x\"; font.bold: true }\n    function f() { if (a) { b(); }; return { c: 1 }; }\n}\n"})
+        self.assertNotIn("semicolon after a grouped property", out)
     def test_component_on_unknown_qt_base_is_not_flagged(self):
         rc, out = run({
             "EaseAnim.qml": "import QtQuick\nNumberAnimation {\n    duration: 100\n}\n",

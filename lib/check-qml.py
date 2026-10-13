@@ -451,6 +451,39 @@ def root_for(path, roots):
     return best or os.path.dirname(a)
 
 
+
+# "anchors { left: parent.left }; text: …" — a grouped property closed by a
+# semicolon does not parse, and the whole file fails to load at runtime.
+GROUPED_SEMICOLON = re.compile(r"(?<![\w.])([a-z]\w*)\s*\{[^{}]*\}\s*;")
+# JavaScript words a block or an object literal follows.
+JS_BLOCK_WORDS = {"else", "try", "finally", "do", "return", "yield", "await", "case", "in", "of", "typeof", "void", "delete", "new"}
+
+
+# "onClicked: { a(); }; enabled: true" — a binding's block closed by a semicolon
+# fails the same way. (A JS object literal in a binding is in parentheses.)
+BLOCK_SEMICOLON = re.compile(r"\b(on[A-Z]\w*|[a-z]\w*)\s*:\s*\{[^{}]*\}\s*;")
+
+
+def check_grouped_semicolons(path, clean, report):
+    for m in GROUPED_SEMICOLON.finditer(clean):
+        if m.group(1) in JS_BLOCK_WORDS:
+            continue
+        report(path, clean.count("\n", 0, m.start()) + 1, "semicolon after a grouped property (%s { … };)" % m.group(1))
+    for m in BLOCK_SEMICOLON.finditer(clean):
+        report(path, clean.count("\n", 0, m.start()) + 1, "semicolon after a block (%s: { … };)" % m.group(1))
+
+
+
+# Item's anchor lines are FINAL: a property of that name ("property real top")
+# makes the whole type unavailable at runtime.
+FINAL_NAMES = re.compile(r"\bproperty\s+[\w<>.]+\s+(left|right|top|bottom|horizontalCenter|verticalCenter|baseline)\b")
+
+
+def check_final_names(path, clean, report):
+    for m in FINAL_NAMES.finditer(clean):
+        report(path, clean.count("\n", 0, m.start()) + 1, "property %s overrides Item's FINAL %s" % (m.group(1), m.group(1)))
+
+
 def main(argv):
     roots = argv[1:] or ["shell", "apps"]
     paths = [p for p in qml_files(roots)]
@@ -489,6 +522,8 @@ def main(argv):
         check_imports(path, raw, clean, local, report)
         check_repo_imports(path, raw, clean, root_for(path, roots), defined_in, report)
         check_window_root(path, clean, report)
+        check_grouped_semicolons(path, clean, report)
+        check_final_names(path, clean, report)
         own_root, own_decl = dict(root_of), dict(declared)
         for name, (base, decl) in inline.get(path, {}).items():
             own_root[name], own_decl[name] = base, decl
