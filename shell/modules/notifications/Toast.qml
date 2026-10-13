@@ -21,24 +21,49 @@ Surface {
 
     // Slide in from the edge; swipe out.
     property real offset: width + Tokens.gap
-    x: offset + drag.translation.x
+    x: offset + swipe
     Component.onCompleted: offset = 0
     Behavior on offset { enabled: Motion.enabled; NumberAnimation { duration: Motion.emphasized; easing.type: Easing.OutQuint } }
-    opacity: 1 - Math.max(0, drag.translation.x) / width
+    opacity: 1 - Math.min(1, swipe / width)
 
     Timer {
-        running: !root.critical && !hover.hovered && !drag.active && !root.replying
+        running: !root.critical && !hover.hovered && !drag.active && !fly.running && !root.replying
         interval: Notifs.timeout * 1000
         onTriggered: Notifs.dismissPopup(root.item.id)
     }
     HoverHandler { id: hover }
+
+    // Swiped to the right only. The distance is read in the window's frame:
+    // the card moves under the pointer, and its own translation chased itself
+    // (the card lagged and never got to the threshold). Let go past a third of
+    // the width or flicked, it flies off at the flick's speed; else back.
+    property real swipe: 0
+    property real flick: 0
+    readonly property real away: width + 2 * Tokens.gap
     DragHandler {
         id: drag
-        target: null              // we read translation; moving the card ourselves keeps the x binding
-        xAxis.minimum: 0
+        target: null
         yAxis.enabled: false
-        onActiveChanged: if (!active && translation.x > root.width * 0.35) Notifs.dismissPopup(root.item.id)
+        onCentroidChanged: if (active) {
+            root.swipe = Math.max(0, centroid.scenePosition.x - centroid.scenePressPosition.x);
+            root.flick = centroid.velocity.x;
+        }
+        onActiveChanged: {
+            if (active) { settle.stop(); return; }
+            if (root.swipe > root.width / 3 || root.flick > 600) root.flyOff(Math.max(root.flick, 0));
+            else settle.start();
+        }
     }
+    function flyOff(v) {
+        // Out-easing starts at twice the average speed: the flick's own, at the least a brisk one.
+        fly.duration = Math.max(80, Math.min(Motion.standard, 2000 * (away - swipe) / Math.max(v, 1500)));
+        fly.start();
+    }
+    // The card stays for the app's next one (Toasts keeps cards by app): it slides back in.
+    onItemChanged: if (swipe > 0 && !drag.active) { fly.stop(); settle.start(); }
+    NumberAnimation { id: settle; target: root; property: "swipe"; to: 0; duration: Motion.standard; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+    NumberAnimation { id: fly; target: root; property: "swipe"; to: root.away; easing.type: Easing.OutQuad
+                      onFinished: Notifs.dismissPopup(root.item.id) }
     TapHandler { onTapped: Notifs.activate(root.item) }
 
     Row {
