@@ -111,7 +111,7 @@ Item {
         id: centre
         anchors.horizontalCenter: parent.horizontalCenter
         anchors.verticalCenter: parent.verticalCenter
-        anchors.verticalCenterOffset: -parent.height * 0.04
+        anchors.verticalCenterOffset: -parent.height * 0.04 - view.lift
         spacing: Tokens.gap * 2
         // Floats up a little as the screen unlocks.
         transform: Translate { y: -view.leave * Tokens.islandHeight }
@@ -244,11 +244,30 @@ Item {
                 Behavior on opacity { enabled: Motion.enabled; EaseAnim {} }
             }
         }
-        Rise {
-            order: 5
-            anchors.horizontalCenter: parent.horizontalCenter
-            width: notes.width; height: notes.height
-            LockNotifications { id: notes; since: view.lock.lockedAt; backdrop: view.glassBackdrop; source: view.glassSource }
+    }
+
+    // What came in while locked: under the centre, never into the player (or
+    // the status row) — as many as fit there, the rest clipped.
+    readonly property real notesBottom: (player.visible ? player.y : statusRow.y) - Tokens.gap * 2
+    // Notifications that would not fit lift the centre (down to a margin at
+    // the top) — from where it sits unlifted, so the lift never feeds itself.
+    // Not animated: a Behavior here never left 0 under the nested test session.
+    property real lift: {
+        const baseY = (height - centre.height) / 2 - height * 0.04;
+        const room = notesBottom - (baseY + centre.height + centre.spacing);
+        return Math.max(0, Math.min(notes.wanted - room, baseY - height * 0.05));
+    }
+    Rise {
+        order: 5
+        anchors.horizontalCenter: parent.horizontalCenter
+        y: centre.y + centre.height + centre.spacing
+        width: notes.width
+        height: Math.max(0, Math.min(notes.height, view.notesBottom - y))
+        clip: true
+        LockNotifications {
+            id: notes
+            since: view.lock.lockedAt; backdrop: view.glassBackdrop; source: view.glassSource
+            maxHeight: Math.max(0, view.notesBottom - parent.y)
         }
     }
 

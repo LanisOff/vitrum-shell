@@ -15,7 +15,26 @@ Column {
     property Item backdrop: null
     property Item source: null
     readonly property string mode: Settings.get("lock.notifications", "full")
-    readonly property var groups: Lib.lockNotifications(Notifs.history, list.since, list.mode, 3)
+    /// The room there is (above the player): as many groups as fit, at most
+    /// three; the ones that do not are a line at the end ("2 more · Steam, Mail").
+    property real maxHeight: Infinity
+    readonly property real cardH: Tokens.islandHeight * 1.25 + Tokens.padding * 1.2
+    readonly property real pillH: Tokens.islandHeight
+    readonly property var all: Lib.lockNotifications(Notifs.history, list.since, list.mode, 99)
+    readonly property int fits: {
+        const n = Math.min(3, all.length);
+        const plain = Math.floor((maxHeight + spacing) / (cardH + spacing));
+        if (plain >= n) return n;
+        // Not all of them: room for the line too.
+        return Math.max(0, Math.floor((maxHeight - pillH) / (cardH + spacing)));
+    }
+    /// The height it would take with room to spare (LockView lifts the centre for it).
+    readonly property real wanted: {
+        const n = Math.min(3, all.length);
+        return n ? n * cardH + (n - 1) * spacing + (all.length > n ? spacing + pillH : 0) : 0;
+    }
+    readonly property var groups: all.slice(0, fits)
+    readonly property var rest: all.slice(fits)
     property string opened: ""
     onSinceChanged: opened = ""
     spacing: Tokens.gap * 0.6
@@ -95,6 +114,29 @@ Column {
                         Label { width: parent.width; text: modelData.body; role: "dim"; size: Tokens.textSmall; wrapMode: Text.Wrap; maximumLineCount: 4; elide: Text.ElideRight; visible: text.length > 0 }
                     }
                 }
+            }
+        }
+    }
+
+    // The rest, as one line.
+    LockGlass {
+        visible: list.rest.length > 0 && list.maxHeight >= list.pillH
+        backdrop: list.backdrop
+        source: list.source
+        width: Math.min(list.width, moreRow.implicitWidth + Tokens.padding * 2)
+        height: list.pillH
+        radius: height / 2
+        anchors.horizontalCenter: parent.horizontalCenter
+        Row {
+            id: moreRow
+            anchors.centerIn: parent
+            spacing: Tokens.gap * 0.6
+            Icon { name: "notifications"; size: Tokens.iconSize; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter }
+            Label {
+                anchors.verticalCenter: parent.verticalCenter
+                text: (list.rest.reduce((a, g) => a + g.count, 0)) + " more · " + list.rest.map(g => g.app).join(", ")
+                role: "dim"; size: Tokens.textSmall + 1
+                width: Math.min(implicitWidth, list.width - Tokens.padding * 2 - Tokens.iconSize - Tokens.gap)
             }
         }
     }
