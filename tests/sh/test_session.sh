@@ -44,7 +44,9 @@ test_config_has_includes_and_no_tahoe() {
   assert_contains "$c" 'include optional=true "generated/look.kdl"'
   assert_contains "$c" 'include optional=true "overrides.kdl"'
   ! grep -qi tahoe <<<"$c"
-  ! grep -q '@BINDS@\|@LAYER_EFFECTS@\|@WALLPAPER_DAEMON@' <<<"$c"
+  ! grep -q '@BINDS@\|@LAYER_EFFECTS@\|@WALLPAPER_DAEMON@\|@NIRI_CONFIG@' <<<"$c"
+  # niri drops NIRI_CONFIG from its environment; the config hands it back.
+  assert_contains "$c" "NIRI_CONFIG \"$VITRUM_PREFIX/niri/config.kdl\""
 }
 test_startup_script_is_valid_bash() {
   _load_session openrc

@@ -141,6 +141,10 @@ environment {
     // niri --session resets this to "niri"; vitrum's own name stays in the list.
     XDG_CURRENT_DESKTOP "niri"
     VITRUM "1"
+    // niri takes NIRI_CONFIG out of its own environment at start, so a bare
+    // `niri validate` in a terminal found no config (ours is not in
+    // ~/.config/niri). Handed back to what it starts.
+    NIRI_CONFIG "@NIRI_CONFIG@"
 }
 
 // No hot corners: the shell has none, and niri's own is turned off with them.

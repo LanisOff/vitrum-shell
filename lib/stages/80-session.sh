@@ -26,6 +26,7 @@ stage_session() {
   _session_spawns
   _session_portals
   _session_root_helper
+  _session_nvidia_profile
   _session_keybinds
   _session_config
   _session_overrides
@@ -200,7 +201,8 @@ _session_greeter_vt() {
 
 _session_config() {
   step "niri config"
-  write_file "$NIRI_DIR/config.kdl" < "$VITRUM_DIR/config/niri/config.kdl.in"
+  # @NIRI_CONFIG@: this file's own path, for what niri starts (see the template).
+  sed "s|@NIRI_CONFIG@|$NIRI_DIR/config.kdl|g" "$VITRUM_DIR/config/niri/config.kdl.in" | write_file "$NIRI_DIR/config.kdl"
   # Files vitrum-theme fills in; present (empty) on a fresh install so the
   # config always resolves.
   local f
@@ -332,6 +334,27 @@ EOF
   if getent group portage >/dev/null 2>&1 && ! id -nG "$user" | tr ' ' '\n' | grep -qx portage; then
     run sudo usermod -aG portage "$user" && info "you are in the portage group from the next login (the bar shows emerge's progress)"
   fi
+}
+
+# NVIDIA keeps freed video memory in its GL heap for reuse, and a compositor
+# frees a lot: niri sat near 1 GiB of VRAM instead of ~100 MiB, taken from the
+# games (the fix niri's wiki gives). The shell, a GL client with a window per
+# overlay, does the same.
+_session_nvidia_profile() {
+  grep -qs '^nvidia ' /proc/modules || return 0
+  step "NVIDIA: free buffer pool limited for niri and the shell"
+  sudo_write "$VITRUM_SYSROOT/etc/nvidia/nvidia-application-profiles-rc.d/50-vitrum-compositor.json" <<'EOF'
+{
+    "rules": [
+        { "pattern": { "feature": "procname", "matches": "niri" }, "profile": "Limit Free Buffer Pool On Wayland Compositors" },
+        { "pattern": { "feature": "procname", "matches": "quickshell" }, "profile": "Limit Free Buffer Pool On Wayland Compositors" },
+        { "pattern": { "feature": "procname", "matches": "qs" }, "profile": "Limit Free Buffer Pool On Wayland Compositors" }
+    ],
+    "profiles": [
+        { "name": "Limit Free Buffer Pool On Wayland Compositors", "settings": [ { "key": "GLVidHeapReuseRatio", "value": 0 } ] }
+    ]
+}
+EOF
 }
 
 # -------------------------------------------------------------- migration ---
