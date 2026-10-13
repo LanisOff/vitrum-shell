@@ -223,24 +223,22 @@ Singleton {
 
     // ------------------------------------------------------------- GPU ----
     //
-    // NVIDIA through nvidia-smi when it is there; other GPUs report through
-    // hwmon as part of the temperature sensors and have no usage figure here.
+    // NVIDIA through nvidia-smi when it is there, as one process sampling on
+    // its own loop (-l): one started every two seconds brought NVML up each
+    // time, a hitch in every game on NVIDIA. Other GPUs report through hwmon
+    // as part of the temperature sensors and have no usage figure here.
 
     property bool gpuAvailable: false
     property real gpuUsage: 0
     property real gpuTemp: 0
 
-    Timer {
-        interval: 2000; repeat: true; triggeredOnStart: true
-        running: root.subscribers > 0
-        onTriggered: gpuProc.running = true
-    }
     Process {
         id: gpuProc
-        command: ["sh", "-c", "command -v nvidia-smi >/dev/null && nvidia-smi --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits | head -1"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const p = text.trim().split(",").map(s => parseFloat(s));
+        running: root.subscribers > 0
+        command: ["sh", "-c", "command -v nvidia-smi >/dev/null && exec nvidia-smi -i 0 --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits -l 2"]
+        stdout: SplitParser {
+            onRead: line => {
+                const p = line.trim().split(",").map(s => parseFloat(s));
                 root.gpuAvailable = p.length === 2 && !isNaN(p[0]);
                 if (root.gpuAvailable) { root.gpuUsage = p[0] / 100; root.gpuTemp = p[1]; }
             }

@@ -26,8 +26,9 @@ stage_shell() {
 }
 
 # Steam, started with MANGOHUD=1 so its games carry the HUD (hidden until game
-# mode or Mod+Shift+F). A `steam` of vitrum's own in ~/.local/bin, ahead of the
-# real one on PATH; one of yours there is left alone.
+# mode or Mod+Shift+F), and with SDL left to pick its own video driver. A
+# `steam` of vitrum's own in ~/.local/bin, ahead of the real one on PATH; one
+# of yours there is left alone.
 _shell_steam_hud() {
   [[ "${WANT_EXTRAS:-1}" == 1 ]] || return 0
   local real="" p f="$HOME/.local/bin/steam"
@@ -41,6 +42,9 @@ _shell_steam_hud() {
 #!/bin/sh
 # Written by vitrum: Steam's games get MangoHud (hidden until game mode or Mod+Shift+F).
 export MANGOHUD=1
+# The session asks SDL for Wayland; Steam and the SDL its runtime and games
+# bundle pick their own (a forced one crashed the older ones).
+unset SDL_VIDEODRIVER
 exec $real "\$@"
 EOF
   [[ "$DRY_RUN" == "1" ]] || chmod +x "$f"

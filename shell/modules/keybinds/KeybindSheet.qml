@@ -23,7 +23,12 @@ PanelWindow {
     screen: modelData
     readonly property bool open: UiState.keybinds && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
 
-    visible: true
+    // Mapped while open, and while idle unless a fullscreen window is up
+    // (UiState.parkOverlays; components/MapGate.qml).
+    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    visible: gate.mapped
+    // Mapped again by opening: the window is a new one, the focus goes back in.
+    onBackingWindowVisibleChanged: if (backingWindowVisible && open) search.forceActiveFocus()
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

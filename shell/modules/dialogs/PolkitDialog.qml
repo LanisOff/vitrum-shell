@@ -13,6 +13,7 @@ DialogFrame {
     open: Polkit.active && flow !== null && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
     onDismissed: if (flow) flow.cancelAuthenticationRequest()
     onOpenChanged: if (open) { pass.text = ""; pass.forceActiveFocus(); }
+    focusItem: pass
 
     readonly property string who: flow && flow.selectedIdentity ? flow.selectedIdentity.displayName : ""
     // polkit quotes with backticks (`/usr/bin/true'); typographic quotes read better.

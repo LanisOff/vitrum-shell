@@ -40,7 +40,12 @@ PanelWindow {
         function onTestSelect(r, take) { if (root.open && root.focused_) { root.sel = { x: r.x, y: r.y, w: r.width, h: r.height }; if (take) root.take(); } }
     }
 
-    visible: true
+    // Mapped while open, and while idle unless a fullscreen window is up
+    // (UiState.parkOverlays; components/MapGate.qml).
+    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    visible: gate.mapped
+    // Mapped again by opening: the window is a new one, the focus goes back in.
+    onBackingWindowVisibleChanged: if (backingWindowVisible && open && focused_) keys.forceActiveFocus()
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

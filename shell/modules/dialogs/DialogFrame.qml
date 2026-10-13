@@ -14,11 +14,18 @@ PanelWindow {
     id: root
     required property var modelData
     property bool open: false
+    /// What takes the keyboard when the dialog is mapped again by opening.
+    property Item focusItem: null
     default property alias content: inner.data
     signal dismissed()
     screen: modelData
 
-    visible: true
+    // Mapped while open, and while idle unless a fullscreen window is up
+    // (UiState.parkOverlays; components/MapGate.qml).
+    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    visible: gate.mapped
+    // Mapped again by opening: the window is a new one, the focus goes back in.
+    onBackingWindowVisibleChanged: if (backingWindowVisible && open && focusItem) focusItem.forceActiveFocus()
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

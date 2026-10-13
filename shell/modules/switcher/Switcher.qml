@@ -57,7 +57,10 @@ PanelWindow {
         function onSwitcherCommit() { if (root.open) root.commit(); }
     }
 
-    visible: true
+    // Mapped while open, and while idle unless a fullscreen window is up
+    // (UiState.parkOverlays; components/MapGate.qml).
+    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    visible: gate.mapped
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

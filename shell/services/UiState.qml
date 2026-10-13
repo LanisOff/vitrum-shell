@@ -27,6 +27,12 @@ Singleton {
     property bool power: false
     property bool widgetsEdit: false
     property bool wallpaperPicker: false
+    /// The full-screen overlays (launcher, switcher, dialogs, …) are unmapped
+    /// while they sit idle over a fullscreen window. niri draws a surface's
+    /// background effect over the whole surface even when its region is the
+    /// 1 px `none` (BlurKick): each idle one was a full-screen blur on every
+    /// frame of a game or a video.
+    readonly property bool parkOverlays: Niri.fullscreenWindow !== null
     signal widgetAddRequested(string type)
     property int widgetFramesMade: 0          // tests: frames created so far
     signal overviewQueryRequested(string text)     // vitrum-ipc debug overviewquery
