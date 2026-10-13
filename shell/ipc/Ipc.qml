@@ -95,8 +95,12 @@ Scope {
         target: "widgets"
         function edit(): void { UiState.closeAll(); UiState.widgetsEdit = !UiState.widgetsEdit; }
         function done(): void { UiState.widgetsEdit = false; }
-        /// Add a widget (clock, calendar, weather, system, media, notes, shortcuts, battery) to the focused screen.
+        /// Add a widget (a type from the catalog, lib/widgets.js) to the focused screen.
         function add(type: string): void { UiState.widgetAddRequested(type); }
+        /// The editor (tests, scripts): select a widget by id, show a tab (gallery, selected, custom).
+        function select(id: string): void { WidgetEditor.select(id, false); }
+        function tab(name: string): void { WidgetEditor.tab = name; }
+        function cancel(): void { WidgetEditor.cancel(); }
         /// The stored widgets, for scripts.
         function list(): string { return JSON.stringify(Settings.get("widgets.items", [])); }
     }

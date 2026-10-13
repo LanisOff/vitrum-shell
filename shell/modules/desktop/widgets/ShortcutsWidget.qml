@@ -5,32 +5,95 @@ import qs.services
 import qs.theme
 import qs.components
 
-// App shortcuts: options.apps (desktop ids), or the dock's pinned apps, or the most used ones.
+/*
+ * Apps a click away.
+ *   S   four icons, two by two
+ *   M   the header; up to five icons in a row, their names under them
+ * options: apps (desktop ids); empty: the Dock's pinned apps, or the most used.
+ * A click launches (Apps.launch); a gallery card shows them and launches nothing.
+ */
 Item {
     id: root
     property var options: ({})
+    property string sizeClass: "M"
+    property bool preview: false
+    signal optionsEdited(var options)
+
+    readonly property bool small: sizeClass === "S"
+    readonly property int limit: small ? 4 : 5
     readonly property var apps: {
         const ids = options.apps || [];
-        if (ids.length) return ids.map(id => Apps.forAppId(id)).filter(a => a);
-        const pinned = Settings.get("dock.pinned", []).map(id => Apps.forAppId(id)).filter(a => a);
-        return pinned.length ? pinned.slice(0, 6) : Apps.search("", 6);
+        let list = ids.map(id => Apps.forAppId(String(id).replace(/\.desktop$/, ""))).filter(a => a);
+        if (!ids.length) {
+            list = Settings.get("dock.pinned", []).map(id => Apps.forAppId(id)).filter(a => a);
+            if (!list.length) list = Apps.search("", root.limit);
+        }
+        return list.slice(0, root.limit);
     }
-    readonly property real cell: Math.min(height, width / Math.max(1, apps.length))
-    Row {
-        anchors.centerIn: parent
+
+    WidgetHeader {
+        id: head
+        visible: !root.small
+        height: visible ? implicitHeight : 0
+        icon: "apps"; title: "Shortcuts"
+    }
+    WidgetEmpty {
+        visible: root.apps.length === 0
+        icon: "apps"
+        text: "Add apps in the widget's options"
+    }
+
+    // ---- S: two by two. M: one row, names under.
+    Grid {
+        id: grid
+        visible: root.apps.length > 0
+        readonly property real areaH: root.height - (head.visible ? head.height + Tokens.gap * 0.6 : 0)
+        anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom }
+        height: areaH
+        columns: root.small ? 2 : root.limit
+        readonly property real cellW: root.small ? root.width / 2 : root.width / root.limit
+        readonly property real cellH: root.small ? areaH / 2 : areaH
+        readonly property real icon: Math.min(cellW, root.small ? cellH : cellH - Tokens.textSmall * 1.8) * 0.66
         Repeater {
             model: root.apps
             delegate: Item {
+                id: cell
                 required property var modelData
-                width: root.cell; height: root.cell
-                IconImage {
+                width: grid.cellW; height: grid.cellH
+                Rectangle {
+                    // A tonal lift under the hovered one.
                     anchors.centerIn: parent
-                    implicitSize: root.cell * 0.62
-                    source: Quickshell.iconPath(modelData.icon, "application-x-executable")
-                    scale: m.pressed ? 0.9 : m.containsMouse ? 1.08 : 1
-                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                    width: Math.min(parent.width, parent.height) * 0.94; height: root.small ? width : parent.height * 0.96
+                    radius: Tokens.radiusInner * 1.5
+                    color: Colors.alpha(Colors.text, mouse.containsMouse ? 0.08 : 0)
+                    Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
                 }
-                MouseArea { id: m; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Apps.launch(modelData) }
+                Column {
+                    anchors.centerIn: parent
+                    spacing: Tokens.gap * 0.3
+                    IconImage {
+                        anchors.horizontalCenter: parent.horizontalCenter
+                        implicitSize: grid.icon
+                        source: Quickshell.iconPath(cell.modelData.icon, "application-x-executable")
+                        scale: mouse.pressed ? 0.9 : mouse.containsMouse ? 1.08 : 1
+                        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                    }
+                    Label {
+                        visible: !root.small
+                        width: grid.cellW - Tokens.gap * 0.5
+                        horizontalAlignment: Text.AlignHCenter
+                        text: cell.modelData.name
+                        size: Tokens.textSmall
+                    }
+                }
+                MouseArea {
+                    id: mouse
+                    anchors.fill: parent
+                    enabled: !root.preview
+                    hoverEnabled: true
+                    cursorShape: Qt.PointingHandCursor
+                    onClicked: Apps.launch(cell.modelData)
+                }
             }
         }
     }

@@ -21,6 +21,7 @@ stage_shell() {
   _shell_launchers
   _shell_remove_tahoe_leftovers
   _shell_steam_hud
+  _shell_example_widget
   _shell_restart
   stage_done
 }
@@ -48,6 +49,16 @@ unset SDL_VIDEODRIVER
 exec $real "\$@"
 EOF
   [[ "$DRY_RUN" == "1" ]] || chmod +x "$f"
+}
+
+# Your own QML widgets live in ~/.config/vitrum/widgets; an example goes in
+# the first time, as something to copy. Once the folder exists it is yours.
+_shell_example_widget() {
+  local d="$XDG_CONFIG_HOME/vitrum/widgets"
+  [[ -e "$d" ]] && return 0
+  step "an example widget in $d"
+  [[ "$DRY_RUN" == "1" ]] && return 0
+  mkdir -p "$d" && cp -r "$VITRUM_DIR/config/widgets/example-uptime" "$d/"
 }
 
 # The shell does not reload itself when its files change (a reload under the

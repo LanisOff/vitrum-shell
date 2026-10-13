@@ -1,0 +1,11 @@
+{
+  "name": "Uptime (example)",
+  "icon": "clock",
+  "sizes": ["S", "M"],
+  "def": "S",
+  "interactive": false,
+  "options": [
+    { "key": "label", "label": "Label", "type": "text", "default": "Up for" },
+    { "key": "seconds", "label": "Seconds", "type": "bool", "default": false }
+  ]
+}

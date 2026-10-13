@@ -37,3 +37,15 @@ test_shell_stage_creates_settings_only_when_absent() {
   stage_shell >/dev/null
   assert_contains "$(cat "$XDG_CONFIG_HOME/vitrum/settings.json")" "compact"
 }
+# The example QML widget goes in once, when there is no widgets folder yet;
+# a folder of yours is never touched.
+test_shell_stage_installs_example_widget_once() {
+  _load; _shell_check_qml() { :; }
+  stub python3 'exit 0'
+  stage_shell >/dev/null
+  d="$XDG_CONFIG_HOME/vitrum/widgets/example-uptime"
+  [[ -f "$d/manifest.json" && -f "$d/Widget.qml" ]]
+  rm -rf "$d"; mkdir -p "$XDG_CONFIG_HOME/vitrum/widgets/mine"
+  stage_shell >/dev/null
+  [[ ! -e "$d" ]]
+}

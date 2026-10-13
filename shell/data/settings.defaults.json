@@ -191,7 +191,8 @@
     "dayNight": true
   },
   "widgets": {
-    "items": []
+    "items": [],
+    "custom": []
   },
   "weather": {
     "latitude": 0,

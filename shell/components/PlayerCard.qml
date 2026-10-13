@@ -20,6 +20,8 @@ Item {
     /// Take the height given (a widget) instead of the content's own (a panel).
     property bool fill: false
     property bool showLyrics: true
+    /// The spectrum along the bottom (a widget's own option), as far as media.visualizer allows.
+    property bool showVisualizer: true
     /// No plate of its own: inside a desktop widget the widget's glass is the card.
     property bool bare: false
     readonly property real pad: bare ? 0 : fill ? Tokens.padding * 0.75 : Tokens.padding
@@ -216,7 +218,7 @@ Item {
         // model every frame would rebuild them all thirty times a second).
         Row {
             id: spectrum
-            visible: Settings.get("media.visualizer", true)
+            visible: root.showVisualizer && Settings.get("media.visualizer", true)
             // Paused or silent: the bars sink away rather than lie there as a dashed line.
             opacity: Cava.active && Cava.bars.length > 0 ? 1 : 0
             Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }

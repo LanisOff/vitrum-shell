@@ -6,25 +6,25 @@ import qs.components
 import qs.common
 import "../lib/widgets.js" as W
 
+// Widgets are arranged on the desktop itself, in the editor; here: the way
+// in, what is where, and the widgets you made (script widgets live in
+// widgets.custom, QML ones in ~/.config/vitrum/widgets).
 Page {
     id: page
     title: "Widgets"
-    subtitle: "Widgets live on the desktop, per screen. Arrange them on the desktop itself."
+    subtitle: "Widgets live on the desktop, per screen. Add, arrange and set them up in the editor."
     readonly property var items: Settings.get("widgets.items", []) || []
-    Section {
-        SettingRow {
-            label: "Arrange on the desktop"; hint: "Drag to move, the corner to resize, × to remove. Also Mod+Alt+W."; divider: false
-            Chip_ { text: "Edit widgets"; accent: true; onClicked: Quickshell.execDetached(["vitrum-ipc", "widgets", "edit"]) }
-        }
+    readonly property var scripts: Settings.get("widgets.custom", []) || []
+    function nameOf(type) {
+        const s = String(type || "");
+        if (s.indexOf("script:") === 0) { const c = page.scripts.find(x => "script:" + x.id === s); return c ? c.name : "Script widget"; }
+        if (s.indexOf("qml:") === 0) return s.slice(4) + " (QML)";
+        return W.meta(s).name;
     }
     Section {
-        title: "Add to the focused screen"
-        Flow {
-            width: parent.width; padding: Tokens.padding; spacing: Tokens.gap / 2
-            Repeater {
-                model: W.types()
-                delegate: Chip_ { required property string modelData; text: modelData.charAt(0).toUpperCase() + modelData.slice(1); onClicked: Quickshell.execDetached(["vitrum-ipc", "widgets", "add", modelData]) }
-            }
+        SettingRow {
+            label: "Edit widgets"; hint: "The desktop shrinks beside a gallery: click or drag to add, drag to move, the corner to resize. Also Mod+Alt+W, or right-click a widget."; divider: false
+            Chip_ { text: "Open the editor"; accent: true; onClicked: Quickshell.execDetached(["vitrum-ipc", "widgets", "edit"]) }
         }
     }
     Section {
@@ -35,11 +35,34 @@ Page {
             delegate: SettingRow {
                 required property var modelData
                 required property int index
-                label: (modelData.type || "?").charAt(0).toUpperCase() + (modelData.type || "?").slice(1)
+                label: page.nameOf(modelData.type)
                 hint: (modelData.output || "?") + " · " + Math.round(modelData.x || 0) + ", " + Math.round(modelData.y || 0) + " · " + Math.round(modelData.w || 0) + "×" + Math.round(modelData.h || 0)
                 Icon { name: "close"; anchors.verticalCenter: parent.verticalCenter
                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { const l = page.items.slice(); l.splice(index, 1); Settings.set("widgets.items", l); } } }
             }
+        }
+    }
+    Section {
+        title: "Your widgets"
+        Label {
+            width: parent.width; padding: Tokens.padding; wrapMode: Text.WordWrap; elide: Text.ElideNone; role: "dim"; size: Tokens.textSmall + 1
+            text: "Script widgets run a command and show what it prints; make them in the editor's Custom tab. QML widgets are folders in ~/.config/vitrum/widgets (a manifest.json and a Widget.qml)."
+        }
+        Repeater {
+            model: page.scripts
+            delegate: SettingRow {
+                required property var modelData
+                required property int index
+                label: modelData.name || modelData.id
+                hint: (modelData.command || "") + " · every " + (modelData.interval || 10) + " s"
+                Icon { name: "trash"; anchors.verticalCenter: parent.verticalCenter
+                       MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
+                                   onClicked: Settings.set("widgets.custom", page.scripts.filter(s => s.id !== modelData.id)) } }
+            }
+        }
+        SettingRow {
+            label: "Widgets folder"; hint: "~/.config/vitrum/widgets"; divider: false
+            Chip_ { text: "Open"; onClicked: Quickshell.execDetached(["sh", "-c", 'mkdir -p "$HOME/.config/vitrum/widgets" && exec xdg-open "$HOME/.config/vitrum/widgets"']) }
         }
     }
     component Chip_: Rectangle {

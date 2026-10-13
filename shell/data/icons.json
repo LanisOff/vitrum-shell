@@ -495,5 +495,113 @@
  "battery-phone": {
   "material": "battery_full",
   "nerd": "󰁹"
+ },
+ "world": {
+  "material": "public"
+ },
+ "sun": {
+  "material": "wb_sunny"
+ },
+ "sunrise": {
+  "material": "wb_twilight"
+ },
+ "todo": {
+  "material": "checklist"
+ },
+ "countdown": {
+  "material": "event_upcoming"
+ },
+ "graph": {
+  "material": "monitoring"
+ },
+ "devices": {
+  "material": "devices"
+ },
+ "toggles": {
+  "material": "toggle_on"
+ },
+ "photo": {
+  "material": "photo_library"
+ },
+ "quote": {
+  "material": "format_quote"
+ },
+ "folder-apps": {
+  "material": "grid_view"
+ },
+ "redo": {
+  "material": "redo"
+ },
+ "select": {
+  "material": "select_all"
+ },
+ "align-left": {
+  "material": "align_horizontal_left"
+ },
+ "align-right": {
+  "material": "align_horizontal_right"
+ },
+ "align-hcenter": {
+  "material": "align_horizontal_center"
+ },
+ "align-top": {
+  "material": "align_vertical_top"
+ },
+ "align-bottom": {
+  "material": "align_vertical_bottom"
+ },
+ "align-vcenter": {
+  "material": "align_vertical_center"
+ },
+ "distribute-h": {
+  "material": "horizontal_distribute"
+ },
+ "distribute-v": {
+  "material": "vertical_distribute"
+ },
+ "duplicate": {
+  "material": "library_add"
+ },
+ "code": {
+  "material": "code"
+ },
+ "drag": {
+  "material": "drag_indicator"
+ },
+ "checkbox": {
+  "material": "check_box"
+ },
+ "checkbox-blank": {
+  "material": "check_box_outline_blank"
+ },
+ "refresh": {
+  "material": "refresh"
+ },
+ "resize": {
+  "material": "open_in_full"
+ },
+ "wind": {
+  "material": "air"
+ },
+ "humidity": {
+  "material": "humidity_percentage"
+ },
+ "upload": {
+  "material": "upload"
+ },
+ "download": {
+  "material": "download"
+ },
+ "shuffle": {
+  "material": "shuffle"
+ },
+ "remove": {
+  "material": "remove"
+ },
+ "moon": {
+  "material": "dark_mode"
+ },
+ "bolt": {
+  "material": "bolt"
  }
 }
