@@ -24,11 +24,11 @@ test_snapshots_are_pruned_to_ten() {
   for i in $(seq 1 13); do VITRUM_SNAPSHOT_STAMP="2026010${i}-000000" "$V" snapshot >/dev/null; done
   assert_eq "$(ls "$XDG_DATA_HOME/vitrum/snapshots" | wc -l | tr -d ' ')" "10"
 }
-# The installer's bookkeeping and the calendar's passwords stay out, and
+# The installer's bookkeeping stays out, and
 # snapshots are readable by you alone.
 test_snapshots_hold_configs_only_and_are_private() {
   mkdir -p "$XDG_DATA_HOME/vitrum" "$HOME/.config/vitrum"
-  echo s > "$XDG_DATA_HOME/vitrum/caldav.pass"; echo r > "$XDG_DATA_HOME/vitrum/niri.rev"; echo c > "$HOME/.config/vitrum/settings.json"
+  echo r > "$XDG_DATA_HOME/vitrum/niri.rev"; echo c > "$HOME/.config/vitrum/settings.json"
   "$V" snapshot >/dev/null
   f="$(ls "$XDG_DATA_HOME/vitrum/snapshots"/*.tar.gz | tail -1)"
   ! tar -tzf "$f" | grep -q "local/share"

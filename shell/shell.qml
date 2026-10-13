@@ -36,8 +36,8 @@ ShellRoot {
     settings.watchFiles: false
     // Settings first; then what must run without being shown: hardware alerts,
     // the microphone filter (it comes back on at login when it was on), the
-    // keyboard layout per app, calendar reminders.
-    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; Events.today; LoginScreen.dir; }
+    // keyboard layout per app.
+    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; }
 
     // How long the start took, in the log: since this process began, and since
     // the session (niri) did.

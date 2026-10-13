@@ -2,11 +2,9 @@ import QtQuick
 import qs.services
 import qs.theme
 import qs.components
-import "../../lib/calendar.js" as Cal
 
-// Month grid (scroll or arrows to change month) with a dot on days that have
-// events; the picked day's events, and a line to add one ("14:30 Dentist");
-// when located, today's weather and the next days.
+// Month grid (scroll or arrows to change month); when located, today's
+// weather and the next days.
 Column {
     id: root
     spacing: Tokens.gap
@@ -14,11 +12,6 @@ Column {
     readonly property date today: new Date()
     readonly property int cell: Tokens.islandHeight
     width: cell * 7 + Tokens.gap * 6
-    property date picked: new Date()
-    readonly property int lead: (month.getDay() - Qt.locale().firstDayOfWeek + 7) % 7
-    readonly property date gridStart: new Date(month.getFullYear(), month.getMonth(), 1 - lead)
-    onGridStartChanged: Events.show(gridStart, 42)
-    Component.onCompleted: Events.show(gridStart, 42)
 
     Row {
         width: parent.width
@@ -44,54 +37,14 @@ Column {
                 readonly property date day: new Date(root.month.getFullYear(), root.month.getMonth(), index - lead + 1)
                 readonly property bool inMonth: day.getMonth() === root.month.getMonth()
                 readonly property bool isToday: day.toDateString() === root.today.toDateString()
-                readonly property bool isPicked: day.toDateString() === root.picked.toDateString()
-                readonly property bool busy: Cal.on(Events.events, day).length > 0
                 width: root.cell; height: root.cell; radius: width / 2
-                color: isToday ? Colors.accent : isPicked ? Colors.alpha(Colors.accent, 0.22) : "transparent"
+                color: isToday ? Colors.accent : "transparent"
                 Label { anchors.centerIn: parent; text: parent.day.getDate(); numeric: true
                         role: parent.isToday ? "onAccent" : parent.inMonth ? "text" : "dim"; opacity: parent.inMonth ? 1 : 0.5 }
-                Rectangle { visible: parent.busy; width: 4; height: 4; radius: 2; anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: 3 }
-                            color: parent.isToday ? Colors.onAccent : Colors.accent }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.picked = parent.day }
             }
         }
     }
     WheelHandler { onWheel: e => root.month = new Date(root.month.getFullYear(), root.month.getMonth() + (e.angleDelta.y > 0 ? -1 : 1), 1) }
-
-    // The picked day: its events, and a line to add one.
-    Card {
-        width: parent.width
-        Column {
-            width: root.width - 2 * Tokens.padding
-            spacing: Tokens.gap / 2
-            Label { text: Qt.formatDate(root.picked, "dddd, d MMMM"); font.weight: Font.DemiBold }
-            Repeater {
-                model: Cal.on(Events.events, root.picked)
-                Row {
-                    required property var modelData
-                    width: parent.width
-                    spacing: Tokens.gap
-                    Label { width: Tokens.islandHeight * 1.4; text: Cal.timeOf(modelData) || "all day"; role: "dim"; size: Tokens.textSmall; numeric: true; anchors.verticalCenter: parent.verticalCenter }
-                    Label { width: parent.width - Tokens.islandHeight * 1.4 - Tokens.iconSize - 2 * Tokens.gap; text: modelData.title + (modelData.location ? " · " + modelData.location : ""); elide: Text.ElideRight; anchors.verticalCenter: parent.verticalCenter }
-                    Icon { name: "close"; size: Tokens.iconSize * 0.8; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter
-                           MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor; onClicked: Events.remove(modelData.uid) } }
-                }
-            }
-            Rectangle {
-                width: parent.width; height: Tokens.islandHeight; radius: height / 2
-                color: Colors.alpha(Colors.text, newEvent.activeFocus ? 0.12 : 0.06)
-                TextInput {
-                    id: newEvent
-                    anchors { fill: parent; leftMargin: Tokens.padding; rightMargin: Tokens.padding }
-                    verticalAlignment: TextInput.AlignVCenter
-                    font.family: Tokens.fontText; font.pixelSize: Tokens.textSize
-                    color: Colors.text; selectionColor: Colors.accent; clip: true
-                    onAccepted: { const q = Cal.parseQuick(text); if (q && q.title) { Events.add(q.title, root.picked, q.time, q.minutes); text = ""; } }
-                    Label { visible: !newEvent.text; text: "Add: 14:30 Dentist, or a title for all day"; role: "dim"; anchors.verticalCenter: parent.verticalCenter }
-                }
-            }
-        }
-    }
 
     // Weather, when the location is set in settings.
     Card {

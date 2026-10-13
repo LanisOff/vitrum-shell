@@ -20,8 +20,8 @@ SNAPS="$STATE/snapshots"
 KEEP=10
 # What a snapshot holds, relative to $HOME: the configs vitrum writes for you.
 # Not ~/.local/share/vitrum: that is the installer's own bookkeeping (what is
-# built, which version, what to restore on uninstall) and your calendar and
-# its passwords — none of it belongs to an older state of your configs.
+# built, which version, what to restore on uninstall) — none of it belongs to
+# an older state of your configs.
 PATHS=(.config/vitrum .config/quickshell/vitrum .config/kitty .config/fish .config/starship.toml
        .config/tmux .config/fastfetch .config/gtk-3.0 .config/gtk-4.0 .config/MangoHud
        .config/Kvantum/vitrum .config/qt6ct)

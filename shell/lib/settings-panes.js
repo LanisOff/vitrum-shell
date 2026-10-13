@@ -28,7 +28,7 @@ var panes = [
     { group: "System", id: "input", name: "Mouse & touchpad", icon: "mouse", keys: ["input"], words: "mouse touchpad pointer sensitivity speed acceleration scroll natural tap trackpad" },
     { group: "System", id: "lock", name: "Lock & idle", icon: "lock", keys: ["lock"], words: "lock screen lock after idle dim after screen off sleep picture face" },
     { group: "System", id: "power", name: "Power & performance", icon: "power", keys: ["awake", "games", "alerts"], words: "battery profile performance game mangohud awake temperature alerts" },
-    { group: "System", id: "time", name: "Date & time", icon: "calendar", keys: ["clock", "weather", "timers", "calendar"], words: "clock date time zone weather pomodoro calendar" },
+    { group: "System", id: "time", name: "Date & time", icon: "calendar", keys: ["clock", "weather", "timers"], words: "clock date time zone weather pomodoro calendar" },
     { group: "System", id: "advanced", name: "Advanced", icon: "settings", keys: ["updates"], words: "advanced debug reset json update version vitrum" }
 ];
 

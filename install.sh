@@ -17,7 +17,7 @@
 #    --replace-dm                       let SDDM replace another active login screen
 #    --with-plymouth / --no-plymouth    boot splash
 #    --with-live-wallpaper / --no-live-wallpaper   video wallpapers (mpvpaper)
-#    --with-extras / --no-extras        game mode + HUD, mic noise filter, calendar sync, VPN, sensors, mixer, archives
+#    --with-extras / --no-extras        game mode + HUD, mic noise filter, VPN, sensors, mixer, archives
 #    --with-phone / --no-phone          KDE Connect
 #    --with-tmux / --no-tmux            tmux, themed, with your plugins
 #    --with-nvim / --no-nvim            Neovim, themed, with your config
@@ -211,7 +211,7 @@ COMPONENT_QUESTIONS=(
   "SDDM|1|use SDDM with the vitrum login theme?|The login screen in the same style as the lock screen; other sessions stay listed."
   "PLYMOUTH|0|install the Plymouth boot splash?|A boot splash. On Gentoo the initramfs is regenerated with dracut, if dracut is your tool."
   "LIVE_WALLPAPER|1|allow video wallpapers?|Live wallpapers through mpvpaper. Static ones work either way."
-  "EXTRAS|1|install the extras?|Game mode with its HUD (gamemode, MangoHud), the microphone noise filter, calendar sync (vdirsyncer, khal), WireGuard, hardware sensors, a sound mixer (pavucontrol) and an archive manager (Ark)."
+  "EXTRAS|1|install the extras?|Game mode with its HUD (gamemode, MangoHud), the microphone noise filter, WireGuard, hardware sensors, a sound mixer (pavucontrol) and an archive manager (Ark)."
   "PHONE|0|connect your phone (KDE Connect)?|Notifications from the phone, its battery, a shared clipboard and files. Pulls in part of KDE Frameworks."
 )
 

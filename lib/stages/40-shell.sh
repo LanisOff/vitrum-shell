@@ -118,8 +118,6 @@ _shell_theme_tool() {
   install_file "$VITRUM_DIR/tools/vitrum-steam" "$HOME/.local/bin/vitrum-steam" 0755
   # the phone, through KDE Connect
   install_file "$VITRUM_DIR/tools/vitrum-phone" "$HOME/.local/bin/vitrum-phone" 0755
-  # calendar events (local, CalDAV, Google)
-  install_file "$VITRUM_DIR/tools/vitrum-calendar" "$HOME/.local/bin/vitrum-calendar" 0755
   # the clipboard history (text kept for good, images up to clipboard.images)
   install_file "$VITRUM_DIR/tools/vitrum-clip" "$HOME/.local/bin/vitrum-clip" 0755
   if [[ "$DRY_RUN" != "1" ]]; then

@@ -393,7 +393,7 @@ WANT_TMUX_KEYS="${WANT_TMUX_KEYS:-}"      # vitrum (Ctrl+a…) or default (tmux'
 WANT_SDDM="${WANT_SDDM:-}"
 WANT_PLYMOUTH="${WANT_PLYMOUTH:-}"
 WANT_LIVE_WALLPAPER="${WANT_LIVE_WALLPAPER:-}"
-WANT_EXTRAS="${WANT_EXTRAS:-}"          # game mode, MangoHud, mic filter, calendar sync, VPN, sensors
+WANT_EXTRAS="${WANT_EXTRAS:-}"          # game mode, MangoHud, mic filter, VPN, sensors
 WANT_PHONE="${WANT_PHONE:-}"            # KDE Connect
 
 components_file() { printf '%s\n' "$VITRUM_STATE/components.json"; }

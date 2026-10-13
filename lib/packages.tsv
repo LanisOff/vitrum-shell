@@ -116,16 +116,14 @@ neovim	app-editors/neovim	neovim	nvim	-	-	-
 tree-sitter	dev-libs/tree-sitter	tree-sitter	nvim	-	-	-
 lazygit	dev-vcs/lazygit	lazygit	nvim	~amd64	-	-
 shellcheck	dev-util/shellcheck-bin	shellcheck	nvim	-	-	-
-# extras: game mode and its HUD, the microphone noise filter, calendar sync,
-# VPN and hardware sensors.
+# extras: game mode and its HUD, the microphone noise filter, VPN and
+# hardware sensors.
 gamemode	games-util/gamemode	gamemode	extras	~amd64	-	-
 mangohud	games-util/mangohud	mangohud	extras	~amd64	mangohudctl	-
 noise-suppression	media-libs/noise-suppression-for-voice	aur:noise-suppression-for-voice	extras	~amd64	-	-
 cava	media-sound/cava	cava	extras	-	pipewire	-
 pavucontrol	media-sound/pavucontrol	pavucontrol	extras	-	-	-
 ark	kde-apps/ark	ark	extras	-	-	-
-khal	app-misc/khal	khal	extras	~amd64	-	-
-vdirsyncer	dev-python/vdirsyncer	vdirsyncer	extras	~amd64	-	-
 wireguard-tools	net-vpn/wireguard-tools	wireguard-tools	extras	-	-	-
 smartmontools	sys-apps/smartmontools	smartmontools	extras	-	-daemon	-
 lm-sensors	sys-apps/lm-sensors	lm_sensors	extras	-	-	-
