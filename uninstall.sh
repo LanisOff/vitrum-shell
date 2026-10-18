@@ -77,6 +77,17 @@ _rm sudo "$VITRUM_SYSROOT/usr/local/bin/niri" "$VITRUM_SYSROOT/usr/local/bin/vit
          "$VITRUM_SYSROOT/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.vitrum.service" \
          "$VITRUM_SYSROOT/usr/share/sddm/themes/vitrum" "$VITRUM_SYSROOT/etc/sddm.conf.d/zz-vitrum.conf" "$VITRUM_SYSROOT/etc/sddm.conf.d/50-vitrum.conf" \
          "$VITRUM_SYSROOT/usr/share/plymouth/themes/vitrum" "$VITRUM_SYSROOT/var/lib/vitrum"
+# The keyring lines the session stage added to PAM: each sits under its marker.
+for pam in "$VITRUM_SYSROOT/etc/pam.d/sddm" "$VITRUM_SYSROOT/etc/pam.d/login"; do
+  grep -qs '^# vitrum: open the keyring' "$pam" || continue
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would take the keyring lines out of $pam"; continue; fi
+  # Checked before it is written: an empty PAM file locks everyone out.
+  if ! new="$(awk '/^# vitrum: open the keyring/ { skip = 1; next } skip { skip = 0; next } { print }' "$pam")" || [[ -z "$new" ]]; then
+    warn "could not take the keyring lines out of $pam — remove the lines under \"# vitrum: open the keyring\" yourself"; continue
+  fi
+  printf '%s\n' "$new" | sudo_write "$pam"
+  dim "keyring lines taken out of $pam"
+done
 # The boot splash the system had before (initramfs: rebuild it yourself, as for the install).
 if [[ -s "$VITRUM_STATE/previous-plymouth" ]] && have plymouth-set-default-theme; then
   run sudo plymouth-set-default-theme "$(cat "$VITRUM_STATE/previous-plymouth")"

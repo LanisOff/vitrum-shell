@@ -65,3 +65,10 @@ test_uninstall_gives_back_only_the_kde_colours() {
   assert_contains "$k" "foo=Ctrl+K"
   [[ "$k" != *Vitrum* ]] || { echo "$k"; return 1; }
 }
+test_uninstall_takes_the_keyring_lines_out_of_pam() {
+  _installed_world
+  mkdir -p "$VITRUM_SYSROOT/etc/pam.d"
+  printf 'auth include system-local-login\n# vitrum: open the keyring with the login password\n-auth      optional     pam_gnome_keyring.so\nsession include system-local-login\n' > "$VITRUM_SYSROOT/etc/pam.d/login"
+  ( cd "$VITRUM_DIR" && ./uninstall.sh --yes ) >/dev/null 2>&1
+  assert_eq "$(cat "$VITRUM_SYSROOT/etc/pam.d/login")" "$(printf 'auth include system-local-login\nsession include system-local-login')"
+}

@@ -113,6 +113,8 @@ _doctor_session() {
   else _chk "niri's screen-cast interface" fail "absent: niri was not started with --session — log out and pick the niri session"; fi
   if pgrep -u "$(id -u)" -x xdg-desktop-portal >/dev/null 2>&1 || _doc_name org.freedesktop.portal.Desktop; then _chk "xdg-desktop-portal" ok
   else _chk "xdg-desktop-portal" warn "not running (it starts on first use)"; fi
+  if _doc_name org.freedesktop.secrets; then _chk "password store (Secret Service)" ok
+  else _chk "password store" warn "nothing answers org.freedesktop.secrets — browsers and git keep passwords in plain text or forget them; log out and in after ./install.sh --only session"; fi
   local p
   for p in pipewire wireplumber; do
     if pgrep -u "$(id -u)" -x "$p" >/dev/null 2>&1; then _chk "$p" ok; else _chk "$p" fail "not running — no sound and no screen sharing"; fi

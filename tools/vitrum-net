@@ -1,0 +1,318 @@
+#!/usr/bin/env python3
+"""vitrum-net — the parts of NetworkManager Settings → Network needs beyond the Wi-Fi list.
+
+    vitrum-net list                   JSON: saved connections (wired, Wi-Fi, VPN) with their state
+    vitrum-net show <uuid>            JSON: its addressing (automatic or fixed address, gateway, DNS)
+    vitrum-net set <uuid> key=value…  method=auto|manual address=a.b.c.d/nn gateway= dns="a b"
+                                      ipv6=auto|disabled autoconnect=yes|no metered=yes|no|unknown
+    vitrum-net wifi-add               JSON on stdin: a network not in the list (hidden) or one that
+                                      needs a login (WPA Enterprise), joined right away
+    vitrum-net import <file>          a VPN profile: .ovpn (OpenVPN) or .conf (WireGuard)
+    vitrum-net up|down|delete <uuid>
+
+Passwords never go on a command line, where any process could read them:
+wifi-add takes them on stdin, creates the connection without them (nmcli)
+and puts them in over D-Bus.
+
+    {"ssid": "…", "hidden": true, "security": "none|wpa|sae|eap", "password": "…",
+     "eap": {"method": "peap|ttls|pwd", "phase2": "mschapv2|pap|mschap|gtc", "identity": "…",
+             "anonymous": "…", "ca": "/path/ca.pem", "domain": "example.org"}}
+"""
+import ipaddress
+import json
+import re
+import subprocess
+import sys
+
+NM = "org.freedesktop.NetworkManager"
+KINDS = {"802-3-ethernet": "ethernet", "ethernet": "ethernet", "802-11-wireless": "wifi", "wifi": "wifi",
+         "vpn": "vpn", "wireguard": "wireguard"}
+FIELDS = ["ipv4.method", "ipv4.addresses", "ipv4.gateway", "ipv4.dns", "ipv6.method",
+          "connection.autoconnect", "connection.metered", "connection.type", "connection.id"]
+
+
+class Fail(Exception):
+    pass
+
+
+def nmcli(*args, stdin=None):
+    try:
+        p = subprocess.run(["nmcli"] + list(args), input=stdin, capture_output=True, text=True, timeout=60)
+    except FileNotFoundError:
+        raise Fail("nmcli is not installed (NetworkManager)")
+    except subprocess.TimeoutExpired:
+        raise Fail("NetworkManager did not answer in time")
+    if p.returncode != 0:
+        msg = (p.stderr or p.stdout).strip().splitlines()
+        raise Fail(_clean(msg[-1] if msg else "nmcli failed"))
+    return p.stdout
+
+
+def _clean(msg):
+    # "Error: Connection activation failed: Secrets were required, but not provided." → the reason.
+    msg = re.sub(r"^Error:\s*", "", msg)
+    msg = re.sub(r"^Connection activation failed:\s*", "", msg)
+    return msg[:1].upper() + msg[1:]
+
+
+def split_terse(line):
+    """One line of `nmcli -t`: fields split on ':', with '\\:' and '\\\\' escaped."""
+    out, cur, i = [], [], 0
+    while i < len(line):
+        c = line[i]
+        if c == "\\" and i + 1 < len(line):
+            cur.append(line[i + 1])
+            i += 2
+            continue
+        if c == ":":
+            out.append("".join(cur))
+            cur = []
+        else:
+            cur.append(c)
+        i += 1
+    out.append("".join(cur))
+    return out
+
+
+def parse_list(text):
+    rows = []
+    for line in text.splitlines():
+        if not line:
+            continue
+        f = split_terse(line)
+        if len(f) < 6:
+            continue
+        name, uuid, ctype, device, active, auto = f[:6]
+        kind = KINDS.get(ctype)
+        if not kind:
+            continue
+        rows.append({"name": name, "uuid": uuid, "kind": kind, "device": device if device not in ("", "--") else "",
+                     "active": active == "yes", "autoconnect": auto == "yes"})
+    return rows
+
+
+def parse_show(text):
+    """`nmcli -t -f … connection show <uuid>` ("key:value" lines) → the fields Settings edits."""
+    raw = {}
+    for line in text.splitlines():
+        if ":" not in line:
+            continue
+        k, v = line.split(":", 1)
+        raw[k] = v.replace("\\:", ":").replace("\\\\", "\\")
+    addrs = [a.strip() for a in raw.get("ipv4.addresses", "").split(",") if a.strip() and a.strip() != "--"]
+    dns = [d.strip() for d in raw.get("ipv4.dns", "").split(",") if d.strip() and d.strip() != "--"]
+    gw = raw.get("ipv4.gateway", "")
+    return {"name": raw.get("connection.id", ""), "kind": KINDS.get(raw.get("connection.type", ""), raw.get("connection.type", "")),
+            "method": "manual" if raw.get("ipv4.method") == "manual" else "auto",
+            "address": addrs[0] if addrs else "", "gateway": "" if gw in ("", "--") else gw, "dns": " ".join(dns),
+            "ipv6": "disabled" if raw.get("ipv6.method") in ("disabled", "ignore") else "auto",
+            "autoconnect": raw.get("connection.autoconnect", "yes") == "yes",
+            "metered": raw.get("connection.metered", "unknown") if raw.get("connection.metered") in ("yes", "no") else "unknown"}
+
+
+def set_args(opts):
+    """key=value options → the `nmcli connection modify` arguments, checked."""
+    out = []
+    method = opts.get("method")
+    if method not in (None, "auto", "manual"):
+        raise Fail("method is auto or manual")
+    if method == "manual":
+        try:
+            iface = ipaddress.IPv4Interface(opts.get("address", "").strip())
+        except ValueError:
+            raise Fail("The address should look like 192.168.1.20/24")
+        if "/" not in opts.get("address", ""):
+            iface = ipaddress.IPv4Interface(str(iface.ip) + "/24")
+        out += ["ipv4.method", "manual", "ipv4.addresses", str(iface)]
+        gw = opts.get("gateway", "").strip()
+        if gw:
+            try:
+                g = ipaddress.IPv4Address(gw)
+            except ValueError:
+                raise Fail("The gateway should be an address like 192.168.1.1")
+            if g not in iface.network:
+                raise Fail("The gateway %s is not in the network %s" % (g, iface.network))
+        out += ["ipv4.gateway", gw]
+    elif method == "auto":
+        out += ["ipv4.method", "auto", "ipv4.addresses", "", "ipv4.gateway", ""]
+    if "dns" in opts:
+        servers = [s for s in re.split(r"[\s,;]+", opts["dns"]) if s]
+        for s in servers:
+            try:
+                ipaddress.ip_address(s)
+            except ValueError:
+                raise Fail("Not a DNS server address: %s" % s)
+        v4 = [s for s in servers if ":" not in s]
+        v6 = [s for s in servers if ":" in s]
+        out += ["ipv4.dns", " ".join(v4), "ipv4.ignore-auto-dns", "yes" if v4 else "no"]
+        if v6 or "ipv6" in opts:
+            out += ["ipv6.dns", " ".join(v6), "ipv6.ignore-auto-dns", "yes" if v6 else "no"]
+    if "ipv6" in opts:
+        if opts["ipv6"] not in ("auto", "disabled"):
+            raise Fail("ipv6 is auto or disabled")
+        out += ["ipv6.method", opts["ipv6"]]
+    if "autoconnect" in opts:
+        out += ["connection.autoconnect", "yes" if opts["autoconnect"] in ("yes", "true", "1") else "no"]
+    if "metered" in opts:
+        if opts["metered"] not in ("yes", "no", "unknown"):
+            raise Fail("metered is yes, no or unknown")
+        out += ["connection.metered", opts["metered"]]
+    return out
+
+
+def wifi_add_args(req):
+    """The `nmcli connection add` arguments for a network (no secrets), and the secrets apart."""
+    ssid = str(req.get("ssid") or "").strip()
+    if not ssid:
+        raise Fail("The network needs a name")
+    if len(ssid.encode("utf-8")) > 32:
+        raise Fail("A network name is at most 32 bytes")
+    sec = req.get("security") or "none"
+    # Not on its own until the secrets are in: NetworkManager would try it at
+    # once, fail for want of them, and stop trying it automatically.
+    args = ["type", "wifi", "con-name", ssid, "ssid", ssid, "connection.autoconnect", "no"]
+    if req.get("hidden"):
+        args += ["802-11-wireless.hidden", "yes"]
+    secrets = {}
+    password = str(req.get("password") or "")
+    if sec == "none":
+        pass
+    elif sec in ("wpa", "sae"):
+        if sec == "wpa" and not 8 <= len(password) <= 63 and not re.fullmatch(r"[0-9a-fA-F]{64}", password):
+            raise Fail("A WPA password is 8 to 63 characters")
+        if sec == "sae" and not password:
+            raise Fail("The network needs its password")
+        args += ["wifi-sec.key-mgmt", "wpa-psk" if sec == "wpa" else "sae"]
+        secrets["802-11-wireless-security"] = {"psk": password}
+    elif sec == "eap":
+        eap = req.get("eap") or {}
+        method = eap.get("method") or "peap"
+        if method not in ("peap", "ttls", "pwd"):
+            raise Fail("The sign-in method is PEAP, TTLS or PWD")
+        identity = str(eap.get("identity") or "").strip()
+        if not identity:
+            raise Fail("The network needs a user name")
+        args += ["wifi-sec.key-mgmt", "wpa-eap", "802-1x.eap", method, "802-1x.identity", identity]
+        if method in ("peap", "ttls"):
+            phase2 = eap.get("phase2") or "mschapv2"
+            if phase2 not in ("mschapv2", "mschap", "pap", "gtc"):
+                raise Fail("The inner method is MSCHAPv2, MSCHAP, PAP or GTC")
+            args += ["802-1x.phase2-auth", phase2]
+            if eap.get("anonymous"):
+                args += ["802-1x.anonymous-identity", str(eap["anonymous"])]
+            if eap.get("ca"):
+                args += ["802-1x.ca-cert", str(eap["ca"])]
+            if eap.get("domain"):
+                args += ["802-1x.domain-suffix-match", str(eap["domain"])]
+        if password:
+            secrets["802-1x"] = {"password": password}
+    else:
+        raise Fail("Unknown security: %s" % sec)
+    return args, secrets
+
+
+def put_secrets(uuid, secrets):
+    """Write secrets into a saved connection over D-Bus (never on a command line),
+    and let it connect on its own from now on."""
+    if not secrets:
+        nmcli("connection", "modify", uuid, "connection.autoconnect", "yes")
+        return
+    import dbus
+    bus = dbus.SystemBus()
+    settings = dbus.Interface(bus.get_object(NM, "/org/freedesktop/NetworkManager/Settings"), NM + ".Settings")
+    con = dbus.Interface(bus.get_object(NM, settings.GetConnectionByUuid(uuid)), NM + ".Settings.Connection")
+    s = con.GetSettings()
+    # The old address lists come back beside the new ones and confuse Update.
+    for group in ("ipv4", "ipv6"):
+        if group in s:
+            for k in ("addresses", "routes"):
+                s[group].pop(k, None)
+    for group, values in secrets.items():
+        if group not in s:
+            s[group] = dbus.Dictionary({}, signature="sv")
+        for k, v in values.items():
+            s[group][k] = dbus.String(v)
+    s["connection"]["autoconnect"] = dbus.Boolean(True)
+    con.Update(s)
+
+
+def wifi_add(req):
+    args, secrets = wifi_add_args(req)
+    out = nmcli("connection", "add", *args)
+    m = re.search(r"\(([0-9a-f-]{36})\)", out)
+    if not m:
+        raise Fail("NetworkManager did not say what it created")
+    uuid = m.group(1)
+    try:
+        put_secrets(uuid, secrets)
+    except Exception as e:  # noqa: BLE001 — anything from D-Bus: undo, then say why
+        try:
+            nmcli("connection", "delete", uuid)
+        except Fail:
+            pass
+        raise Fail("Could not save the password: %s" % (getattr(e, "get_dbus_message", lambda: None)() or e))
+    try:
+        nmcli("--wait", "30", "connection", "up", uuid)
+    except Fail as e:
+        return {"uuid": uuid, "connected": False, "message": str(e)}
+    return {"uuid": uuid, "connected": True, "message": ""}
+
+
+def import_kind(path):
+    p = path.lower()
+    if p.endswith(".ovpn"):
+        return "openvpn"
+    if p.endswith(".conf"):
+        return "wireguard"
+    raise Fail("A VPN profile is an .ovpn file (OpenVPN) or a .conf file (WireGuard)")
+
+
+def vpn_import(path):
+    kind = import_kind(path)
+    try:
+        out = nmcli("connection", "import", "type", kind, "file", path)
+    except Fail as e:
+        if kind == "openvpn" and "plugin" in str(e).lower():
+            raise Fail("OpenVPN support for NetworkManager is not installed (networkmanager-openvpn)")
+        raise
+    m = re.search(r"\(([0-9a-f-]{36})\)", out)
+    return {"uuid": m.group(1) if m else ""}
+
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+    cmd, rest = argv[0], argv[1:]
+    try:
+        if cmd == "list":
+            print(json.dumps(parse_list(nmcli("-t", "-f", "NAME,UUID,TYPE,DEVICE,ACTIVE,AUTOCONNECT", "connection", "show"))))
+        elif cmd == "show" and len(rest) == 1:
+            print(json.dumps(parse_show(nmcli("-t", "-f", ",".join(FIELDS), "connection", "show", rest[0]))))
+        elif cmd == "set" and len(rest) >= 2:
+            opts = dict(a.split("=", 1) for a in rest[1:] if "=" in a)
+            args = set_args(opts)
+            if args:
+                nmcli("connection", "modify", rest[0], *args)
+                # Active: applied now, not at the next connection.
+                active = [r for r in parse_list(nmcli("-t", "-f", "NAME,UUID,TYPE,DEVICE,ACTIVE,AUTOCONNECT", "connection", "show"))
+                          if r["uuid"] == rest[0] and r["active"]]
+                if active:
+                    nmcli("--wait", "30", "connection", "up", rest[0])
+        elif cmd == "wifi-add":
+            print(json.dumps(wifi_add(json.loads(sys.stdin.read() or "{}"))))
+        elif cmd == "import" and len(rest) == 1:
+            print(json.dumps(vpn_import(rest[0])))
+        elif cmd in ("up", "down", "delete") and len(rest) == 1:
+            nmcli(*(["--wait", "30"] if cmd == "up" else []), "connection", cmd, rest[0])
+        else:
+            print(__doc__.strip(), file=sys.stderr)
+            return 2
+    except Fail as e:
+        print(str(e), file=sys.stderr)
+        return 1
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

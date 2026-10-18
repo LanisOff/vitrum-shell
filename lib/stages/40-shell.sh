@@ -131,6 +131,12 @@ _shell_theme_tool() {
   install_file "$VITRUM_DIR/tools/vitrum-phone" "$HOME/.local/bin/vitrum-phone" 0755
   # the clipboard history (text kept for good, images up to clipboard.images)
   install_file "$VITRUM_DIR/tools/vitrum-clip" "$HOME/.local/bin/vitrum-clip" 0755
+  # default apps and the session's autostart (Settings → Applications, vitrum-startup)
+  install_file "$VITRUM_DIR/tools/vitrum-apps" "$HOME/.local/bin/vitrum-apps" 0755
+  # Bluetooth pairing: BlueZ's questions, answered through the shell's dialogs
+  install_file "$VITRUM_DIR/tools/vitrum-bt-agent" "$HOME/.local/bin/vitrum-bt-agent" 0755
+  # Settings → Network: hidden and Enterprise Wi-Fi, addressing, VPN profiles (NetworkManager)
+  install_file "$VITRUM_DIR/tools/vitrum-net" "$HOME/.local/bin/vitrum-net" 0755
   if [[ "$DRY_RUN" != "1" ]]; then
     VITRUM_DATA="$QS_SHELL/data" "$HOME/.local/bin/vitrum-theme" --quiet || warn "vitrum-theme failed — the shell falls back to its built-in palette"
   fi

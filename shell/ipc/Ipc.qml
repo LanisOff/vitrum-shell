@@ -173,6 +173,14 @@ Scope {
         function lockpass(pw: string): string { if (!lockRef) return "no lock"; lockRef.password = pw; lockRef.submit(); return "submitted"; }
         function polkit(): string { return JSON.stringify({ registered: Polkit.registered, active: Polkit.active, message: Polkit.flow ? Polkit.flow.message : "" }); }
         function polkitcancel(): void { if (Polkit.flow) Polkit.flow.cancelAuthenticationRequest(); }
+        /// A system question (Prompt), its answer to the log. field: none | text | password | number;
+        /// code: digits to show, or none; "_" in the title is a space (tests pass words one by one).
+        function prompt(title: string, field: string, code: string): void {
+            const f = field === "none" ? "" : field, c = code === "none" ? "" : code;
+            Prompt.ask({ icon: f === "password" ? "wifi-lock" : "bluetooth", title: title.replace(/_/g, " "), message: "A question from the debug IPC.", field: f, code: c, okText: "OK" },
+                       (ok, value) => console.info("prompt answered:", ok, value.length));
+        }
+        function promptanswer(ok: bool, value: string): void { Prompt.answer(ok, value); }
         /// The lock's look on an ordinary surface, and a refused password without PAM (tests).
         function lockpreview(on: bool): void { if (lockRef) { lockRef.preview = on; if (on) { lockRef.password = ""; lockRef.error = ""; lockRef.failures = 0; lockRef.lockedAt = Date.now(); } } }
         function locktype(text: string): void { if (lockRef) lockRef.password = text; }

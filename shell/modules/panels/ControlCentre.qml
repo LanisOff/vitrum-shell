@@ -124,9 +124,9 @@ Column {
                 Capsule {
                     required property var modelData
                     width: parent.width
-                    icon: "wifi"; label: modelData.name + (modelData.connected ? "  ·  connected" : "")
+                    icon: Network.secured(modelData) && !modelData.known ? "wifi-lock" : "wifi"; label: modelData.name + (modelData.connected ? "  ·  connected" : "")
                     active: modelData.connected
-                    onClicked: if (!modelData.connected) Network.connect(modelData)
+                    onClicked: if (!modelData.connected) { if (Network.needsPassword(modelData) && !modelData.known) UiState.closePanel(); Network.join(modelData); }
                 }
             }
             Label { visible: Network.wifiNetworks.length === 0; text: "No networks"; role: "dim" }

@@ -18,6 +18,8 @@ var panes = [
     { group: "Desktop", id: "notifications", name: "Notifications", icon: "notifications", keys: ["notifications", "sounds.notification"], words: "do not disturb dnd toasts" },
     { group: "Desktop", id: "windows", name: "Windows", icon: "window", keys: ["windows", "terminal"], words: "focus opacity terminal materials pip picture" },
     { group: "Desktop", id: "navigation", name: "Navigation", icon: "search", keys: ["launcher", "switcher", "overview", "clipboard", "corners"], words: "spotlight launcher search alt tab switcher overview clipboard hot corners web", aliases: ["search"] },
+    { group: "Desktop", id: "apps", name: "Applications", icon: "folder-apps", keys: [], words: "default apps browser file manager mail viewer player open with" },
+    { group: "Desktop", id: "autostart", name: "Autostart", icon: "rocket", keys: [], words: "startup login autostart start boot launch tray" },
     { group: "Desktop", id: "capture", name: "Screenshots & recording", icon: "screenshot", keys: ["capture", "screencast", "picker"], words: "screen recording capture share colour picker text recognition" },
     { group: "System", id: "sound", name: "Sound", icon: "volume-high", keys: ["audio", "sounds"], words: "audio volume speakers microphone output input noise sounds" },
     { group: "System", id: "media", name: "Media", icon: "music", keys: ["media"], words: "music player lyrics spectrum visualizer" },

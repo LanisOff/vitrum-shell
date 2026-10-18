@@ -174,3 +174,38 @@ test_keybinds_reapply_settings_through_vitrum_theme() {
   _session_keybinds
   assert_contains "$(cat "$HOME/theme-args")" "--no-color-scheme"
 }
+test_keyring_pam_lines_go_in_once_after_their_kind() {
+  _load_session openrc
+  mkdir -p "$VITRUM_SYSROOT/etc/pam.d"
+  printf 'auth       required     pam_securetty.so\nauth       include      system-local-login\naccount    include      system-local-login\nsession    include      system-local-login\n' > "$VITRUM_SYSROOT/etc/pam.d/login"
+  _session_keyring; _session_keyring
+  f="$VITRUM_SYSROOT/etc/pam.d/login"
+  assert_eq "$(grep -c 'pam_gnome_keyring' "$f")" 2
+  # auth right after the last auth line, session after the last session line
+  assert_eq "$(sed -n 4p "$f")" "-auth      optional     pam_gnome_keyring.so"
+  assert_eq "$(tail -n 1 "$f")" "-session   optional     pam_gnome_keyring.so auto_start"
+}
+test_keyring_pam_leaves_a_stack_that_has_it() {
+  _load_session systemd
+  mkdir -p "$VITRUM_SYSROOT/etc/pam.d"
+  printf 'auth include system-login\n-auth optional pam_gnome_keyring.so\nsession include system-login\n' > "$VITRUM_SYSROOT/etc/pam.d/sddm"
+  before="$(cat "$VITRUM_SYSROOT/etc/pam.d/sddm")"
+  _session_keyring
+  assert_eq "$(cat "$VITRUM_SYSROOT/etc/pam.d/sddm")" "$before"
+}
+test_startup_script_starts_the_keyring() {
+  _load_session systemd
+  _session_startup_script
+  assert_contains "$(cat "$HOME/.local/bin/vitrum-startup")" "gnome-keyring-daemon --start --components=secrets"
+  assert_contains "$(cat "$HOME/.local/bin/vitrum-startup")" "vitrum-apps autostart run"
+}
+test_keyring_pam_password_line_and_no_trailing_newline() {
+  _load_session systemd
+  mkdir -p "$VITRUM_SYSROOT/etc/pam.d"
+  printf 'auth include system-login\npassword include system-login\nsession include system-login' > "$VITRUM_SYSROOT/etc/pam.d/sddm"
+  _session_keyring
+  f="$VITRUM_SYSROOT/etc/pam.d/sddm"
+  assert_eq "$(grep -c 'pam_gnome_keyring' "$f")" 3
+  assert_contains "$(cat "$f")" "-password  optional     pam_gnome_keyring.so use_authtok"
+  assert_eq "$(grep -vc 'pam_gnome_keyring\|^# vitrum' "$f")" 3
+}

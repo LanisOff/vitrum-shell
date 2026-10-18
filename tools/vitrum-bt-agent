@@ -1,0 +1,247 @@
+#!/usr/bin/env python3
+"""vitrum-bt-agent — BlueZ's pairing agent, with the shell as its face.
+
+    vitrum-bt-agent         run by the shell (services/Bluetooth.qml), one line of JSON per message
+
+BlueZ asks an agent whenever pairing needs a person: a PIN to type, a six-digit
+code to compare, "may this phone connect?". Quickshell has no agent of its
+own, and without one pairing a keyboard or a phone fails. This registers as
+the default agent and hands every question to the shell on stdout; the shell
+shows a dialog and writes the answer to stdin.
+
+    out  {"id": 1, "type": "confirm", "name": "Pixel 8", "address": "…", "passkey": "012345"}
+         type: pin | passkey | confirm | authorize | service | display-pin | display-passkey
+         {"type": "cancel", "id": 1}      BlueZ gave up: close that dialog
+         {"type": "ready"} / {"type": "error", "message": "…"}
+    in   {"id": 1, "ok": true, "value": "1234"}
+
+A device that pairs is marked trusted, so it can reconnect on its own later.
+The agent exits when stdin closes (the shell is gone).
+"""
+import json
+import os
+import sys
+
+import dbus
+import dbus.mainloop.glib
+import dbus.service
+from gi.repository import GLib
+
+BUS_NAME = "org.bluez"
+AGENT_IFACE = "org.bluez.Agent1"
+MANAGER_IFACE = "org.bluez.AgentManager1"
+DEVICE_IFACE = "org.bluez.Device1"
+PATH = "/org/vitrum/bluetooth/agent"
+CAPABILITY = "KeyboardDisplay"
+
+# Profiles a person would recognise, for "may it use …?".
+SERVICES = {
+    "0000110a": "audio", "0000110b": "audio", "0000110d": "audio", "0000111e": "hands-free calls",
+    "0000111f": "hands-free calls", "00001108": "headset", "00001112": "headset", "00001124": "input (keyboard, mouse)",
+    "00001105": "file transfer", "00001106": "file transfer", "0000112f": "the phone book", "00001132": "messages",
+    "00001115": "the network", "00001116": "the network", "0000110e": "media controls", "0000110c": "media controls",
+}
+
+
+class Rejected(dbus.DBusException):
+    _dbus_error_name = "org.bluez.Error.Rejected"
+
+
+class Canceled(dbus.DBusException):
+    _dbus_error_name = "org.bluez.Error.Canceled"
+
+
+def emit(msg):
+    try:
+        sys.stdout.write(json.dumps(msg) + "\n")
+        sys.stdout.flush()
+    except (BrokenPipeError, OSError):
+        GLib.idle_add(loop.quit)
+
+
+class Agent(dbus.service.Object):
+    def __init__(self, bus):
+        super().__init__(bus, PATH)
+        self.bus = bus
+        self.next_id = 0
+        self.pending = {}           # id → callback(answer dict)
+        self.shown = set()          # display-only questions still on screen
+
+    # ------------------------------------------------------------ helpers --
+    def device(self, path):
+        try:
+            props = dbus.Interface(self.bus.get_object(BUS_NAME, path), "org.freedesktop.DBus.Properties").GetAll(DEVICE_IFACE)
+        except dbus.DBusException:
+            props = {}
+        return {"name": str(props.get("Alias") or props.get("Name") or ""), "address": str(props.get("Address") or ""),
+                "icon": str(props.get("Icon") or ""), "trusted": bool(props.get("Trusted", False))}
+
+    def ask(self, kind, path, reply=None, **extra):
+        self.next_id += 1
+        qid = self.next_id
+        msg = {"id": qid, "type": kind}
+        msg.update(self.device(path))
+        msg.update(extra)
+        if reply is None:
+            self.shown.add(qid)
+        else:
+            self.pending[qid] = reply
+        emit(msg)
+        return qid
+
+    def answer(self, msg):
+        cb = self.pending.pop(msg.get("id"), None)
+        if cb:
+            cb(msg)
+
+    def close_shown(self):
+        for qid in list(self.shown):
+            emit({"type": "cancel", "id": qid})
+        self.shown.clear()
+
+    def cancel_all(self):
+        for qid, cb in list(self.pending.items()):
+            emit({"type": "cancel", "id": qid})
+            cb({"ok": False, "canceled": True})
+        self.pending.clear()
+        self.close_shown()
+
+    @staticmethod
+    def _fail(err, msg):
+        err(Canceled("canceled") if msg.get("canceled") else Rejected("rejected by the user"))
+
+    # ------------------------------------------------------------- Agent1 --
+    @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
+    def Release(self):
+        self.cancel_all()
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="s", async_callbacks=("ok", "err"))
+    def RequestPinCode(self, device, ok, err):
+        self.ask("pin", device, lambda m: ok(str(m.get("value", ""))) if m.get("ok") and m.get("value") else self._fail(err, m))
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="")
+    def DisplayPinCode(self, device, pincode):
+        self.ask("display-pin", device, None, passkey=str(pincode))
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="u", async_callbacks=("ok", "err"))
+    def RequestPasskey(self, device, ok, err):
+        def reply(m):
+            try:
+                value = int(str(m.get("value", "")).strip())
+            except ValueError:
+                value = -1
+            if m.get("ok") and 0 <= value <= 999999:
+                ok(dbus.UInt32(value))
+            else:
+                self._fail(err, m)
+        self.ask("passkey", device, reply)
+
+    @dbus.service.method(AGENT_IFACE, in_signature="ouq", out_signature="")
+    def DisplayPasskey(self, device, passkey, entered):
+        # Called again for every key typed on the device: one dialog, updated.
+        for qid in list(self.shown):
+            emit({"type": "cancel", "id": qid})
+        self.shown.clear()
+        self.ask("display-passkey", device, None, passkey="%06d" % passkey, entered=int(entered))
+
+    @dbus.service.method(AGENT_IFACE, in_signature="ou", out_signature="", async_callbacks=("ok", "err"))
+    def RequestConfirmation(self, device, passkey, ok, err):
+        self.ask("confirm", device, lambda m: ok() if m.get("ok") else self._fail(err, m), passkey="%06d" % passkey)
+
+    @dbus.service.method(AGENT_IFACE, in_signature="o", out_signature="", async_callbacks=("ok", "err"))
+    def RequestAuthorization(self, device, ok, err):
+        self.ask("authorize", device, lambda m: ok() if m.get("ok") else self._fail(err, m))
+
+    @dbus.service.method(AGENT_IFACE, in_signature="os", out_signature="", async_callbacks=("ok", "err"))
+    def AuthorizeService(self, device, uuid, ok, err):
+        # A paired, trusted device using one more of its profiles needs no question.
+        if self.device(device)["trusted"]:
+            ok()
+            return
+        service = SERVICES.get(str(uuid)[:8].lower(), "a service")
+        self.ask("service", device, lambda m: ok() if m.get("ok") else self._fail(err, m), service=service)
+
+    @dbus.service.method(AGENT_IFACE, in_signature="", out_signature="")
+    def Cancel(self):
+        self.cancel_all()
+
+
+def register(bus, agent):
+    try:
+        manager = dbus.Interface(bus.get_object(BUS_NAME, "/org/bluez"), MANAGER_IFACE)
+        try:
+            manager.RegisterAgent(PATH, CAPABILITY)
+        except dbus.DBusException as e:
+            if "AlreadyExists" not in (e.get_dbus_name() or ""):
+                raise
+        manager.RequestDefaultAgent(PATH)
+        emit({"type": "ready"})
+    except dbus.DBusException as e:
+        emit({"type": "error", "message": e.get_dbus_message() or str(e)})
+
+
+def on_properties(agent, bus):
+    def changed(iface, props, invalidated, path=None):
+        if iface != DEVICE_IFACE or not props.get("Paired"):
+            return
+        # Paired: done with any code still on screen, and trusted from now on.
+        agent.close_shown()
+        try:
+            dbus.Interface(bus.get_object(BUS_NAME, path), "org.freedesktop.DBus.Properties").Set(DEVICE_IFACE, "Trusted", dbus.Boolean(True))
+        except dbus.DBusException:
+            pass
+    return changed
+
+
+def main():
+    global loop
+    dbus.mainloop.glib.DBusGMainLoop(set_as_default=True)
+    bus = dbus.SystemBus()
+    agent = Agent(bus)
+    loop = GLib.MainLoop()
+
+    bus.add_signal_receiver(on_properties(agent, bus), dbus_interface="org.freedesktop.DBus.Properties",
+                            signal_name="PropertiesChanged", bus_name=BUS_NAME, path_keyword="path")
+
+    # BlueZ (re)starting: register again.
+    def owner_changed(name, old, new):
+        if name == BUS_NAME and new:
+            GLib.timeout_add(500, lambda: (register(bus, agent), False)[1])
+        elif name == BUS_NAME:
+            agent.cancel_all()
+    bus.add_signal_receiver(owner_changed, dbus_interface="org.freedesktop.DBus", signal_name="NameOwnerChanged", arg0=BUS_NAME)
+    if bus.name_has_owner(BUS_NAME):
+        register(bus, agent)
+
+    buf = [b""]
+
+    def on_stdin(fd, cond):
+        data = os.read(fd, 4096) if cond & GLib.IO_IN else b""
+        if not data:
+            loop.quit()
+            return False
+        buf[0] += data
+        while b"\n" in buf[0]:
+            line, buf[0] = buf[0].split(b"\n", 1)
+            try:
+                msg = json.loads(line.decode("utf-8", "replace"))
+            except ValueError:
+                continue
+            if isinstance(msg, dict):
+                agent.answer(msg)
+        return True
+
+    GLib.io_add_watch(sys.stdin.fileno(), GLib.IO_IN | GLib.IO_HUP | GLib.IO_ERR, on_stdin)
+    try:
+        loop.run()
+    finally:
+        try:
+            dbus.Interface(bus.get_object(BUS_NAME, "/org/bluez"), MANAGER_IFACE).UnregisterAgent(PATH)
+        except dbus.DBusException:
+            pass
+
+
+loop = None
+
+if __name__ == "__main__":
+    main()

@@ -3,12 +3,12 @@ import { join } from "node:path";
 import { load, eq, ok, root } from "./lib.mjs";
 const P = load("settings-panes.js");
 
-// One list, ids unique, 23 sections in the agreed order of groups.
+// One list, ids unique, 25 sections in the agreed order of groups.
 const ids = P.panes.map(p => p.id);
 eq(new Set(ids).size, ids.length, "ids unique");
-eq(P.panes.length, 23, "23 sections");
+eq(P.panes.length, 25, "25 sections");
 eq(P.panes.filter(p => p.group === "Personal").length, 5, "Personal: 5");
-eq(P.panes.filter(p => p.group === "Desktop").length, 7, "Desktop: 7");
+eq(P.panes.filter(p => p.group === "Desktop").length, 9, "Desktop: 9");
 eq(P.panes.filter(p => p.group === "System").length, 11, "System: 11");
 
 // Old ids still open; unknown ones fall back to Appearance.
@@ -30,6 +30,9 @@ eq(P.find("wifi", 3)[0].id, "network", "by a word");
 eq(P.find("lock", 3)[0].id, "lock", "lock screen lives in Lock & idle");
 eq(P.find("brightness", 3)[0].id, "displays", "brightness in Displays");
 eq(P.find("lyrics", 3)[0].id, "media", "lyrics in Media");
+eq(P.find("autostart", 3)[0].id, "autostart", "autostart has its own section");
+eq(P.find("startup", 3)[0].id, "autostart", "startup apps in Autostart");
+eq(P.find("browser", 3)[0].id, "apps", "the default browser in Applications");
 eq(P.find("hot corners", 3)[0].id, "navigation", "hot corners in Navigation");
 eq(P.find("l", 3).length, 0, "one letter: none");
 

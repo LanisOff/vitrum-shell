@@ -109,10 +109,20 @@ Singleton {
 
     function lock()      { run(["vitrum-ipc", "lock", "lock"]); }
     function logout()    { run([Niri.bin, "msg", "action", "quit", "--skip-confirmation"]); }
-    function suspend()   { run(["loginctl", "suspend"]); }
-    function hibernate() { run(["loginctl", "hibernate"]); }
-    function reboot()    { run(["loginctl", "reboot"]); }
-    function shutdown()  { run(["loginctl", "poweroff"]); }
+    function suspend()   { _logind("Suspend", "suspend"); }
+    function hibernate() { _logind("Hibernate", "hibernate"); }
+    function reboot()    { _logind("Reboot", "reboot"); }
+    function shutdown()  { _logind("PowerOff", "poweroff"); }
+
+    // logind over D-Bus, which systemd-logind and elogind both answer — their
+    // loginctl verbs differ (systemd's has no poweroff, reboot or suspend, so
+    // these did nothing on Arch). interactive=true: polkit may ask first (another
+    // user logged in), through the shell's prompt. systemctl and elogind's
+    // loginctl after it, should D-Bus fail.
+    function _logind(method, verb) {
+        run(["sh", "-c", 'dbus-send --system --print-reply --reply-timeout=120000 --dest=org.freedesktop.login1 /org/freedesktop/login1 '
+             + '"org.freedesktop.login1.Manager.$1" boolean:true >/dev/null 2>&1 || systemctl "$2" 2>/dev/null || loginctl "$2"', "_", method, verb]);
+    }
 
     function run(cmdline) { Quickshell.execDetached(cmdline); }
 }

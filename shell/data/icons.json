@@ -603,5 +603,35 @@
  },
  "bolt": {
   "material": "bolt"
+ },
+ "rocket": {
+  "material": "rocket_launch"
+ },
+ "rotate": {
+  "material": "screen_rotation"
+ },
+ "key": {
+  "material": "key"
+ },
+ "star": {
+  "material": "star"
+ },
+ "mirror": {
+  "material": "flip"
+ },
+ "wifi-lock": {
+  "material": "wifi_password"
+ },
+ "visibility": {
+  "material": "visibility"
+ },
+ "visibility-off": {
+  "material": "visibility_off"
+ },
+ "bluetooth-searching": {
+  "material": "bluetooth_searching"
+ },
+ "ip": {
+  "material": "settings_ethernet"
  }
 }

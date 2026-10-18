@@ -47,6 +47,9 @@ power-profiles-daemon	sys-power/power-profiles-daemon	power-profiles-daemon	requ
 brightnessctl	app-misc/brightnessctl	brightnessctl	required	~amd64	-	-
 playerctl	media-sound/playerctl	playerctl	required	-	-	-
 polkit	sys-auth/polkit	polkit	required	-	-	-
+# The password store apps keep their secrets in (Secret Service), unlocked at login.
+keyring	gnome-base/gnome-keyring	gnome-keyring	required	-	pam	-
+libsecret	app-crypt/libsecret	libsecret	required	-	-	-
 dbus-python	dev-python/dbus-python	python-dbus	required	-	-	-
 pygobject	dev-python/pygobject	python-gobject	required	-	-	-
 pillow	dev-python/pillow	python-pillow	required	-	-	-
@@ -58,6 +61,8 @@ udisks	sys-fs/udisks	udisks2	required	-	-	-
 grim	gui-apps/grim	grim	required	-	-	-
 slurp	gui-apps/slurp	slurp	required	-	-	-
 wl-clipboard	gui-apps/wl-clipboard	wl-clipboard	required	-	-	-
+# Settings → Displays: one screen mirrored on another (niri has no mirroring of its own).
+wl-mirror	gui-apps/wl-mirror	wl-mirror	required	~amd64	-	-
 cliphist	app-misc/cliphist	cliphist	required	~amd64	-	-
 libnotify	x11-libs/libnotify	libnotify	required	-	-	-
 jq	app-misc/jq	jq	required	-	-	-
@@ -125,6 +130,7 @@ cava	media-sound/cava	cava	extras	-	pipewire	-
 pavucontrol	media-sound/pavucontrol	pavucontrol	extras	-	-	-
 ark	kde-apps/ark	ark	extras	-	-	-
 wireguard-tools	net-vpn/wireguard-tools	wireguard-tools	extras	-	-	-
+networkmanager-openvpn	net-vpn/networkmanager-openvpn	networkmanager-openvpn	extras	-	-	-
 smartmontools	sys-apps/smartmontools	smartmontools	extras	-	-daemon	-
 lm-sensors	sys-apps/lm-sensors	lm_sensors	extras	-	-	-
 # phone: KDE Connect (pulls a good part of KDE Frameworks).

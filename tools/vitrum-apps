@@ -1,0 +1,496 @@
+#!/usr/bin/env python3
+"""vitrum-apps — what opens files and links, and what starts with the session.
+
+    vitrum-apps list                      JSON {defaults, autostart, apps} for Settings → Applications
+    vitrum-apps default <kind> <app-id>   make an app the default for a kind (browser, files, …)
+    vitrum-apps autostart run             start the session's autostart entries (vitrum-startup)
+    vitrum-apps autostart on|off <id>     enable or disable an entry, for this user
+    vitrum-apps autostart add <app-id>    start an installed app with the session
+    vitrum-apps autostart remove <id>     take it out again (a system entry is disabled instead)
+
+Defaults go to ~/.config/mimeapps.list, the file every toolkit and xdg-open
+read (and to niri-mimeapps.list as well when that one already overrides
+them). Autostart follows the XDG autostart spec: ~/.config/autostart over
+$XDG_CONFIG_DIRS/autostart, Hidden, OnlyShowIn/NotShowIn, TryExec. A few
+entries are skipped because vitrum already does their job (a second polkit
+agent or notification daemon would fight the shell's).
+"""
+import fnmatch
+import json
+import os
+import shutil
+import subprocess
+import sys
+import tempfile
+from pathlib import Path
+
+HOME = Path.home()
+CONFIG_HOME = Path(os.environ.get("XDG_CONFIG_HOME") or HOME / ".config")
+DATA_HOME = Path(os.environ.get("XDG_DATA_HOME") or HOME / ".local/share")
+CONFIG_DIRS = [Path(p) for p in (os.environ.get("XDG_CONFIG_DIRS") or "/etc/xdg").split(":") if p]
+DATA_DIRS = [Path(p) for p in (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":") if p]
+DESKTOPS = [d.lower() for d in (os.environ.get("XDG_CURRENT_DESKTOP") or "niri").split(":") if d]
+
+# kind, label, the MIME types it sets (the first one is read back as "current").
+KINDS = [
+    ("browser", "Web browser", ["x-scheme-handler/https", "x-scheme-handler/http", "text/html", "application/xhtml+xml"]),
+    ("mail", "Mail", ["x-scheme-handler/mailto"]),
+    ("files", "Files", ["inode/directory"]),
+    ("text", "Text editor", ["text/plain", "text/markdown", "application/x-shellscript"]),
+    ("images", "Images", ["image/png", "image/jpeg", "image/gif", "image/webp", "image/bmp", "image/tiff", "image/avif", "image/svg+xml"]),
+    ("video", "Video", ["video/mp4", "video/x-matroska", "video/webm", "video/mpeg", "video/quicktime", "video/x-msvideo", "video/ogg"]),
+    ("music", "Music", ["audio/mpeg", "audio/flac", "audio/ogg", "audio/x-vorbis+ogg", "audio/x-opus+ogg", "audio/x-wav", "audio/mp4", "audio/aac"]),
+    ("pdf", "PDF documents", ["application/pdf"]),
+    ("archives", "Archives", ["application/zip", "application/x-7z-compressed", "application/x-tar", "application/x-compressed-tar",
+                              "application/x-xz-compressed-tar", "application/x-bzip-compressed-tar", "application/vnd.rar", "application/x-rar"]),
+]
+# The types an app must handle to be offered for a kind (else any of KINDS'):
+# a browser that only opens local HTML files is not a browser.
+OFFER = {"browser": ["x-scheme-handler/https", "x-scheme-handler/http"]}
+
+# Autostart entries vitrum does the job of itself: (id pattern, why).
+MANAGED = [
+    ("*polkit*", "vitrum has its own password prompt"),
+    ("gnome-keyring-*", "vitrum starts the keyring"),
+    ("gentoo-pipewire-launcher*", "the session starts PipeWire"),
+    ("pipewire*", "the session starts PipeWire"),
+    ("wireplumber*", "the session starts PipeWire"),
+    ("dunst*", "vitrum shows the notifications"),
+    ("mako*", "vitrum shows the notifications"),
+    ("xfce4-notifyd*", "vitrum shows the notifications"),
+    ("notification-daemon*", "vitrum shows the notifications"),
+]
+
+# ------------------------------------------------------------ desktop files --
+
+_ESC = {"s": " ", "n": "\n", "t": "\t", "r": "\r", "\\": "\\"}
+
+
+def _unescape(v):
+    out, i = [], 0
+    while i < len(v):
+        c = v[i]
+        if c == "\\" and i + 1 < len(v):
+            out.append(_ESC.get(v[i + 1], "\\" + v[i + 1]))
+            i += 2
+        else:
+            out.append(c)
+            i += 1
+    return "".join(out)
+
+
+def read_entry(path):
+    """The [Desktop Entry] group of a .desktop file: {key: value}, locale keys kept as Key[ll]."""
+    out, inside = {}, False
+    try:
+        text = Path(path).read_text(encoding="utf-8", errors="replace")
+    except OSError:
+        return None
+    for line in text.splitlines():
+        s = line.strip()
+        if not s or s.startswith("#"):
+            continue
+        if s.startswith("["):
+            if inside:
+                break
+            inside = s == "[Desktop Entry]"
+            continue
+        if inside and "=" in s:
+            k, v = s.split("=", 1)
+            out.setdefault(k.strip(), _unescape(v.strip()))
+    return out if inside or out else None
+
+
+def _langs():
+    v = os.environ.get("LC_ALL") or os.environ.get("LC_MESSAGES") or os.environ.get("LANG") or ""
+    v = v.split(".")[0].split("@")[0]
+    return [v, v.split("_")[0]] if v and v not in ("C", "POSIX") else []
+
+
+LANGS = _langs()
+
+
+def localized(entry, key):
+    for l in LANGS:
+        if entry.get("%s[%s]" % (key, l)):
+            return entry["%s[%s]" % (key, l)]
+    return entry.get(key, "")
+
+
+def _bool(v):
+    return str(v).strip().lower() == "true"
+
+
+def _list(v):
+    return [x for x in str(v or "").split(";") if x]
+
+
+def exec_argv(line, entry=None, path=""):
+    """An Exec line → argv: the spec's quoting, field codes dropped (%f, %U…)."""
+    args, cur, quoted, have, i = [], [], False, False, 0
+    while i < len(line):
+        c = line[i]
+        if quoted:
+            if c == "\\" and i + 1 < len(line) and line[i + 1] in '"`$\\':
+                cur.append(line[i + 1])
+                i += 2
+                continue
+            if c == '"':
+                quoted = False
+            else:
+                cur.append(c)
+        elif c == '"':
+            quoted, have = True, True
+        elif c in " \t":
+            if cur or have:
+                args.append("".join(cur))
+            cur, have = [], False
+        else:
+            cur.append(c)
+        i += 1
+    if cur or have:
+        args.append("".join(cur))
+    out = []
+    for a in args:
+        if a in ("%f", "%F", "%u", "%U", "%d", "%D", "%n", "%N", "%v", "%m"):
+            continue
+        if a == "%i":
+            if entry and entry.get("Icon"):
+                out += ["--icon", entry["Icon"]]
+            continue
+        a = a.replace("%c", localized(entry or {}, "Name")).replace("%k", str(path))
+        out.append(a.replace("%%", "%"))
+    return out
+
+
+def _which(prog):
+    if not prog:
+        return False
+    if "/" in prog:
+        return os.access(prog, os.X_OK)
+    return shutil.which(prog) is not None
+
+
+def applications():
+    """Every installed app: {id: (path, entry)} — the first of each id in XDG_DATA order."""
+    out = {}
+    for base in [DATA_HOME] + DATA_DIRS:
+        root = base / "applications"
+        if not root.is_dir():
+            continue
+        for p in sorted(root.rglob("*.desktop")):
+            did = str(p.relative_to(root)).replace("/", "-")
+            if did in out:
+                continue
+            e = read_entry(p)
+            if e is not None:
+                out[did] = (p, e)
+    return out
+
+
+def _shown(entry):
+    return (entry.get("Type", "Application") == "Application" and not _bool(entry.get("Hidden"))
+            and not _bool(entry.get("NoDisplay")) and _tryexec_ok(entry))
+
+
+def _tryexec_ok(entry):
+    t = entry.get("TryExec")
+    return not t or _which(t)
+
+
+def _brief(did, entry):
+    return {"id": did, "name": localized(entry, "Name") or did[:-8], "icon": entry.get("Icon", "")}
+
+
+# ----------------------------------------------------------------- mimeapps --
+
+def mimeapps_chain():
+    """The mimeapps.list files, most important first (the mime-apps spec)."""
+    chain = []
+    for base in [CONFIG_HOME] + CONFIG_DIRS:
+        chain += [base / ("%s-mimeapps.list" % d) for d in DESKTOPS] + [base / "mimeapps.list"]
+    for base in [DATA_HOME] + DATA_DIRS:
+        chain += [base / "applications" / ("%s-mimeapps.list" % d) for d in DESKTOPS] + [base / "applications" / "mimeapps.list"]
+    return chain
+
+
+def read_group(path, group):
+    out, inside = {}, False
+    try:
+        lines = Path(path).read_text(encoding="utf-8", errors="replace").splitlines()
+    except OSError:
+        return out
+    for line in lines:
+        s = line.strip()
+        if s.startswith("["):
+            inside = s == "[%s]" % group
+        elif inside and "=" in s and not s.startswith("#"):
+            k, v = s.split("=", 1)
+            out.setdefault(k.strip(), _list(v.strip()))
+    return out
+
+
+def default_for(mime, apps):
+    for f in mimeapps_chain():
+        for did in read_group(f, "Default Applications").get(mime, []):
+            if did in apps:
+                return did
+    return ""
+
+
+def set_group(path, group, values):
+    """Set keys of one group in an INI-like file, keeping every other line."""
+    try:
+        lines = Path(path).read_text(encoding="utf-8").splitlines()
+    except OSError:
+        lines = []
+    todo, out, inside = dict(values), [], False
+
+    def flush():
+        for k, v in list(todo.items()):
+            out.append("%s=%s" % (k, v))
+            del todo[k]
+
+    for line in lines:
+        s = line.strip()
+        if s.startswith("["):
+            if inside:
+                # The group ends: whatever it did not have yet goes at its end,
+                # before the blank lines that separate it from the next.
+                tail = []
+                while out and not out[-1].strip():
+                    tail.append(out.pop())
+                flush()
+                out += tail
+            inside = s == "[%s]" % group
+        elif inside and "=" in s and not s.startswith("#"):
+            k = s.split("=", 1)[0].strip()
+            if k in todo:
+                out.append("%s=%s" % (k, todo.pop(k)))
+                continue
+        out.append(line)
+    if inside:
+        flush()
+    if todo:
+        if out and out[-1].strip():
+            out.append("")
+        out.append("[%s]" % group)
+        flush()
+    _write(path, "\n".join(out) + "\n")
+
+
+def _write(path, text):
+    path = Path(path)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix="." + path.name)
+    with os.fdopen(fd, "w", encoding="utf-8") as f:
+        f.write(text)
+    os.replace(tmp, path)
+
+
+def defaults(apps):
+    out = []
+    for kind, label, mimes in KINDS:
+        want = OFFER.get(kind, mimes)
+        offered = [_brief(did, e) for did, (p, e) in apps.items()
+                   if _shown(e) and set(_list(e.get("MimeType"))) & set(want)]
+        cur = default_for(mimes[0], apps)
+        if cur and not any(a["id"] == cur for a in offered):
+            offered.append(_brief(cur, apps[cur][1]))
+        offered.sort(key=lambda a: a["name"].lower())
+        out.append({"kind": kind, "label": label, "current": cur, "apps": offered})
+    return out
+
+
+def set_default(kind, did, apps):
+    mimes = next((m for k, _, m in KINDS if k == kind), None)
+    if mimes is None:
+        raise SystemExit("unknown kind: %s (one of %s)" % (kind, ", ".join(k for k, _, _ in KINDS)))
+    if did not in apps:
+        raise SystemExit("no such application: %s" % did)
+    values = {m: did + ";" for m in mimes}
+    set_group(CONFIG_HOME / "mimeapps.list", "Default Applications", values)
+    # A desktop-specific file wins over mimeapps.list: where it names these types, it follows.
+    for d in DESKTOPS:
+        f = CONFIG_HOME / ("%s-mimeapps.list" % d)
+        mine = read_group(f, "Default Applications")
+        if any(m in mine for m in mimes):
+            set_group(f, "Default Applications", {m: v for m, v in values.items() if m in mine})
+
+
+# ---------------------------------------------------------------- autostart --
+
+def _user_dir():
+    return CONFIG_HOME / "autostart"
+
+
+def autostart_files():
+    """{id: {"user": path|None, "system": path|None}} — the user's file overrides the system's."""
+    out = {}
+    for i, base in enumerate([CONFIG_HOME] + CONFIG_DIRS):
+        d = base / "autostart"
+        if not d.is_dir():
+            continue
+        for p in sorted(d.glob("*.desktop")):
+            slot = out.setdefault(p.name, {"user": None, "system": None})
+            key = "user" if i == 0 else "system"
+            if slot[key] is None:
+                slot[key] = p
+    return out
+
+
+def managed(did):
+    for pat, why in MANAGED:
+        if fnmatch.fnmatch(did, pat):
+            return why
+    return ""
+
+
+def _applies(entry):
+    """For this desktop, and its program is there."""
+    only, never = [x.lower() for x in _list(entry.get("OnlyShowIn"))], [x.lower() for x in _list(entry.get("NotShowIn"))]
+    if only and not set(only) & set(DESKTOPS):
+        return False
+    if set(never) & set(DESKTOPS):
+        return False
+    if entry.get("Type", "Application") != "Application" or not entry.get("Exec"):
+        return False
+    return _tryexec_ok(entry)
+
+
+def _enabled(entry):
+    return not _bool(entry.get("Hidden")) and str(entry.get("X-GNOME-Autostart-enabled", "true")).strip().lower() != "false"
+
+
+def autostart_list():
+    out = []
+    for did, slot in sorted(autostart_files().items()):
+        path = slot["user"] or slot["system"]
+        e = read_entry(path) or {}
+        if not _applies(e):
+            continue
+        b = _brief(did, e)
+        b.update({"comment": localized(e, "Comment"), "enabled": _enabled(e), "managed": managed(did),
+                  "user": slot["user"] is not None, "system": slot["system"] is not None})
+        out.append(b)
+    out.sort(key=lambda a: a["name"].lower())
+    return out
+
+
+def _user_copy(did, slot):
+    """The user's file for an entry, created from the system one if needed."""
+    dst = _user_dir() / did
+    if slot["user"] is None:
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copyfile(slot["system"], dst)
+    return dst
+
+
+def autostart_set(did, on):
+    slot = autostart_files().get(did)
+    if not slot:
+        raise SystemExit("no autostart entry %s" % did)
+    f = _user_copy(did, slot)
+    set_group(f, "Desktop Entry", {"Hidden": "false" if on else "true", "X-GNOME-Autostart-enabled": "true" if on else "false"})
+
+
+def autostart_add(did, apps):
+    if did not in apps:
+        raise SystemExit("no such application: %s" % did)
+    dst = _user_dir() / did
+    dst.parent.mkdir(parents=True, exist_ok=True)
+    shutil.copyfile(apps[did][0], dst)
+    set_group(dst, "Desktop Entry", {"Hidden": "false", "X-GNOME-Autostart-enabled": "true"})
+
+
+def autostart_remove(did):
+    slot = autostart_files().get(did)
+    if not slot:
+        return
+    if slot["system"] is not None:
+        autostart_set(did, False)
+    elif slot["user"] is not None:
+        slot["user"].unlink()
+
+
+def _log(msg):
+    f = DATA_HOME / "vitrum" / "autostart.log"
+    try:
+        f.parent.mkdir(parents=True, exist_ok=True)
+        with open(f, "a", encoding="utf-8") as h:
+            h.write(msg + "\n")
+    except OSError:
+        pass
+
+
+def autostart_run(dry=False):
+    started = []
+    for did, slot in sorted(autostart_files().items()):
+        path = slot["user"] or slot["system"]
+        e = read_entry(path) or {}
+        if not (_applies(e) and _enabled(e)):
+            continue
+        if managed(did):
+            _log("skip %s: %s" % (did, managed(did)))
+            continue
+        argv = exec_argv(e["Exec"], e, path)
+        if not argv:
+            continue
+        if _bool(e.get("Terminal")) and shutil.which("kitty"):
+            argv = ["kitty", "--"] + argv
+        try:
+            delay = float(e.get("X-GNOME-Autostart-Delay") or 0)
+        except ValueError:
+            delay = 0
+        if delay > 0:
+            argv = ["sh", "-c", 'sleep "$0"; exec "$@"', str(delay)] + argv
+        started.append({"id": did, "argv": argv})
+        if dry:
+            continue
+        cwd = e.get("Path") or None
+        try:
+            subprocess.Popen(argv, cwd=cwd if cwd and os.path.isdir(cwd) else None, start_new_session=True,
+                             stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            _log("start %s: %s" % (did, " ".join(argv)))
+        except OSError as err:
+            _log("fail %s: %s" % (did, err))
+    return started
+
+
+# ---------------------------------------------------------------------- cli --
+
+def main(argv):
+    if not argv or argv[0] in ("-h", "--help"):
+        print(__doc__.strip())
+        return 0
+    cmd, rest = argv[0], argv[1:]
+    if cmd == "list":
+        apps = applications()
+        shown = sorted((_brief(d, e) for d, (p, e) in apps.items() if _shown(e)), key=lambda a: a["name"].lower())
+        print(json.dumps({"defaults": defaults(apps), "autostart": autostart_list(), "apps": shown}))
+        return 0
+    if cmd == "default" and len(rest) == 2:
+        set_default(rest[0], rest[1], applications())
+        return 0
+    if cmd == "autostart" and rest:
+        sub = rest[0]
+        if sub == "run":
+            started = autostart_run(dry="--dry-run" in rest)
+            if "--dry-run" in rest:
+                print(json.dumps(started))
+            return 0
+        if sub in ("on", "off") and len(rest) == 2:
+            autostart_set(rest[1], sub == "on")
+            return 0
+        if sub == "add" and len(rest) == 2:
+            autostart_add(rest[1], applications())
+            return 0
+        if sub == "remove" and len(rest) == 2:
+            autostart_remove(rest[1])
+            return 0
+    print(__doc__.strip(), file=sys.stderr)
+    return 2
+
+
+if __name__ == "__main__":
+    sys.exit(main(sys.argv[1:]))

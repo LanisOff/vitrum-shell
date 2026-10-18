@@ -1,4 +1,6 @@
 import QtQuick
+import Quickshell
+import Quickshell.Widgets
 import qs.theme
 import qs.components
 
@@ -9,6 +11,8 @@ Item {
     property string hint: ""
     default property alias control: slot.data
     property bool divider: true
+    /// An image before the label (an app's or a device's icon).
+    property string leading: ""
     width: parent ? parent.width : 400
     // Tall enough for the control too: chips that wrap to a second line spilled out of the card.
     implicitHeight: Math.max(Tokens.islandHeight * 1.6, texts.implicitHeight + Tokens.gap * 2, slot.implicitHeight + Tokens.gap * 2)
@@ -19,9 +23,16 @@ Item {
         color: Colors.alpha(Colors.text, hover.hovered ? 0.04 : 0)
         Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
     }
+    IconImage {
+        id: lead
+        visible: row.leading.length > 0
+        implicitSize: Tokens.iconSize * 1.4
+        anchors { left: parent.left; leftMargin: Tokens.padding; verticalCenter: parent.verticalCenter }
+        source: row.leading
+    }
     Column {
         id: texts
-        anchors { left: parent.left; leftMargin: Tokens.padding; verticalCenter: parent.verticalCenter; right: slot.left; rightMargin: Tokens.gap }
+        anchors { left: lead.visible ? lead.right : parent.left; leftMargin: lead.visible ? Tokens.gap : Tokens.padding; verticalCenter: parent.verticalCenter; right: slot.left; rightMargin: Tokens.gap }
         Label { width: parent.width; text: row.label }
         Label { visible: row.hint.length > 0; width: parent.width; text: row.hint; role: "dim"; size: Tokens.textSmall; wrapMode: Text.WordWrap; elide: Text.ElideNone }
     }

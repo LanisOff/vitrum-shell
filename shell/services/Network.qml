@@ -28,6 +28,57 @@ Singleton {
     function setWifiEnabled(on) { if (nm) Networking.wifiEnabled = on; }
     function connect(network, psk) { if (psk) network.connectWithPsk(psk); else network.connect(); }
 
+    // What a network asks for before it lets you in.
+    function needsPassword(n) {
+        const s = n ? n.security : WifiSecurityType.Open;
+        return s === WifiSecurityType.WpaPsk || s === WifiSecurityType.Wpa2Psk || s === WifiSecurityType.Sae;
+    }
+    function needsLogin(n) {
+        const s = n ? n.security : WifiSecurityType.Open;
+        return s === WifiSecurityType.WpaEap || s === WifiSecurityType.Wpa2Eap || s === WifiSecurityType.Wpa3SuiteB192
+            || s === WifiSecurityType.Leap || s === WifiSecurityType.DynamicWep;
+    }
+    function secured(n) { return !!n && n.security !== WifiSecurityType.Open && n.security !== WifiSecurityType.Owe; }
+
+    /*
+     * Join a network the way a person expects: a saved or open one connects,
+     * one with a password asks for it (again, if it was wrong), one that needs
+     * a login opens Settings → Network on its form.
+     *   ask(network, wrong, answer): show a password prompt; answer(password) to try it.
+     * Without ask (the shell), the prompt is a system dialog.
+     */
+    property var _joining: null
+    property var _ask: null
+    // Settings: the login form for VITRUM_WIFI_JOIN was shown already.
+    property bool loginOpened: false
+    function forgetAsk(ask) { if (_ask === ask) { _ask = null; _joining = null; } }
+    function join(n, ask) {
+        if (!n || n.connected) return;
+        if (needsLogin(n) && !n.known) { openLogin(n.name); return; }
+        _joining = n;
+        _ask = ask || _systemAsk;
+        if (needsPassword(n) && !n.known) _ask(n, false, psk => n.connectWithPsk(psk));
+        else n.connect();
+    }
+    function openLogin(ssid) { Quickshell.execDetached(["env", "VITRUM_WIFI_JOIN=" + ssid, "vitrum-settings", "--pane", "network"]); }
+    function _systemAsk(n, wrong, answer) {
+        Prompt.ask({ icon: "wifi-lock", title: "Join “" + n.name + "”",
+                     message: wrong ? "That password did not work. Try again." : "This network needs a password.",
+                     field: "password", placeholder: "Password", okText: "Join" },
+                   (ok, value) => { if (ok && value) answer(value); else root._joining = null; });
+    }
+    Connections {
+        target: root._joining
+        function onConnectionFailed(reason) {
+            const n = root._joining;
+            if (!n || !root._ask) return;
+            if (reason === ConnectionFailReason.NoSecrets && root.needsPassword(n)) root._ask(n, true, psk => n.connectWithPsk(psk));
+            else if (reason === ConnectionFailReason.NoSecrets && root.needsLogin(n)) root.openLogin(n.name);
+            else root._joining = null;
+        }
+        function onConnectedChanged() { if (root._joining && root._joining.connected) root._joining = null; }
+    }
+
     function _devices() { return nm ? Networking.devices.values : []; }
     function _wifiNetworks() {
         const out = [];

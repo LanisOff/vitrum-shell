@@ -25,6 +25,7 @@ stage_session() {
   _session_startup_script
   _session_spawns
   _session_portals
+  _session_keyring
   _session_root_helper
   _session_nvidia_profile
   _session_keybinds
@@ -121,6 +122,15 @@ else
   dbus-update-activation-environment $vars 2>/dev/null || true
 fi
 
+# 1a. The password store (Secret Service) on this session's D-Bus. The login
+#     screen's PAM may have started gnome-keyring already, unlocked with the
+#     login password but before this bus existed: --start hands it the
+#     environment, and only then does it answer here. Otherwise it starts one
+#     (locked: it asks for the password on first use).
+if command -v gnome-keyring-daemon >/dev/null 2>&1; then
+  gnome-keyring-daemon --start --components=secrets >/dev/null 2>&1 || true
+fi
+
 # 1b. Colours and materials for the niri this session runs (a new niri may
 #     support more glass than the one the last render saw).
 command -v vitrum-theme >/dev/null 2>&1 && (vitrum-theme --quiet --no-color-scheme >/dev/null 2>&1 &)
@@ -140,6 +150,10 @@ rm -f "${XDG_RUNTIME_DIR:-/tmp}/vitrum-shell.stop"
     sleep 1
   done
 ) &
+
+# 2b. What starts with the session (XDG autostart: ~/.config/autostart and
+#     /etc/xdg/autostart), once the shell — the tray their icons go to — is up.
+command -v vitrum-apps >/dev/null 2>&1 && (sleep 2; vitrum-apps autostart run) &
 
 # 3. If the shell is still not up shortly after, show why in a terminal: a
 #    shell that died on a QML error leaves an empty screen and nothing to say so.
@@ -278,14 +292,64 @@ _session_portals() {
 # Written by the vitrum installer.
 default=gtk
 '
-    # No Secret backend: the portal activates it at start, and a gnome-keyring
-    # on another D-Bus (started at login, before the session bus) never
-    # answers — 25 s that every Qt app, the shell first, waits out.
+    # No Secret backend: the portal activates it at start, and a keyring that
+    # does not answer is 25 s that every Qt app, the shell first, waits out.
+    # Apps outside a sandbox reach gnome-keyring directly (vitrum-startup puts
+    # it on the session bus); only Flatpaks would need the portal.
     # Screen sharing goes through vitrum's own backend (the shell's picker).
     printf 'org.freedesktop.impl.portal.ScreenCast=vitrum
 '
   } | write_file "$XDG_CONFIG_HOME/xdg-desktop-portal/niri-portals.conf"
   _session_screencast
+}
+
+# The keyring opens with the login password: gnome-keyring's PAM module, in the
+# login screen's PAM stack (and the console's, for a session started from a
+# tty). Arch's sddm file has it already; where it is missing, two optional
+# lines go in ("-": skipped when the module is not installed), each under a
+# marker so uninstall.sh can take exactly those out again.
+PAM_KEYRING_MARK="# vitrum: open the keyring with the login password"
+
+_session_keyring() {
+  step "keyring: unlocked by the login password (PAM)"
+  local f
+  for f in sddm login; do
+    _pam_keyring_add "$VITRUM_SYSROOT/etc/pam.d/$f"
+  done
+}
+
+# Prints the file with the lines added, each after the last line of its kind
+# (the module must run after the others): auth opens the keyring, session
+# starts it, password keeps its password in step when the login one changes.
+pam_keyring_lines() {  # pam_keyring_lines <file>
+  awk -v mark="$PAM_KEYRING_MARK" '
+    { line[NR] = $0 }
+    $1 ~ /^-?auth$/     { lastauth = NR }
+    $1 ~ /^-?password$/ { lastpass = NR }
+    $1 ~ /^-?session$/  { lastsess = NR }
+    END {
+      for (i = 1; i <= NR; i++) {
+        print line[i]
+        if (i == lastauth) { print mark; print "-auth      optional     pam_gnome_keyring.so" }
+        if (i == lastpass) { print mark; print "-password  optional     pam_gnome_keyring.so use_authtok" }
+        if (i == lastsess) { print mark; print "-session   optional     pam_gnome_keyring.so auto_start" }
+      }
+    }' "$1"
+}
+
+_pam_keyring_add() {
+  local f="$1" new
+  [[ -f "$f" ]] || return 0
+  if grep -qs 'pam_gnome_keyring' "$f"; then dim "${f##*/}: already opens the keyring"; return 0; fi
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would add gnome-keyring to $f"; return 0; fi
+  # Worked out whole and checked before anything is written: an empty PAM
+  # file would lock everyone out of the login screen.
+  new="$(pam_keyring_lines "$f")" || { warn "could not read $f — keyring not added there"; return 0; }
+  if [[ "$(grep -vc 'pam_gnome_keyring\|^# vitrum: open the keyring' <<<"$new")" -ne "$(grep -c '' "$f")" ]] \
+     || ! grep -q 'pam_gnome_keyring' <<<"$new"; then
+    warn "$f: unexpected result — keyring not added there"; return 0
+  fi
+  printf '%s\n' "$new" | sudo_write "$f"
 }
 
 # vitrum-portal: the ScreenCast backend xdg-desktop-portal hands screen-share

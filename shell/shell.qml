@@ -36,8 +36,8 @@ ShellRoot {
     settings.watchFiles: false
     // Settings first; then what must run without being shown: hardware alerts,
     // the microphone filter (it comes back on at login when it was on), the
-    // keyboard layout per app.
-    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; }
+    // keyboard layout per app, the Bluetooth pairing agent, screen mirroring.
+    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; Bluetooth.present; Mirror.active; }
 
     // How long the start took, in the log: since this process began, and since
     // the session (niri) did.
@@ -103,6 +103,7 @@ ShellRoot {
             ScreenSharePicker { modelData: perScreen.modelData }
             Osd { modelData: perScreen.modelData }
             PolkitDialog { modelData: perScreen.modelData }
+            PromptDialog { modelData: perScreen.modelData }
             PowerMenu { modelData: perScreen.modelData }
             Switcher { modelData: perScreen.modelData }
             OverviewOverlay { modelData: perScreen.modelData }

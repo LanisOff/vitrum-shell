@@ -40,7 +40,8 @@ HOSTWL=""
 if [ "${NESTED_HOST:-headless}" = headless ]; then
   bash "$N/host/build.sh" "$HOME/.cache/vitrum-test-host" >> "$N/steps.log" 2>&1
   pkill -f "$HOME/.cache/vitrum-test-host/tinywl" 2>/dev/null; rm -f "$N/hostwl"
-  ( WLR_BACKENDS=headless WLR_RENDERER=gles2 WLR_HEADLESS_OUTPUTS=1 timeout "$(( ${NESTED_TIMEOUT:-180} + 10 ))" \
+  # NESTED_WLR_RENDERER=pixman where there is no GPU (a container, a VM).
+  ( WLR_BACKENDS=headless WLR_RENDERER="${NESTED_WLR_RENDERER:-gles2}" WLR_HEADLESS_OUTPUTS=1 timeout "$(( ${NESTED_TIMEOUT:-180} + 10 ))" \
       "$HOME/.cache/vitrum-test-host/tinywl" -s "echo \$WAYLAND_DISPLAY > $N/hostwl" > "$N/host.log" 2>&1 & )
   for _ in $(seq 50); do [ -s "$N/hostwl" ] && break; sleep 0.1; done
   HOSTWL=$(cat "$N/hostwl" 2>/dev/null)
