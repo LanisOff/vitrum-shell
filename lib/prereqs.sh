@@ -65,7 +65,7 @@ prereqs_check() {
     else
       step "${#assets[@]} missing fonts: ${assets[*]}, fetching them"
       for a in "${assets[@]}"; do fetch_asset "$a"; done
-      run_ok fc-cache -f >/dev/null 2>&1 || warn "fc-cache failed"
+      font_cache_refresh
     fi
   fi
   return 0

@@ -58,3 +58,14 @@ test_stage_fonts_writes_vitrum_fontconfig_and_drops_tahoe() {
   [[ ! -e "$XDG_CONFIG_HOME/fontconfig/conf.d/50-niri-tahoe.conf" ]]
   assert_eq "$(sort "$HOME/fetched" | tr '\n' ' ')" "apple-emoji bibata material-symbols "
 }
+test_font_cache_failure_carries_fc_cache_reason() {
+  stub fc-cache 'echo "/home/u/.cache/fontconfig: failed to write cache" >&2; exit 1'
+  _load
+  out="$(font_cache_refresh 2>&1)"
+  assert_contains "$out" "fc-cache failed: /home/u/.cache/fontconfig: failed to write cache"
+}
+test_font_cache_success_is_quiet() {
+  stub fc-cache
+  _load
+  assert_eq "$(font_cache_refresh 2>&1)" ""
+}

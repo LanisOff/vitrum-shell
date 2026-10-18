@@ -18,7 +18,7 @@ stage_fonts() {
   _fonts_configure
 
   step "rebuilding the font cache"
-  run_ok fc-cache -f >/dev/null 2>&1 || warn "fc-cache failed"
+  font_cache_refresh
   stage_done
 }
 

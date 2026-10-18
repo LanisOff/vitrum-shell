@@ -56,3 +56,22 @@ fetch_asset() {
   mkdir -p "$(dirname "$stamp")" && printf '%s\n' "$sum" > "$stamp"
   ok "$name installed"
 }
+
+# font_cache_refresh — fc-cache -f, and when it fails, its own words in the
+# warning: a bare "fc-cache failed" sends someone to rerun it by hand just to
+# learn why. The usual why is a cache or font directory left owned by root by
+# an earlier sudo, so that gets named with the command that fixes it.
+font_cache_refresh() {
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would run: fc-cache -f"; return 0; fi
+  local out
+  out="$(fc-cache -f 2>&1)" && return 0
+  warn "fc-cache failed${out:+: $(head -n1 <<<"$out")}"
+  local line
+  while IFS= read -r line; do [[ -n "$line" ]] && dim "$line"; done < <(sed -n '2,6p' <<<"$out")
+  local dir stray
+  for dir in "$XDG_CACHE_HOME/fontconfig" "$XDG_DATA_HOME/fonts"; do
+    stray="$(find "$dir" ! -user "$(id -u)" -print -quit 2>/dev/null)"
+    [[ -n "$stray" ]] && info "$stray belongs to someone else — sudo chown -R $(id -un): $dir"
+  done
+  return 0
+}

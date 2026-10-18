@@ -99,11 +99,33 @@ stage_done() {
   fi
 }
 
+# bash's printf turns \uXXXX into a character only under a UTF-8 locale; under
+# any other it prints the escape itself, and every marker in the log reads
+# "\uf00c". LANG naming a locale nobody generated is the usual way to get there
+# (glibc falls back to C), so the installer borrows a UTF-8 locale that does
+# exist and preflight says how to generate the real one. VITRUM_LOCALE_MISSING
+# keeps the name that failed.
+_utf8_ok() { [[ "$(printf '\u2713')" != '\u2713' ]]; }
+if ! _utf8_ok; then
+  VITRUM_LOCALE_MISSING="${LC_ALL:-${LC_CTYPE:-${LANG:-C}}}"
+  for _loc in C.UTF-8 C.utf8 $(locale -a 2>/dev/null | grep -iE '\.utf-?8$'); do
+    export LC_ALL="$_loc"
+    _utf8_ok && break
+    unset LC_ALL
+  done
+  unset _loc
+fi
+
 # The status markers, in their safe form. ui_icons() upgrades them to real
 # icons further down, once there is something that can tell whether this
-# machine has a font capable of drawing one.
-G_OK=$(printf '\u2713'); G_ERR=$(printf '\u2717')
-G_WARN='!';               G_STEP=$(printf '\u00b7')
+# machine has a font capable of drawing one. Without any UTF-8 locale they
+# stay ASCII.
+if _utf8_ok; then
+  G_OK=$(printf '\u2713'); G_ERR=$(printf '\u2717')
+  G_WARN='!';               G_STEP=$(printf '\u00b7')
+else
+  G_OK='+'; G_ERR='x'; G_WARN='!'; G_STEP='-'
+fi
 
 info()   { printf '    %s\n' "$*"; }
 step()   { printf '  %s%s%s %s\n' "$C_BLUE" "$G_STEP" "$C_RESET" "$*"; }
@@ -209,6 +231,7 @@ have_font() {
 # every run after it get the icons.
 ui_icons() {
   case "${TERM:-}" in linux|dumb|"") return 0 ;; esac
+  _utf8_ok || return 0
   have_font 'Symbols Nerd Font' || return 0
   G_OK=$(printf '\uf00c')      # check
   G_ERR=$(printf '\uf00d')     # times

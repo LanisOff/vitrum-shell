@@ -52,3 +52,40 @@ test_sudo_keepalive_nothing_in_dry_run() {
   sudo_keepalive
   [[ -z "${SUDO_KEEPALIVE:-}" && ! -e "$HOME/calls" ]]
 }
+# A printf that behaves like glibc bash's without a UTF-8 locale: \u escapes
+# come back verbatim until LC_ALL names one ($1 lists the locales that work).
+_fake_locale() {
+  _works="$1"
+  printf() {
+    if [[ "$1" == '\u2713' && " $_works " != *" ${LC_ALL:-none} "* ]]; then builtin printf '%s' '\u2713'
+    else builtin printf "$@"; fi
+  }
+  locale() { builtin printf 'C\nPOSIX\nen_GB.utf8\n'; }
+}
+test_missing_locale_borrows_a_utf8_one() {
+  unset LC_ALL LC_CTYPE; export LANG=xx_XX.UTF-8
+  _fake_locale "C.UTF-8"
+  source "$VITRUM_DIR/lib/common.sh"
+  assert_eq "$VITRUM_LOCALE_MISSING" xx_XX.UTF-8
+  assert_eq "$LC_ALL" C.UTF-8
+  assert_eq "$G_OK" "$(builtin printf '✓')"
+}
+test_missing_locale_falls_through_to_locale_a() {
+  unset LC_ALL LC_CTYPE; export LANG=xx_XX.UTF-8
+  _fake_locale "en_GB.utf8"
+  source "$VITRUM_DIR/lib/common.sh"
+  assert_eq "$LC_ALL" en_GB.utf8
+}
+test_no_utf8_locale_at_all_keeps_markers_ascii() {
+  unset LC_ALL LC_CTYPE; export LANG=xx_XX.UTF-8
+  _fake_locale ""
+  source "$VITRUM_DIR/lib/common.sh"
+  [[ -z "${LC_ALL:-}" ]]
+  assert_eq "$G_OK$G_ERR$G_STEP" "+x-"
+  ui_icons
+  assert_eq "$G_OK" "+"
+}
+test_working_locale_is_left_alone() {
+  source "$VITRUM_DIR/lib/common.sh"
+  [[ -z "${VITRUM_LOCALE_MISSING:-}" ]]
+}

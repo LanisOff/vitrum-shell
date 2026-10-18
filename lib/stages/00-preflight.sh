@@ -16,6 +16,10 @@ stage_preflight() {
     info "distribution: ${PRETTY_NAME:-unknown} — packages: $PKG_BACKEND, init: $INIT_BACKEND"
   fi
 
+  if [[ -n "${VITRUM_LOCALE_MISSING:-}" ]]; then
+    warn "locale $VITRUM_LOCALE_MISSING is not generated (this run borrows ${LC_ALL:-C}; perl and other programs keep warning about it) — uncomment it in /etc/locale.gen and run: sudo locale-gen"
+  fi
+
   step "checking sudo"
   sudo_keepalive
 
