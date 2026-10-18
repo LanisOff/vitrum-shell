@@ -60,13 +60,13 @@ _fake_locale() {
     if [[ "$1" == '\u2713' && " $_works " != *" ${LC_ALL:-none} "* ]]; then builtin printf '%s' '\u2713'
     else builtin printf "$@"; fi
   }
-  locale() { builtin printf 'C\nPOSIX\nen_GB.utf8\n'; }
+  locale() { builtin printf 'C\nC.utf8\nPOSIX\nen_GB.utf8\n'; }
 }
 test_missing_locale_borrows_a_utf8_one() {
   unset LC_ALL LC_CTYPE; export LANG=xx_XX.UTF-8
   _fake_locale "C.UTF-8"
   source "$VITRUM_DIR/lib/common.sh"
-  assert_eq "$VITRUM_LOCALE_MISSING" xx_XX.UTF-8
+  assert_eq "$VITRUM_LOCALE_MISSING" "xx_XX.UTF-8 (LANG)"
   assert_eq "$LC_ALL" C.UTF-8
   assert_eq "$G_OK" "$(builtin printf '✓')"
 }
@@ -88,4 +88,10 @@ test_no_utf8_locale_at_all_keeps_markers_ascii() {
 test_working_locale_is_left_alone() {
   source "$VITRUM_DIR/lib/common.sh"
   [[ -z "${VITRUM_LOCALE_MISSING:-}" ]]
+}
+test_missing_locale_names_the_variable_that_is_missing() {
+  unset LC_ALL; export LC_CTYPE=C.UTF-8 LANG=en_US.UTF-8
+  _fake_locale "C.UTF-8"
+  source "$VITRUM_DIR/lib/common.sh"
+  assert_eq "$VITRUM_LOCALE_MISSING" "en_US.UTF-8 (LANG)"
 }

@@ -104,10 +104,25 @@ stage_done() {
 # "\uf00c". LANG naming a locale nobody generated is the usual way to get there
 # (glibc falls back to C), so the installer borrows a UTF-8 locale that does
 # exist and preflight says how to generate the real one. VITRUM_LOCALE_MISSING
-# keeps the name that failed.
+# keeps the names that failed: one bad variable sinks them all (glibc refuses
+# the whole set), so LC_CTYPE=C.UTF-8 next to an ungenerated LANG still lands
+# in C, and it is LANG that has to be named.
 _utf8_ok() { [[ "$(printf '\u2713')" != '\u2713' ]]; }
+# _locale_known <name> \u2014 locale -a spells en_US.UTF-8 as en_US.utf8.
+_locale_known() {
+  local want="${1,,}"; want="${want//-/}"
+  [[ "$want" == c || "$want" == posix ]] && return 0
+  locale -a 2>/dev/null | tr '[:upper:]' '[:lower:]' | tr -d '-' | grep -qxF "$want"
+}
 if ! _utf8_ok; then
-  VITRUM_LOCALE_MISSING="${LC_ALL:-${LC_CTYPE:-${LANG:-C}}}"
+  VITRUM_LOCALE_MISSING=""
+  for _v in LC_ALL LC_CTYPE LANG; do
+    if [[ -z "${!_v:-}" ]] || _locale_known "${!_v}"; then continue; fi
+    [[ "$VITRUM_LOCALE_MISSING" == *"${!_v} "* ]] && continue
+    VITRUM_LOCALE_MISSING+="${VITRUM_LOCALE_MISSING:+, }${!_v} ($_v)"
+  done
+  : "${VITRUM_LOCALE_MISSING:=${LANG:-C}}"
+  unset _v
   for _loc in C.UTF-8 C.utf8 $(locale -a 2>/dev/null | grep -iE '\.utf-?8$'); do
     export LC_ALL="$_loc"
     _utf8_ok && break
