@@ -48,7 +48,9 @@ Singleton {
         const m = of(group);
         const base = level >= 2 ? Colors.surfaceHighest : level === 1 ? Colors.surfaceHigh : Colors.surface;
         if (m === "solid") return base;
-        if (plain(group, screen)) return Colors.alpha(base, level === 0 ? 0.86 : 0.92);
+        // Desktop widgets lie on the wallpaper, not on the game: lighter there.
+        if (plain(group, screen)) return group === "widgets" ? Colors.alpha(base, level === 0 ? 0.66 : 0.76)
+                                                             : Colors.alpha(base, level === 0 ? 0.86 : 0.92);
         if (m === "glass") return Colors.alpha(base, level === 0 ? 0.10 : 0.22);
         return Colors.alpha(base, level === 0 ? 0.62 : 0.72);
     }
