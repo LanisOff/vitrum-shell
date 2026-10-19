@@ -23,7 +23,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     mask: Region { item: root.shown ? disc : dot }   // Escape is not ours to take; a click on it cancels
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: gate.mapped ? disc : dot; radius: gate.mapped ? disc.radius : 0 }
     Item { id: dot; width: 1; height: 1 }
 

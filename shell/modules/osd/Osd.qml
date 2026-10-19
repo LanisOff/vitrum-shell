@@ -43,7 +43,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     mask: Region { item: dot }                  // never takes input
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("osd") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("osd", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: pill.opacity > 0.05 ? shape : dot; radius: pill.radius }
     Item { id: dot; width: 1; height: 1 }
     Item { id: shape; x: pill.x; y: pill.y; width: pill.width; height: pill.height }

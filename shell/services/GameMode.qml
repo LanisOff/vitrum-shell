@@ -27,8 +27,11 @@ Singleton {
     /// (under a fullscreen window niri draws neither, but Qt went on drawing
     /// them — a clock, a graph — on the game's GPU). Not in the overview, which
     /// shows them.
-    readonly property string output: {
-        const ws = active && game && !Niri.overviewOpen ? Niri.workspaces[game.workspaceId] : null;
+    readonly property string output: Niri.overviewOpen ? "" : screen
+    /// The screen the game is on, overview or not: the shell's surfaces there
+    /// are drawn plain (Materials.plain). "" without a game.
+    readonly property string screen: {
+        const ws = active && game ? Niri.workspaces[game.workspaceId] : null;
         return ws ? ws.output || "" : "";
     }
     property int registeredPid: 0

@@ -56,9 +56,9 @@ Item {
     // refracted wallpaper like a sticker, its rounded corners most of all.
     readonly property real feather: Tokens.padding * 1.2
     readonly property bool hasArt: Media.artUrl.length > 0 && backArt.status === Image.Ready
-    // While a game runs (Materials.plain) the plain plate instead: two blur
-    // passes and a mask over the game's frames.
-    readonly property bool blurredArt: hasArt && !Materials.plain
+    // Over a game (Materials.plain) the plain plate instead: two blur passes
+    // and a mask over the game's frames.
+    readonly property bool blurredArt: hasArt && !Materials.plain("panels", Screen.name)
     Item {
         id: back
         anchors.fill: parent
@@ -97,7 +97,7 @@ Item {
         opacity: root.blurredArt ? 0 : 1
         Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
         radius: Tokens.radiusInner * 1.5
-        color: Materials.fill("panels", 1)
+        color: Materials.fill("panels", 1, Screen.name)
     }
 
     Label { anchors.centerIn: parent; visible: !Media.available && !root.bare; text: "Nothing playing"; role: "dim" }

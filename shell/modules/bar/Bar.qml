@@ -35,7 +35,7 @@ PanelWindow {
     readonly property bool primary: screen && screen.name === primaryName
     readonly property var layout: BarLib.parseLayout(Settings.get("bar.layout", {})).layout
     readonly property real span: Tokens.islandHeight + 2 * Tokens.gap
-    readonly property bool shaped: Materials.shaped("bar")
+    readonly property bool shaped: Materials.shaped("bar", bar.modelData.name)
     // What niri rounds every piece with in shaped mode (vitrum-theme writes the same).
     readonly property real pieceRadius: Tokens.islandRadius
     readonly property real fillet: Tokens.islandRadius
@@ -187,7 +187,7 @@ PanelWindow {
         ShapePath {
             strokeWidth: 0
             strokeColor: "transparent"
-            fillColor: Materials.fill("bar", 0)
+            fillColor: Materials.fill("bar", 0, bar.modelData.name)
             PathSvg { path: bar.shaped && bar.dropShown ? Drop.dropPath(bar.islandFrame, bar.geo.sheet, bar.pieceRadius, bar.fillet, !bar.atTop, bar.height) : "" }
         }
     }
@@ -242,7 +242,7 @@ PanelWindow {
         }
     }
     BlurKick { id: blurKick; window: bar }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("bar") && !blurKick.on ? effectRegion : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("bar", blurKick.screen) && !blurKick.on ? effectRegion : blurKick.none
 
     mask: Region {
         regions: bar.open ? bar.islandRegions.concat([catcherRegion]) : bar.closing ? bar.islandRegions.concat([sheetRegion]) : bar.islandRegions

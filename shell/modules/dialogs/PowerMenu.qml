@@ -30,7 +30,7 @@ DialogFrame {
                 Surface {
                     width: Tokens.islandHeight * 2.6; height: width; radius: width / 2
                     group: "dialogs"; level: 1; outlined: false
-                    color: mouse.containsMouse ? Colors.accent : Materials.fill("dialogs", 1)
+                    color: mouse.containsMouse ? Colors.accent : Materials.fill("dialogs", 1, Screen.name)
                     Icon { anchors.centerIn: parent; name: modelData.icon; size: Tokens.iconSize * 1.8; color: mouse.containsMouse ? Colors.onAccent : Colors.text }
                     MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.act(modelData.run) }
                 }

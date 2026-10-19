@@ -23,26 +23,32 @@ Singleton {
         onLoadFailed: root.shapedGlass = false
     }
 
-    /// While a game runs: no blur and no glass from niri (wantsRegion, shaped),
-    /// plain translucent fills instead — they read over the game, and niri has
-    /// nothing to sample and bend behind them on its frames.
-    readonly property bool plain: GameMode.active
+    /// While a game runs, on the game's screen: no blur and no glass from niri
+    /// (wantsRegion, shaped), plain translucent fills instead — they read over
+    /// the game, and niri has nothing to sample and bend behind them on its
+    /// frames. The other screens keep their material: a still screen costs
+    /// nothing. screen: the surface's screen name; not known (or game mode on
+    /// by hand, no game found): plain. The lock draws its own glass, over its
+    /// own picture, and keeps it.
+    function plain(group, screen) {
+        return GameMode.active && group !== "lock" && (!screen || !GameMode.screen || screen === GameMode.screen);
+    }
 
     /// Glass on this group, drawn by niri in the shape of the region's pieces.
-    function shaped(group) { return shapedGlass && of(group) === "glass" && !plain; }
+    function shaped(group, screen) { return shapedGlass && of(group) === "glass" && !plain(group, screen); }
 
     function of(group) {
         const g = Settings.get("materials.groups", {});
         return g[group] || Settings.get("materials.default", "frosted");
     }
-    function wantsRegion(group) { return of(group) !== "solid" && !plain; }
+    function wantsRegion(group, screen) { return of(group) !== "solid" && !plain(group, screen); }
 
     // level: 0 base, 1 raised (inner cards), 2 highest
-    function fill(group, level) {
+    function fill(group, level, screen) {
         const m = of(group);
         const base = level >= 2 ? Colors.surfaceHighest : level === 1 ? Colors.surfaceHigh : Colors.surface;
         if (m === "solid") return base;
-        if (plain) return Colors.alpha(base, level === 0 ? 0.86 : 0.92);
+        if (plain(group, screen)) return Colors.alpha(base, level === 0 ? 0.86 : 0.92);
         if (m === "glass") return Colors.alpha(base, level === 0 ? 0.10 : 0.22);
         return Colors.alpha(base, level === 0 ? 0.62 : 0.72);
     }

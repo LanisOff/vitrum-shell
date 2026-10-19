@@ -70,7 +70,7 @@ PanelWindow {
 
     mask: Region { item: root.open ? catcher : dot }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: card.visible ? shape : dot; radius: Tokens.radiusPanel * card.scale }
     Item { id: dot; width: 1; height: 1 }
     Item { id: shape; x: card.x + card.width * (1 - card.scale) / 2; y: card.y + card.height * (1 - card.scale) / 2; width: card.width * card.scale; height: card.height * card.scale }

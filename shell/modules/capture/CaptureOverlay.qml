@@ -54,7 +54,7 @@ PanelWindow {
     WlrLayershell.keyboardFocus: open && focused_ ? WlrKeyboardFocus.Exclusive : WlrKeyboardFocus.None
     mask: Region { item: root.open ? content : dot }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: root.open && bar.visible ? bar : dot; radius: root.open && bar.visible ? bar.radius : 0 }
     Item { id: dot; width: 1; height: 1 }
 

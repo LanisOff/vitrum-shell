@@ -79,7 +79,7 @@ PanelWindow {
     // backdrop is opaque: niri's glass would only be drawn under it).
     mask: Region { id: inputMask }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("widgets") && !blurKick.on && !root.editing ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("widgets", blurKick.screen) && !blurKick.on && !root.editing ? effect : blurKick.none
     Region { id: effect }
     Item { id: dot; width: 1; height: 1 }
     Component { id: regionComp; Region {} }

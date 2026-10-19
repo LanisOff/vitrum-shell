@@ -49,7 +49,7 @@ PanelWindow {
 
     mask: Region { item: root.active ? stack : dot }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("notifications") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("notifications", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; regions: root.active ? stack.regions : [dotRegion] }
     Region { id: dotRegion; item: dot }
     Item { id: dot; width: 1; height: 1 }

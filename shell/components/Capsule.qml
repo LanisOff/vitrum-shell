@@ -18,7 +18,7 @@ Surface {
     color: active ? Colors.accent
          : mouse.pressed ? Colors.alpha(Colors.text, 0.16)
          : mouse.containsMouse ? Colors.alpha(Colors.text, 0.10)
-         : Materials.fill(group, 1)
+         : Materials.fill(group, 1, Screen.name)
     scale: mouse.pressed ? 0.94 : 1
     Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
 

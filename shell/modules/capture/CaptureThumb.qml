@@ -46,7 +46,7 @@ PanelWindow {
     WlrLayershell.layer: WlrLayer.Overlay
     mask: Region { item: root.shown ? card : dot }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: gate.mapped ? card : dot; radius: gate.mapped ? card.radius : 0 }
     Item { id: dot; width: 1; height: 1 }
 

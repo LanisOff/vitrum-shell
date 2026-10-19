@@ -308,7 +308,7 @@ PanelWindow {
     }
 
     // ---------------------------------------------------------- geometry ---
-    readonly property bool shaped: Materials.shaped("launcher")
+    readonly property bool shaped: Materials.shaped("launcher", root.modelData.name)
     readonly property real capH: Tokens.launcherHeight
     readonly property real capR: capH / 2
     readonly property real capW: Math.min(width - 2 * Tokens.gap - cats.length * (capH + Tokens.gap), Tokens.islandHeight * 20)
@@ -389,7 +389,7 @@ PanelWindow {
                : [capRegion].concat(root.catRegions, !root.dropShown ? [] : root.shaped ? [neckRegion, sheetRegion] : [sheetRegion])
     }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("launcher") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("launcher", blurKick.screen) && !blurKick.on ? effect : blurKick.none
 
     // The tint: along the drop's outline with shaped glass, else per piece.
     Shape {
@@ -399,7 +399,7 @@ PanelWindow {
         ShapePath {
             strokeWidth: 0
             strokeColor: "transparent"
-            fillColor: Materials.fill("launcher", 0)
+            fillColor: Materials.fill("launcher", 0, root.modelData.name)
             PathSvg { path: root.shaped && root.dropShown ? Drop.dropPath(root.capFrame, root.geo.sheet, root.capR, root.capR, false, root.height) : "" }
         }
     }
@@ -407,7 +407,7 @@ PanelWindow {
         x: capItem.x; y: capItem.y; width: capItem.width; height: capItem.height
         scale: capItem.scale; visible: root.alive && !(root.shaped && root.dropShown)
         radius: root.capR
-        color: Materials.fill("launcher", 0)
+        color: Materials.fill("launcher", 0, root.modelData.name)
         border.width: root.shaped ? 0 : Tokens.hairline
         border.color: Materials.border("launcher")
     }
@@ -478,7 +478,7 @@ PanelWindow {
         Rectangle {
             anchors.fill: parent
             radius: width / 2
-            color: c.on ? Colors.alpha(Colors.accent, 0.85) : m.containsMouse ? Colors.alpha(Colors.text, 0.16) : Materials.fill("launcher", 0)
+            color: c.on ? Colors.alpha(Colors.accent, 0.85) : m.containsMouse ? Colors.alpha(Colors.text, 0.16) : Materials.fill("launcher", 0, root.modelData.name)
             Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
             border.width: root.shaped ? 0 : Tokens.hairline
             border.color: Materials.border("launcher")

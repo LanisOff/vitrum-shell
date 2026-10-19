@@ -8,7 +8,7 @@ Rectangle {
     property bool outlined: true
 
     radius: Tokens.radiusPanel
-    color: Materials.fill(group, level)
+    color: Materials.fill(group, level, Screen.name)
     border.width: outlined ? Tokens.hairline : 0
     border.color: Materials.border(group)
     Behavior on color { enabled: Motion.enabled; ColorAnim {} }

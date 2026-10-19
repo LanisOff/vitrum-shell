@@ -55,7 +55,7 @@ Island {
     targetWidth: active ? implicitWidth : 0
     visible: width > 0
     clip: true
-    color: merged ? "transparent" : Materials.fill(group, level)
+    color: merged ? "transparent" : Materials.fill(group, level, Screen.name)
     outlined: !merged
 
     Repeater {

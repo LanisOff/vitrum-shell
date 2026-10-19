@@ -42,7 +42,7 @@ PanelWindow {
         Region { item: root.open && root.focused_ ? search : dot }
     }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region {
         id: effect
         item: root.open ? railBox : dot; radius: root.open ? railBox.radius : 0

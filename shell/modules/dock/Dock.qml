@@ -111,7 +111,7 @@ PanelWindow {
     mask: Region { item: root.shown ? shape : strip; regions: root.menuOpen ? [menuInput] : [] }
     Region { id: menuInput; item: menu }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("dock") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("dock", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     // Never an empty region: with none, niri applies the rule to the whole surface.
     Region { id: effect; item: shape.height >= 2 ? shape : dot; radius: shape.height >= 2 ? plate.radius : 0
              regions: root.menuOpen ? [menuEffect] : [] }

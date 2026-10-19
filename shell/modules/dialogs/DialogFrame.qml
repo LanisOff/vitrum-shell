@@ -35,7 +35,7 @@ PanelWindow {
 
     mask: Region { item: root.open ? dim : dot }
     BlurKick { id: blurKick; window: root }
-    BackgroundEffect.blurRegion: Materials.wantsRegion("dialogs") && !blurKick.on ? effect : blurKick.none
+    BackgroundEffect.blurRegion: Materials.wantsRegion("dialogs", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: root.open || card.opacity > 0.05 ? shape : dot; radius: Tokens.radiusPanel }
     Item { id: dot; width: 1; height: 1 }
     Item { id: shape; x: card.x; y: card.y; width: card.width; height: card.height }

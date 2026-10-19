@@ -5,7 +5,7 @@ import Quickshell
  * Makes sure niri gets a window's blur region after the window is (re)built.
  *
  *     BlurKick { id: blurKick; window: root }
- *     BackgroundEffect.blurRegion: Materials.wantsRegion("dock") && !blurKick.on ? effect : blurKick.none
+ *     BackgroundEffect.blurRegion: Materials.wantsRegion("dock", blurKick.screen) && !blurKick.on ? effect : blurKick.none
  *
  * Quickshell rebuilds a layer-shell window on every map and screen change, and
  * its first polish runs before the Wayland surface exists — the pending blur
@@ -22,6 +22,8 @@ QtObject {
     id: kick
     required property var window
     property bool on: false
+    /// The window's screen name, for Materials (plain on a game's screen).
+    readonly property string screen: window && window.screen ? window.screen.name : ""
     readonly property Region none: Region { width: 1; height: 1 }
     function fire() { kick.on = true; kick.on = false; }
     property Connections _shown: Connections {

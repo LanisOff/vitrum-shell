@@ -17,7 +17,7 @@ Surface {
     outlined: false
     radius: height / 2
     implicitHeight: Tokens.islandHeight * 1.6
-    color: active ? Colors.accent : mouse.containsMouse ? Colors.alpha(Colors.text, 0.12) : Materials.fill(group, 1)
+    color: active ? Colors.accent : mouse.containsMouse ? Colors.alpha(Colors.text, 0.12) : Materials.fill(group, 1, Screen.name)
 
     Row {
         anchors.fill: parent

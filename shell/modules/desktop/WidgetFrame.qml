@@ -59,7 +59,7 @@ Surface {
     property Item glassSource: null
     readonly property bool bare: W.bare(modelData.type, options)
     group: "widgets"
-    color: bare ? (editing ? Colors.alpha(Colors.surface, 0.25) : "transparent") : Materials.fill("widgets", 0)
+    color: bare ? (editing ? Colors.alpha(Colors.surface, 0.25) : "transparent") : Materials.fill("widgets", 0, Screen.name)
     radius: Tokens.radiusPanel * 1.25
     border.width: editing ? (selected ? 2.5 * ui : Tokens.hairline * ui) : bare ? 0 : Tokens.hairline
     border.color: editing && selected ? Colors.accent : editing ? Colors.alpha(Colors.text, 0.35) : Materials.border("widgets")
@@ -165,7 +165,7 @@ Surface {
         visible: frame.editing && (frame.selected || mover.containsMouse)
         width: 24 * frame.ui; height: width; radius: width / 2
         anchors { right: parent.right; top: parent.top; margins: -9 * frame.ui }
-        color: closeMouse.containsMouse ? Colors.danger : Materials.fill("overlay", 2)
+        color: closeMouse.containsMouse ? Colors.danger : Materials.fill("overlay", 2, Screen.name)
         border.width: Tokens.hairline * frame.ui; border.color: Materials.border("overlay")
         Icon { anchors.centerIn: parent; name: "close"; size: 14 * frame.ui; color: closeMouse.containsMouse ? "white" : Colors.text }
         MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: frame.removed() }
