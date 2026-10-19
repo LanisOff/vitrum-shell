@@ -3,7 +3,7 @@
 
 var MODULES = ["workspaces", "minimap", "context", "cpu", "memory", "temperature", "gpu",
                "tray", "keyboard", "network", "bluetooth", "volume", "microphone",
-               "dnd", "notifications", "recording", "power", "privacy", "awake", "sharing", "timer", "vpn", "emerge", "updates", "vitrum", "shutdown", "phone"];
+               "dnd", "notifications", "recording", "power", "privacy", "awake", "sharing", "timer", "vpn", "emerge", "updates", "vitrum", "shutdown", "phone", "game"];
 // left / center / right, and activities: islands right of the centre that are
 // only there while their activity runs.
 var SIDES = ["left", "center", "activities", "right"];

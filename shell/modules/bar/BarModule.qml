@@ -23,11 +23,13 @@ Item {
     implicitHeight: Tokens.islandHeight
     anchors.verticalCenter: parent ? parent.verticalCenter : undefined
 
-    function openPanel() {
-        if (!panel) return;
+    /// Opens `panel`, or the one named.
+    function openPanel(name) {
+        const which = name || panel;
+        if (!which) return;
         const src = island || root;
         const p = src.mapToItem(null, 0, 0);
-        UiState.openPanel(panel, screen, Qt.rect(p.x, p.y, src.width, src.height), island);
+        UiState.openPanel(which, screen, Qt.rect(p.x, p.y, src.width, src.height), island);
     }
 
     MouseArea {
