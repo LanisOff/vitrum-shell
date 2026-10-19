@@ -108,10 +108,8 @@ PanelWindow {
     // What glass widgets (the clock's digits) look through: the wallpaper as
     // WallpaperView draws it — the same crop, the same parallax slice — so the
     // picture bends through the digits at their rims. Loaded while such a
-    // widget is on this screen, and in the editor (the stage shows it). Not
-    // while a game runs: the digits are painted then, and a screen-sized
-    // texture of the wallpaper stays out of the game's VRAM.
-    readonly property bool wantsGlass: !Materials.plain && items.some(i => W.bare(i.type, W.withDefaults(i.type, i.options, WidgetEditor.custom)))
+    // widget is on this screen, and in the editor (the stage shows it).
+    readonly property bool wantsGlass: items.some(i => W.bare(i.type, W.withDefaults(i.type, i.options, WidgetEditor.custom)))
     readonly property string wallPath: LockLib.lockBackground(Wallpaper.pathFor(screen.name),
         (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/vitrum/poster.png")
     readonly property string wallUrl: wallPath ? "file://" + wallPath + "?" + wallStamp : ""
