@@ -185,7 +185,7 @@ Surface {
                     Column {
                         anchors.verticalCenter: parent.verticalCenter
                         Label { text: selCol.oneMeta ? selCol.oneMeta.name : ""; size: Tokens.textLarge; font.weight: Font.DemiBold }
-                        Label { text: selCol.one ? Math.round(selCol.one.w) + " × " + Math.round(selCol.one.h) + "  ·  " + selCol.one.output : ""; role: "dim"; size: Tokens.textSmall; numeric: true }
+                        Label { text: selCol.one ? Math.round(selCol.one.w) + " × " + Math.round(selCol.one.h) + "  ·  " + (selCol.one.output === W.EVERY ? "every screen" : selCol.one.output) : ""; role: "dim"; size: Tokens.textSmall; numeric: true }
                     }
                 }
                 Column {
@@ -225,8 +225,9 @@ Surface {
                     Flow {
                         width: parent.width
                         spacing: 6
+                        // Every screen: the same widget on each, in the same place.
                         Repeater {
-                            model: Quickshell.screens.map(s => s.name)
+                            model: [W.EVERY].concat(Quickshell.screens.map(s => s.name))
                             delegate: Rectangle {
                                 required property string modelData
                                 readonly property bool on: selCol.one && selCol.one.output === modelData
@@ -234,9 +235,9 @@ Surface {
                                 width: scrLabel.implicitWidth + Tokens.padding * 1.2
                                 color: on ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22) : scrMouse.containsMouse ? Colors.alpha(Colors.text, 0.08) : "transparent"
                                 border.width: on ? 0 : Tokens.hairline; border.color: Colors.alpha(Colors.text, 0.25)
-                                Label { id: scrLabel; anchors.centerIn: parent; text: modelData; size: Tokens.textSmall + 1 }
+                                Label { id: scrLabel; anchors.centerIn: parent; text: modelData === W.EVERY ? "Every screen" : modelData; size: Tokens.textSmall + 1 }
                                 MouseArea { id: scrMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                                            onClicked: if (!on) WidgetEditor.moveToOutput(selCol.one.id, modelData, { x: selCol.one.x, y: selCol.one.y }) }
+                                            onClicked: if (!on) WidgetEditor.setEvery(selCol.one.id, modelData === W.EVERY, modelData) }
                             }
                         }
                     }

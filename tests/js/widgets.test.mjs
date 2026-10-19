@@ -17,6 +17,16 @@ eq(j(w.place({ x: 10, y: 10, w: 5000, h: 20 }, screen, 8, { w: 120, h: 80 })), j
 const items = [{ id: "a", type: "clock", output: "DP-1" }, { id: "b", type: "notes", output: "HDMI-A-1" }];
 eq(j(w.forOutput(items, "DP-1").map(i => i.id)), j(["a"]), "per output");
 eq(j(w.forOutput(items, "eDP-1")), j([]), "none elsewhere");
+// On every screen: the same widget on each, and in the way of new ones everywhere.
+{
+  const every = items.concat([{ id: "c", type: "clock", output: w.EVERY, x: 32, y: 80, w: 336, h: 160 }]);
+  eq(j(w.forOutput(every, "DP-1").map(i => i.id)), j(["a", "c"]), "every screen shows on DP-1");
+  eq(j(w.forOutput(every, "eDP-1").map(i => i.id)), j(["c"]), "and on any other");
+  eq(j(w.forOutput(every, w.EVERY).map(i => i.id)), j(["a", "b", "c"]), "every screen keeps clear of all");
+  const next = w.add(every, "clock", "HDMI-A-1", screen, 8, 48, () => "d");
+  eq(next[3].x !== 32 || next[3].y !== 80, true, "a new widget does not land on it");
+  eq(w.moveToOutput(every, "c", "DP-1", { x: 32, y: 80 }, screen, 8)[2].output, "DP-1", "back to one screen");
+}
 
 // Updating returns a new list; the others are untouched.
 const up = w.update(items, "a", { x: 40 });

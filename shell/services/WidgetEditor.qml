@@ -54,8 +54,11 @@ Singleton {
     }
 
     function newId() { return Date.now().toString(36) + Math.floor(Math.random() * 1e6).toString(36); }
-    /// The size of an output, in the logical pixels items are kept in.
+    /// The size of an output, in the logical pixels items are kept in. Every
+    /// screen (W.EVERY): the smallest of them, so the widget fits on each.
     function bounds(output) {
+        if (output === W.EVERY && Quickshell.screens.length)
+            return { w: Math.min(...Quickshell.screens.map(x => x.width)), h: Math.min(...Quickshell.screens.map(x => x.height)) };
         const s = Quickshell.screens.find(x => x.name === output) || Quickshell.screens[0];
         return s ? { w: s.width, h: s.height } : { w: 1920, h: 1080 };
     }
@@ -135,6 +138,11 @@ Singleton {
     function alignSelected(how) { apply(W.alignItems(draft, selection, how)); }
     function distributeSelected(axis) { apply(W.distribute(draft, selection, axis)); }
     function moveToOutput(id, output, pos) { apply(W.moveToOutput(draft, id, output, pos, bounds(output), grid)); }
+    /// On every screen at once (W.EVERY), where it is now; or back to one of them.
+    function setEvery(id, on, output) {
+        const it = draft.find(i => i.id === id);
+        if (it) moveToOutput(id, on ? W.EVERY : output, { x: it.x, y: it.y });
+    }
 
     // -------------------------------------------------------- selection ---
     function select(id, additive) {

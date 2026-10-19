@@ -11,8 +11,9 @@ import "../../lib/lock.js" as LockLib
 
 /*
  * Desktop widgets, one surface per screen, under the windows (bottom layer,
- * above the wallpaper). Widgets come from widgets.items, kept per output name;
- * a right-click on one opens the editor on it.
+ * above the wallpaper). Widgets come from widgets.items, kept per output name
+ * (or on every screen: the same widget on each); a right-click on one opens
+ * the editor on it.
  *
  * The editor (WidgetEditor; Mod+Alt+W, Settings, the launcher) is this same
  * surface risen to the overlay: an opaque backdrop hides the windows, and the
@@ -299,9 +300,10 @@ PanelWindow {
     function dropAt(id, dx, dy, windowPos) {
         const d = dragDelta;
         dragDelta = null;
-        // Past the edge, onto another screen (one widget at a time).
+        // Past the edge, onto another screen (one widget at a time; one on
+        // every screen is there already).
         const to = W.dropTarget(Niri.outputs, screen.name, windowPos, sheetW, 0.72, margin);
-        if (to && WidgetEditor.selection.length <= 1) {
+        if (to && WidgetEditor.selection.length <= 1 && byId[id] && byId[id].output !== W.EVERY) {
             const it = byId[id];
             WidgetEditor.moveToOutput(id, to.output, { x: to.x - it.w / 2, y: to.y - it.h / 2 });
             return;

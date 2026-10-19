@@ -1,6 +1,7 @@
 .pragma library
 // Desktop widgets: placement, the stored list, and the calendar's month grid.
-// An item is { id, type, output, x, y, w, h, options } in output-logical pixels.
+// An item is { id, type, output, x, y, w, h, options } in output-logical pixels;
+// output "*" (EVERY) puts it on every screen, at the same place, as one widget.
 
 // The catalog: what each widget is, the sizes it comes in, and its options.
 //   category  time | productivity | system | media | apps (the gallery's chips)
@@ -213,8 +214,11 @@ function align(r, others, kind, opts) {
     return out;
 }
 
+var EVERY = "*";
+// What shows on `output`: its own widgets and those on every screen. For EVERY
+// itself, all of them (what a widget there must keep clear of).
 function forOutput(items, output) {
-    return (items || []).filter(function (i) { return i.output === output; });
+    return (items || []).filter(function (i) { return output === EVERY || i.output === output || i.output === EVERY; });
 }
 
 function update(items, id, patch) {

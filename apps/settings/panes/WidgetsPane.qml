@@ -36,7 +36,7 @@ Page {
                 required property var modelData
                 required property int index
                 label: page.nameOf(modelData.type)
-                hint: (modelData.output || "?") + " · " + Math.round(modelData.x || 0) + ", " + Math.round(modelData.y || 0) + " · " + Math.round(modelData.w || 0) + "×" + Math.round(modelData.h || 0)
+                hint: (modelData.output === "*" ? "every screen" : modelData.output || "?") + " · " + Math.round(modelData.x || 0) + ", " + Math.round(modelData.y || 0) + " · " + Math.round(modelData.w || 0) + "×" + Math.round(modelData.h || 0)
                 Icon { name: "close"; anchors.verticalCenter: parent.verticalCenter
                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { const l = page.items.slice(); l.splice(index, 1); Settings.set("widgets.items", l); } } }
             }
