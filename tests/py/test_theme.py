@@ -304,6 +304,18 @@ class Kdl(unittest.TestCase):
         self.assertGreater(look.index(rule), look.index("match is-focused=false"))
         self.assertIn("opacity 1.0", look[look.index(rule):].split("}")[0])
 
+    def test_games_get_vrr_with_the_users_list(self):
+        # The same games as the shell's game mode: Steam, gamescope and games.extra
+        # (substrings of the app id or title, any case), escaped for the regex and KDL.
+        pal = vt.palette_from_preset("graphite")
+        look = vt.look_kdl(self.settings(games__extra=["Minecraft", 'a.b"c', " "]), pal, "dark")
+        rule = look.split('match app-id="^steam_app_[0-9]+$"')[1].split("}")[0]
+        self.assertIn('match app-id="(?i)Minecraft"', rule)
+        self.assertIn('match title="(?i)Minecraft"', rule)
+        self.assertIn('match title="(?i)a\\\\.b\\"c"', rule)
+        self.assertIn("variable-refresh-rate true", rule)
+        self.assertEqual(rule.count("match"), 5, "a blank entry adds nothing")
+
     def test_glass_advanced_overrides(self):
         s = self.settings(materials__default="glass", materials__glassAdvanced={"refraction-strength": 9.5})
         self.assertIn("refraction-strength 9.5", vt.effects_kdl(s))

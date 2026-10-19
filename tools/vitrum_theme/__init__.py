@@ -409,6 +409,20 @@ def effects_kdl(settings: dict, caps: dict | None = None) -> str:
     return "\n".join(out)
 
 
+def _game_matches(settings: dict) -> str:
+    """games.extra as niri matches: each entry a substring of the app id or the
+    title, any case — what the shell's game mode takes for a game (lib/games.js)."""
+    out = ""
+    for e in settings.get("games", {}).get("extra", []):
+        e = str(e or "").strip()
+        if not e:
+            continue
+        rx = "(?i)" + re.sub(r"([\\.+*?()|\[\]{}^$#&\-~])", r"\\\1", e)
+        q = '"' + rx.replace("\\", "\\\\").replace('"', '\\"') + '"'
+        out += f"    match app-id={q}\n    match title={q}\n"
+    return out
+
+
 def look_kdl(settings: dict, palette: dict, scheme: str) -> str:
     density = settings["density"]
     gap = {"compact": 10, "regular": 14, "comfortable": 18}[density]
@@ -446,7 +460,7 @@ window-rule {{
 window-rule {{
     match app-id="^steam_app_[0-9]+$"
     match app-id="^gamescope$"
-    variable-refresh-rate true
+{_game_matches(settings)}    variable-refresh-rate true
 }}
 
 window-rule {{
