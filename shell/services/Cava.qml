@@ -6,7 +6,8 @@ import Quickshell.Io
 
 /*
  * A spectrum of what plays, from cava (raw output), for the player's visualizer.
- * Runs only while something shows it and music plays.
+ * Runs only while something shows it and music plays, and not in a game:
+ * thirty frames a second of a desktop the game covers.
  */
 Singleton {
     id: root
@@ -15,7 +16,7 @@ Singleton {
     property int users: 0
     function subscribe() { users++; }
     function unsubscribe() { users = Math.max(0, users - 1); }
-    readonly property bool active: users > 0 && Media.playing
+    readonly property bool active: users > 0 && Media.playing && !GameMode.active
 
     readonly property string config: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/vitrum-cava.conf"
     Process {

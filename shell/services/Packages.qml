@@ -80,9 +80,10 @@ Singleton {
             }
         }
     }
-    // Fast while something runs, slow otherwise.
+    // Fast while something runs, slow otherwise, slower still in a game (a
+    // shutdown after the build still comes, a minute late at most).
     Timer {
-        interval: root.state.running ? 2000 : 15000; repeat: true; running: root.backend !== ""; triggeredOnStart: true
+        interval: GameMode.active ? 60000 : root.state.running ? 2000 : 15000; repeat: true; running: root.backend !== ""; triggeredOnStart: true
         onTriggered: { root.now = Date.now() / 1000; if (!tail.running) tail.running = true; }
     }
 

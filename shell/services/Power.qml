@@ -60,7 +60,8 @@ Singleton {
         profile = name;
     }
 
-    Timer { interval: 20000; running: true; repeat: true; triggeredOnStart: true
+    // Not while a game runs (nothing shows it then); read again after.
+    Timer { interval: 20000; running: !GameMode.active; repeat: true; triggeredOnStart: true
             onTriggered: profileRead.running = true }
 
     // -------------------------------------------------------- backlight ---
@@ -85,7 +86,11 @@ Singleton {
         }
     }
 
-    Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true
+    // Read once; then polled only where there is a backlight (a desktop has
+    // none: that was a brightnessctl every five seconds for nothing), and not
+    // while a game runs.
+    Component.onCompleted: brightRead.running = true
+    Timer { interval: 5000; running: root.hasBacklight && !GameMode.active; repeat: true; triggeredOnStart: true
             onTriggered: brightRead.running = true }
 
     signal feedback(string kind)

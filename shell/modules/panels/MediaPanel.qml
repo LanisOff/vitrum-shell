@@ -20,5 +20,5 @@ Column {
         }
     }
     // Position updates while visible.
-    Timer { interval: 1000; running: Media.playing; repeat: true; onTriggered: if (Media.current) Media.current.positionChanged() }
+    Timer { interval: 1000; running: Media.playing && !GameMode.active; repeat: true; onTriggered: if (Media.current) Media.current.positionChanged() }
 }

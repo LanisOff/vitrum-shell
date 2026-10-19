@@ -46,7 +46,7 @@ Item {
         }
     }
     // Some players only report the position when asked.
-    Timer { interval: 1000; running: Media.playing; repeat: true; onTriggered: if (Media.current) Media.current.positionChanged() }
+    Timer { interval: 1000; running: Media.playing && !GameMode.active; repeat: true; onTriggered: if (Media.current) Media.current.positionChanged() }
 
     // ---- the sample: PlayerCard's layout, still.
     Item {

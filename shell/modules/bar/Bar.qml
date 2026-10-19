@@ -40,6 +40,10 @@ PanelWindow {
     readonly property real pieceRadius: Tokens.islandRadius
     readonly property real fillet: Tokens.islandRadius
 
+    // Unmapped while a game fills this screen (GameMode.output): niri draws the
+    // top layer under a fullscreen window anyway. BarReserve keeps the space.
+    MapGate { id: gate; want: GameMode.output !== bar.screen.name }
+    visible: gate.mapped
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

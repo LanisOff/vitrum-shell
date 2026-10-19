@@ -139,10 +139,12 @@ Singleton {
         pl.paused = paused;
     }
 
-    // Pause what nobody can see.
+    // Pause what nobody can see; under a game always, whatever the setting:
+    // a decoder on the same GPU as the game.
     Connections { target: Niri; function onWindowsChanged() { root.updatePause(); } function onWorkspacesChanged() { root.updatePause(); } }
+    Connections { target: GameMode; function onActiveChanged() { root.updatePause(); } }
     function updatePause() {
-        const pause = Settings.get("wallpaper.live.pauseWhenCovered", true);
+        const pause = Settings.get("wallpaper.live.pauseWhenCovered", true) || GameMode.active;
         const top = Settings.get("bar.position", "top") === "top" ? 40 : 0;
         for (const out in players) {
             const ws = Niri.activeWorkspaceOn(out), o = Niri.outputs[out];

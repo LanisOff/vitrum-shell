@@ -282,7 +282,10 @@ Singleton {
 
     // ----------------------------------------------------------- outputs ---
 
-    Timer { interval: 10000; running: true; repeat: true; triggeredOnStart: true; onTriggered: outputsProc.running = true }
+    /// Set by GameMode while a game runs: no polling then (a workspace change
+    /// still asks), read again after. Not read from GameMode here: it reads Niri.
+    property bool quiet: false
+    Timer { interval: 10000; running: !root.quiet; repeat: true; triggeredOnStart: true; onTriggered: outputsProc.running = true }
     Process {
         id: outputsProc
         command: [root.bin, "msg", "--json", "outputs"]
@@ -295,7 +298,9 @@ Singleton {
                         if (!l) continue;
                         map[name] = { name: name, x: l.x, y: l.y, width: l.width, height: l.height, scale: l.scale };
                     }
-                    root.outputs = map;
+                    // Only a change: a new object every ten seconds re-ran every
+                    // binding on outputs (the fullscreen check, game mode, the dock).
+                    if (JSON.stringify(map) !== JSON.stringify(root.outputs)) root.outputs = map;
                 } catch (e) { /* not running */ }
             }
         }

@@ -61,7 +61,12 @@ PanelWindow {
         }
     }
 
-    visible: true
+    // Mapped unless a game fills this screen (GameMode.output); the editor
+    // maps it again (components/MapGate.qml).
+    MapGate { id: gate; want: root.editing || GameMode.output !== root.screen.name }
+    visible: gate.mapped
+    // Mapped again by the editor: the window is a new one, the focus goes back in.
+    onBackingWindowVisibleChanged: if (backingWindowVisible && editing && focused_) keys.forceActiveFocus()
     anchors { top: true; bottom: true; left: true; right: true }
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"

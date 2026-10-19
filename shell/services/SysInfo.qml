@@ -116,8 +116,10 @@ Singleton {
 
     property var _lastCpu: null
 
+    // Slower while a game runs: what shows the figures is under it, and the
+    // hardware alerts look for half a minute of heat anyway.
     Timer {
-        interval: 2000
+        interval: GameMode.active ? 10000 : 2000
         running: root.subscribers > 0
         repeat: true
         triggeredOnStart: true
@@ -217,9 +219,8 @@ Singleton {
         }
     }
 
-    Component.onDestruction: {}
-    Timer { interval: 5000; running: true; repeat: true; triggeredOnStart: true
-            onTriggered: root.refreshDisplays() }
+    // Read when asked (About): nothing else shows them, and a niri query every
+    // five seconds, games included, bought nothing.
 
     // ------------------------------------------------------------- GPU ----
     //

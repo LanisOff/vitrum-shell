@@ -142,7 +142,7 @@ Item {
             property real pos: Media.position
             property real phase: 0
             NumberAnimation on phase { from: 0; to: Math.PI * 2; duration: 1600; loops: Animation.Infinite; running: Media.playing && Motion.enabled && wave.visible }
-            Timer { interval: 500; repeat: true; running: Media.playing; onTriggered: wave.pos = Media.current ? Media.current.position : 0 }
+            Timer { interval: 500; repeat: true; running: Media.playing && !GameMode.active; onTriggered: wave.pos = Media.current ? Media.current.position : 0 }
             Shape {
                 anchors.fill: parent
                 preferredRendererType: Shape.CurveRenderer

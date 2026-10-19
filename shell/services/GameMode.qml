@@ -23,7 +23,16 @@ Singleton {
         return w && Games.isGame(w, extra) ? w : null;
     }
     readonly property bool active: Settings.get("games.mode", true) && (game !== null || forced)
+    /// The screen the game fills: its bar and desktop are unmapped meanwhile
+    /// (under a fullscreen window niri draws neither, but Qt went on drawing
+    /// them — a clock, a graph — on the game's GPU). Not in the overview, which
+    /// shows them.
+    readonly property string output: {
+        const ws = active && game && !Niri.overviewOpen ? Niri.workspaces[game.workspaceId] : null;
+        return ws ? ws.output || "" : "";
+    }
     property int registeredPid: 0
+    Binding { target: Niri; property: "quiet"; value: root.active }
 
     // The Settings app shares this code (and Motion reads it): only the shell acts.
     readonly property bool inShell: !Quickshell.env("VITRUM_NO_THEME")

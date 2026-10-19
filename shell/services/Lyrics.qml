@@ -69,5 +69,6 @@ Singleton {
         const i = Lib.lineAt(lines, (Media.current.position || 0) + 0.25);
         if (i !== index) index = i;
     }
-    Timer { interval: 200; repeat: true; running: root.users > 0 && root.lines.length > 0 && Media.playing; onTriggered: root._tick() }
+    // Not in a game: five ticks a second for a line nobody sees.
+    Timer { interval: 200; repeat: true; running: root.users > 0 && root.lines.length > 0 && Media.playing && !GameMode.active; onTriggered: root._tick() }
 }
