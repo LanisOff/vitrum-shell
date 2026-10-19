@@ -23,21 +23,26 @@ Singleton {
         onLoadFailed: root.shapedGlass = false
     }
 
+    /// While a game runs: no blur and no glass from niri (wantsRegion, shaped),
+    /// plain translucent fills instead — they read over the game, and niri has
+    /// nothing to sample and bend behind them on its frames.
+    readonly property bool plain: GameMode.active
+
     /// Glass on this group, drawn by niri in the shape of the region's pieces.
-    function shaped(group) { return shapedGlass && of(group) === "glass"; }
+    function shaped(group) { return shapedGlass && of(group) === "glass" && !plain; }
 
     function of(group) {
         const g = Settings.get("materials.groups", {});
         return g[group] || Settings.get("materials.default", "frosted");
     }
-    // No blur while a game runs: niri draws no effects for the shell then.
-    function wantsRegion(group) { return of(group) !== "solid" && !GameMode.active; }
+    function wantsRegion(group) { return of(group) !== "solid" && !plain; }
 
     // level: 0 base, 1 raised (inner cards), 2 highest
     function fill(group, level) {
         const m = of(group);
         const base = level >= 2 ? Colors.surfaceHighest : level === 1 ? Colors.surfaceHigh : Colors.surface;
         if (m === "solid") return base;
+        if (plain) return Colors.alpha(base, level === 0 ? 0.86 : 0.92);
         if (m === "glass") return Colors.alpha(base, level === 0 ? 0.10 : 0.22);
         return Colors.alpha(base, level === 0 ? 0.62 : 0.72);
     }

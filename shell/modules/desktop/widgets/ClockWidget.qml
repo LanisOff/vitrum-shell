@@ -34,7 +34,8 @@ Item {
     }
 
     readonly property bool digital: options.style === "digital"
-    readonly property bool useGlass: !digital && !preview && !!backdrop && Materials.of("widgets") !== "solid"
+    // Painted digits while a game runs (Materials.plain): the glass is a shader pass.
+    readonly property bool useGlass: !digital && !preview && !!backdrop && Materials.of("widgets") !== "solid" && !Materials.plain
     // Bare on the wallpaper: white with a shadow. In a card or on a plate: the theme's ink.
     readonly property bool onWallpaper: !digital && !preview
 
