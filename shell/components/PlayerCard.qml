@@ -56,6 +56,9 @@ Item {
     // refracted wallpaper like a sticker, its rounded corners most of all.
     readonly property real feather: Tokens.padding * 1.2
     readonly property bool hasArt: Media.artUrl.length > 0 && backArt.status === Image.Ready
+    // While a game runs (Materials.plain) the plain plate instead: two blur
+    // passes and a mask over the game's frames.
+    readonly property bool blurredArt: hasArt && !Materials.plain
     Item {
         id: back
         anchors.fill: parent
@@ -67,7 +70,7 @@ Item {
         id: softMask
         anchors.fill: parent
         visible: false
-        layer.enabled: true
+        layer.enabled: root.blurredArt
         Rectangle { id: maskCore; anchors.fill: parent; anchors.margins: root.feather * 0.6; radius: Tokens.radiusInner * 1.5; visible: false }
         MultiEffect { anchors.fill: maskCore; source: maskCore; blurEnabled: true; blur: 1.0; blurMax: Math.round(root.feather) }
     }
@@ -75,7 +78,7 @@ Item {
         anchors.fill: parent
         visible: !root.bare && opacity > 0
         // The blurred cover comes in once it has loaded, not as a pop.
-        opacity: root.hasArt ? 1 : 0
+        opacity: root.blurredArt ? 1 : 0
         Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
         layer.enabled: visible
         layer.effect: MultiEffect { maskEnabled: true; maskSource: softMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
@@ -87,11 +90,11 @@ Item {
         }
         Rectangle { anchors.fill: parent; color: Colors.alpha(Colors.surface, Colors.dark ? 0.45 : 0.55) }
     }
-    // No cover: the plain plate.
+    // No cover, or a game running: the plain plate.
     Rectangle {
         anchors.fill: parent
         visible: !root.bare && opacity > 0
-        opacity: root.hasArt ? 0 : 1
+        opacity: root.blurredArt ? 0 : 1
         Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
         radius: Tokens.radiusInner * 1.5
         color: Materials.fill("panels", 1)

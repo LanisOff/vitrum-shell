@@ -38,6 +38,10 @@ Item {
     readonly property bool useGlass: !digital && !preview && !!backdrop && Materials.of("widgets") !== "solid" && !Materials.plain
     // Bare on the wallpaper: white with a shadow. In a card or on a plate: the theme's ink.
     readonly property bool onWallpaper: !digital && !preview
+    // The shadow that keeps it readable there: a blurred one, or while a game
+    // runs a hard one drawn with the text (no effect pass on every tick).
+    readonly property bool softShadow: onWallpaper && !Materials.plain
+    readonly property int shadowStyle: onWallpaper && Materials.plain ? Text.Raised : Text.Normal
 
     readonly property bool h12: options.hours === "12"
     readonly property bool secs: options.seconds === true
@@ -70,6 +74,7 @@ Item {
         property real size: 40
         property int weight: Font.Bold
         property color ink: "white"
+        property int style: Text.Normal
         // Stacked figures sit closer than their line height.
         spacing: -size * 0.16
         Repeater {
@@ -81,6 +86,8 @@ Item {
                 size: digits.size
                 weight: digits.weight
                 color: digits.ink
+                style: digits.style
+                styleColor: Qt.rgba(0, 0, 0, 0.45)
             }
         }
     }
@@ -122,7 +129,8 @@ Item {
                 size: root.timeSize
                 weight: root.digital ? Font.Light : Font.Bold
                 ink: root.onWallpaper ? "white" : Colors.text
-                layer.enabled: root.onWallpaper
+                style: root.shadowStyle
+                layer.enabled: root.softShadow
                 layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 0.7; shadowColor: Qt.rgba(0, 0, 0, 0.5); shadowVerticalOffset: 2 }
             }
             // AM/PM on the plate only: glass reads as digits alone.
@@ -145,7 +153,9 @@ Item {
             font.weight: root.digital ? Font.Normal : Font.DemiBold
             color: root.onWallpaper ? "white" : root.digital ? Colors.textDim : Colors.text
             // On the bare wallpaper: a soft shadow keeps it readable on light pictures.
-            layer.enabled: root.onWallpaper
+            style: root.shadowStyle
+            styleColor: Qt.rgba(0, 0, 0, 0.45)
+            layer.enabled: root.softShadow
             layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 0.6; shadowColor: Qt.rgba(0, 0, 0, 0.55); shadowVerticalOffset: 1 }
         }
     }

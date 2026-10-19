@@ -10,6 +10,10 @@ Row {
     property real size: Tokens.textTitle * 4
     property int weight: Font.Light
     property color color: Colors.text
+    /// Text.Raised and a dark styleColor: a shadow with no effect pass (the
+    /// desktop clock while a game runs).
+    property int style: Text.Normal
+    property color styleColor: "transparent"
 
     Repeater {
         // A count, not the characters: delegates stay put while digits change.
@@ -37,6 +41,8 @@ Row {
                 size: clock.size
                 font.weight: clock.weight
                 color: clock.color
+                style: clock.style
+                styleColor: clock.styleColor
                 opacity: 1 - cell.t
                 y: -cell.t * cell.height * 0.6
                 visible: cell.t < 1
@@ -48,6 +54,8 @@ Row {
                 size: clock.size
                 font.weight: clock.weight
                 color: clock.color
+                style: clock.style
+                styleColor: clock.styleColor
                 opacity: cell.t
                 y: (1 - cell.t) * cell.height * 0.6
             }
