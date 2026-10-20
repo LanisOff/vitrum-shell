@@ -429,15 +429,18 @@ class Fastfetch(unittest.TestCase):
 
 class FastfetchLogo(unittest.TestCase):
     """Gentoo builds fastfetch without ImageMagick, so "auto" cannot show the
-    PNG logo; kitty can read the file itself (kitty-direct), also through tmux.
-    A TTY must keep "auto" (kitty-direct would print escape codes there)."""
+    PNG logo; in kitty the logo is unicode placeholders kitty draws as the
+    image (lib/kitty-logo.py), wrapped for tmux inside tmux. kitty-direct hung
+    kitty inside tmux. A TTY must keep "auto" (it would print escape codes)."""
 
     @unittest.skipUnless(__import__("shutil").which("fish"), "fish not installed")
-    def test_fish_passes_kitty_direct_only_inside_kitty(self):
+    def test_fish_hands_fastfetch_the_kitty_logo_only_inside_kitty(self):
         import subprocess
+        from unittest import mock
         with tempfile.TemporaryDirectory() as t:
             t = Path(t)
-            subs = R.substitutions(R.terminal_colours(palette("dark"), "dark"), "dark", {}, "/bin/fish", config=t / "cfg")
+            with mock.patch.dict("os.environ", {"XDG_DATA_HOME": str(t / "data")}):
+                subs = R.substitutions(R.terminal_colours(palette("dark"), "dark"), "dark", {}, "/bin/fish", config=t / "cfg")
             abbr = t / "abbr.fish"
             abbr.write_text(R.render((ROOT / "config/fish/conf.d/10-vitrum-abbr.fish.in").read_text(encoding="utf-8"), subs))
             (t / "bin").mkdir()
@@ -446,8 +449,15 @@ class FastfetchLogo(unittest.TestCase):
             def run(extra):
                 return subprocess.run([__import__("shutil").which("fish"), "--no-config", "-i", "-c", f"source {abbr}; fastfetch --x"],
                                       env={**env, **extra}, capture_output=True, text=True, timeout=30).stdout
-            self.assertIn("--logo-type kitty-direct --x", run({"KITTY_WINDOW_ID": "1"}))
-            self.assertNotIn("kitty-direct", run({}))
+            logos = t / "data/vitrum/fastfetch"
+            # Not made yet (no python3 at install): fastfetch as it is.
+            self.assertIn("args: --x", run({"KITTY_WINDOW_ID": "1"}))
+            logos.mkdir(parents=True)
+            (logos / "logo.kitty").write_text("k"); (logos / "logo.tmux").write_text("t")
+            self.assertIn(f"--logo {logos}/logo.kitty --logo-type raw --logo-width 30 --logo-height 15 --x", run({"KITTY_WINDOW_ID": "1"}))
+            self.assertIn(f"--logo {logos}/logo.tmux --logo-type raw", run({"KITTY_WINDOW_ID": "1", "TMUX": "/tmp/tmux-1/default,1,0"}))
+            self.assertIn("args: --x", run({}))
+            self.assertNotIn("kitty-direct", run({"KITTY_WINDOW_ID": "1", "TMUX": "x"}))
 
 
 class TerminalBars(unittest.TestCase):

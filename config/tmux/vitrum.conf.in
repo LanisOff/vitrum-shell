@@ -79,6 +79,10 @@ set -g status-left "#[fg=@ACCENT@,bg=default]#[fg=@ON_ACCENT@,bg=@ACCENT@,bol
 #    zoomed    bell    marked    activity
 
 set -g window-status-separator ""
+# The capsules are the whole look: tmux 3.8 underlines the current window by
+# default, a line under the capsule and past its rounded end.
+set -g window-status-style "default"
+set -g window-status-current-style "default"
 
 set -g window-status-format "#[fg=@PILL@,bg=default]#[fg=@DIM@,bg=@PILL@]#I #[fg=@FG2@,bg=@PILL@]#W#{?window_zoomed_flag, ,}#{?window_bell_flag,#[fg=@RED@] ,}#{?window_activity_flag,#[fg=@YELLOW@] ,}#[fg=@PILL@,bg=default] "
 

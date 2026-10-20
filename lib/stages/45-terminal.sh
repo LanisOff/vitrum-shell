@@ -51,7 +51,13 @@ _terminal_logo() {
   if have rsvg-convert; then rsvg-convert -w 256 -h 256 "$VITRUM_DIR/assets/vitrum-mark.svg" -o "$out" 2>/dev/null
   elif have magick; then magick -background none -density 300 "$VITRUM_DIR/assets/vitrum-mark.svg" -resize 256x256 "$out" 2>/dev/null
   fi
-  [[ -s "$out" ]] || dim "no logo for fastfetch (no rsvg-convert/ImageMagick) — it falls back to text"
+  [[ -s "$out" ]] || { dim "no logo for fastfetch (no rsvg-convert/ImageMagick) — it falls back to text"; return 0; }
+  # The same mark as text kitty draws as the image, in tmux too (see lib/kitty-logo.py);
+  # 30x15 cells, the box the fish fastfetch function asks for.
+  if ! { have python3 && python3 "$VITRUM_DIR/lib/kitty-logo.py" "$out" 30 15 \
+           "$VITRUM_STATE/fastfetch/logo.kitty" "$VITRUM_STATE/fastfetch/logo.tmux"; }; then
+    dim "no kitty logo for fastfetch — kitty shows the text one"
+  fi
 }
 
 # Every file the render writes, base or colours: backed up once, then written.

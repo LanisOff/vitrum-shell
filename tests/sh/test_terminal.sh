@@ -14,6 +14,13 @@ test_terminal_installs_templates_and_renders_everything() {
   assert_contains "$(cat "$HOME/calls")" "vitrum-theme --all"
   [[ -f "$XDG_DATA_HOME/vitrum/fastfetch/logo.png" ]]
 }
+test_terminal_makes_the_kitty_logo_for_kitty_and_tmux() {
+  _load_term
+  stub rsvg-convert 'for a; do o="$a"; done; printf "\x89PNG" > "$o"'
+  stage_terminal >/dev/null 2>&1
+  [[ -s "$XDG_DATA_HOME/vitrum/fastfetch/logo.kitty" ]]
+  grep -q $'\ePtmux;' "$XDG_DATA_HOME/vitrum/fastfetch/logo.tmux"
+}
 test_terminal_backs_up_your_configs_first() {
   _load_term
   mkdir -p "$XDG_CONFIG_HOME/kitty"; echo mine > "$XDG_CONFIG_HOME/kitty/kitty.conf"

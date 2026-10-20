@@ -88,13 +88,21 @@ abbr -a reshell    'vitrum-shell --restart'
 abbr -a theme      vitrum-theme
 command -q fastfetch; and abbr -a ff fastfetch
 
-# In kitty (tmux inside kitty too) fastfetch hands the logo PNG to kitty to
-# draw (kitty-direct): no ImageMagick needed in fastfetch — Gentoo builds it
-# without — and it passes through tmux. Elsewhere, a TTY, the config's "auto"
-# stays. A --logo-type of your own comes later and wins.
+# In kitty (tmux inside kitty too) the logo is text kitty draws as the image
+# (unicode placeholders, made by the installer): no ImageMagick needed in
+# fastfetch — Gentoo builds it without — and tmux keeps it like any text.
+# Not kitty-direct: inside tmux it leaves kitty's escape open, and kitty hangs.
+# Elsewhere, a TTY, the config's "auto" stays. A --logo of your own comes
+# later and wins.
 if set -q KITTY_WINDOW_ID; and command -q fastfetch
     function fastfetch --wraps fastfetch --description 'fastfetch, logo drawn by kitty'
-        command fastfetch --logo-type kitty-direct $argv
+        set -l logo "@VITRUM_STATE@/fastfetch/logo.kitty"
+        set -q TMUX; and set logo "@VITRUM_STATE@/fastfetch/logo.tmux"
+        if test -s $logo
+            command fastfetch --logo $logo --logo-type raw --logo-width 30 --logo-height 15 $argv
+        else
+            command fastfetch $argv
+        end
     end
 end
 
