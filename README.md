@@ -82,6 +82,13 @@ to arrange: right-click a widget, or press `Mod+Alt+W`, to open the editor.
   </tr>
 </table>
 
+### Lock screen
+
+<p align="center">
+  <img src="assets/screenshots/lock.jpg" alt="The lock screen: a glass clock over the blurred wallpaper, the password field and the player with synced lyrics">
+  <br><sub>The wallpaper, blurred; the clock in glass; the player and its lyrics stay at hand</sub>
+</p>
+
 ### Windows and settings
 
 <p align="center">

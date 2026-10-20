@@ -1,17 +1,27 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256">
-  <!-- The vitrum mark: a glass tile with a V of two strokes. No fonts. -->
+  <!-- The vitrum mark: a V cut from glass like a gem, two facets on each outer face. No fonts. -->
   <defs>
-    <linearGradient id="tile" x1="0" y1="0" x2="1" y2="1">
-      <stop offset="0" stop-color="#9cc3ff"/>
-      <stop offset="1" stop-color="#4f6fd6"/>
-    </linearGradient>
-    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
-      <stop offset="0" stop-color="#ffffff" stop-opacity="0.45"/>
-      <stop offset="0.5" stop-color="#ffffff" stop-opacity="0"/>
-    </linearGradient>
+    <linearGradient id="a" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#eef3ff"/><stop offset="1" stop-color="#9aa6f6"/></linearGradient>
+    <linearGradient id="b" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#9ba8f8"/><stop offset="1" stop-color="#5a5fe0"/></linearGradient>
+    <linearGradient id="c" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#7d6af2"/><stop offset="1" stop-color="#36289e"/></linearGradient>
+    <linearGradient id="d" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#ffd0ff"/><stop offset="1" stop-color="#c77cf0"/></linearGradient>
+    <linearGradient id="e" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#c47cf2"/><stop offset="1" stop-color="#8a3fd6"/></linearGradient>
+    <linearGradient id="f" x1="1" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#a868ee"/><stop offset="1" stop-color="#4c2296"/></linearGradient>
   </defs>
-  <rect x="16" y="16" width="224" height="224" rx="60" fill="url(#tile)"/>
-  <rect x="16" y="16" width="224" height="224" rx="60" fill="url(#sheen)"/>
-  <rect x="17" y="17" width="222" height="222" rx="59" fill="none" stroke="#ffffff" stroke-opacity="0.5" stroke-width="2"/>
-  <path d="M78 82 L128 178 L178 82" fill="none" stroke="#ffffff" stroke-width="22" stroke-linecap="round" stroke-linejoin="round"/>
+  <!-- left arm: two outer facets split at a ridge, then the inner face -->
+  <polygon points="28,48 56,48 128,196 128,224" fill="url(#a)"/>
+  <polygon points="56,48 82,48 128,150 128,196" fill="url(#b)"/>
+  <polygon points="82,48 108,48 128,96 128,150" fill="url(#c)"/>
+  <!-- right arm -->
+  <polygon points="228,48 200,48 128,196 128,224" fill="url(#d)"/>
+  <polygon points="200,48 174,48 128,150 128,196" fill="url(#e)"/>
+  <polygon points="174,48 148,48 128,96 128,150" fill="url(#f)"/>
+  <g fill="none" stroke="#fff" stroke-linejoin="round">
+    <polyline points="28,48 128,224 228,48" stroke-opacity="0.8" stroke-width="2"/>
+    <polyline points="56,48 128,196 200,48" stroke-opacity="0.35" stroke-width="1.2"/>
+    <polyline points="82,48 128,150 174,48" stroke-opacity="0.35" stroke-width="1.2"/>
+    <polyline points="108,48 128,96 148,48" stroke-opacity="0.5" stroke-width="1.5"/>
+    <line x1="28" y1="48" x2="108" y2="48" stroke-opacity="0.85" stroke-width="2.5"/>
+    <line x1="148" y1="48" x2="228" y2="48" stroke-opacity="0.85" stroke-width="2.5"/>
+  </g>
 </svg>
