@@ -26,7 +26,7 @@ if [ -n "${NESTED_SETTINGS:-}" ]; then
   env HOME="$H" XDG_CONFIG_HOME="$H/.config" XDG_DATA_HOME="$H/.local/share" XDG_CACHE_HOME="$H/.cache" PATH="$TPATH" \
     vitrum-theme --quiet --no-color-scheme >> "$N/steps.log" 2>&1
 fi
-WALL=$(ls "$HOME"/Pictures/Wallpapers/*.jpg 2>/dev/null | head -1)
+WALL="${NESTED_WALL:-$(ls "$HOME"/Pictures/Wallpapers/*.jpg 2>/dev/null | head -1)}"
 ENVV="\"env\" \"VITRUM_TEST_WALL=$WALL\" \"HOME=$H\" \"XDG_CONFIG_HOME=$H/.config\" \"XDG_DATA_HOME=$H/.local/share\" \"PATH=$TPATH\""
 {
   echo "spawn-at-startup $ENVV \"qs\" \"-p\" \"$N/wall/shell.qml\""

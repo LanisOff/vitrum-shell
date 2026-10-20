@@ -27,7 +27,8 @@ steps="$(printf '%s\n' "$@")"
 # NESTED_DBUS=1: a private D-Bus for the nested session, niri's interfaces on it.
 # NESTED_NIRI: path (on the host) of another niri binary for the nested session.
 # NESTED_SETTINGS: settings.json for the nested session, applied before it starts.
-{ printf 'STEPS=%q\nSHELL_ENV=%q\nNESTED_TIMEOUT=%q\nNESTED_DBUS=%q\nNESTED_NIRI=%q\nNESTED_RUST_LOG=%q\nNESTED_SETTINGS=%q\n' "$steps" "${NESTED_SHELL_ENV:-}" "${NESTED_TIMEOUT:-180}" "${NESTED_DBUS:-0}" "${NESTED_NIRI:-}" "${NESTED_RUST_LOG:-}" "${NESTED_SETTINGS:-}"; printf 'NESTED_HOST=%q\nNESTED_WLR_RENDERER=%q\n' "${NESTED_HOST:-headless}" "${NESTED_WLR_RENDERER:-gles2}"; cat tests/live/nested-remote.sh; } \
+# NESTED_WALL: the test wallpaper (a path on the host; default: its first jpg in ~/Pictures/Wallpapers).
+{ printf 'STEPS=%q\nSHELL_ENV=%q\nNESTED_TIMEOUT=%q\nNESTED_DBUS=%q\nNESTED_NIRI=%q\nNESTED_RUST_LOG=%q\nNESTED_SETTINGS=%q\n' "$steps" "${NESTED_SHELL_ENV:-}" "${NESTED_TIMEOUT:-180}" "${NESTED_DBUS:-0}" "${NESTED_NIRI:-}" "${NESTED_RUST_LOG:-}" "${NESTED_SETTINGS:-}"; printf 'NESTED_HOST=%q\nNESTED_WLR_RENDERER=%q\nNESTED_WALL=%q\n' "${NESTED_HOST:-headless}" "${NESTED_WLR_RENDERER:-gles2}" "${NESTED_WALL:-}"; cat tests/live/nested-remote.sh; } \
   | ssh "$host" bash -s
 rsync -a "$host:/tmp/vitrum-nested/shots/" "$out/" 2>/dev/null
 rsync -a "$host:/tmp/vitrum-nested/layers.txt" "$host:/tmp/vitrum-nested/shell.log" "$host:/tmp/vitrum-nested/steps.log" "$host:/tmp/vitrum-nested/niri.log" "$out/" 2>/dev/null
