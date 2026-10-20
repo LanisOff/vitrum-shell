@@ -1,6 +1,6 @@
 [Plymouth Theme]
 Name=vitrum
-Description=The vitrum mark and a quiet spinner
+Description=The vitrum mark, light running over its facets, and a glass progress bar
 ModuleName=script
 
 [script]

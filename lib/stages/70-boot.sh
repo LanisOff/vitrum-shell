@@ -31,6 +31,19 @@ _boot_mark() {  # _boot_mark <out.png> <size>
   else return 1; fi
 }
 
+# The light that runs over the mark on the splash: each facet of the mark (its
+# first six polygons) in white, on the mark's 256 px canvas, light0…light5 from
+# left to right.
+_boot_facet_lights() {  # _boot_facet_lights <dir>
+  local dir="$1" i=0 pts
+  while IFS= read -r pts; do
+    magick -size 256x256 xc:none -fill white -draw "polygon $pts" "$dir/light$i.png"
+    i=$((i + 1))
+  done < <(grep -o '<polygon points="[^"]*"' "$VITRUM_DIR/assets/vitrum-mark.svg" | head -n 6 | sed 's/.*points="//; s/"$//' \
+             | awk '{ s = 0; for (i = 1; i <= NF; i++) { split($i, p, ","); s += p[1] } print s / NF "\t" $0 }' \
+             | sort -n | cut -f2)
+}
+
 # ------------------------------------------------------------------ SDDM ----
 
 _boot_sddm() {
@@ -211,15 +224,27 @@ _boot_plymouth() {
   mkdir -p "$b"
   _boot_mark "$b/logo.png" 256 || warn "no rsvg-convert or ImageMagick — the splash shows only the spinner"
   if have magick; then
-    magick -size 12x12 xc:none -fill white -draw 'circle 6,6 6,1' "$b/dot.png"
+    _boot_facet_lights "$b"
     magick -size 10x10 xc:none -fill white -draw 'circle 5,5 5,1' "$b/bullet.png"
     magick -size 440x52 xc:none -fill '#ffffff1f' -stroke '#ffffff38' -draw 'roundrectangle 1,1 438,50 25,25' "$b/capsule.png"
+    # The progress bar, drawn at twice its 1080p size (the script halves it, as it does the mark):
+    # a glass track, the fill in the mark's colours, and the glint that runs along the fill.
+    magick -size 346x12 xc:none -fill '#ffffff1a' -stroke '#ffffff2e' -strokewidth 2 -draw 'roundrectangle 1,1 344,10 5,5' "$b/track.png"
+    magick \( -size 173x12 -define gradient:direction=east gradient:'#9aa6f6'-'#c77cf0' \) \
+           \( -size 173x12 -define gradient:direction=east gradient:'#c77cf0'-'#ffd0ff' \) +append \
+           \( -size 346x12 xc:none -fill white -draw 'roundrectangle 0,0 345,11 6,6' \) -compose DstIn -composite "$b/fill.png"
+    magick \( -size 52x12 -define gradient:direction=east gradient:'#ffffff00'-'#ffffffbf' \) \
+           \( -size 52x12 -define gradient:direction=east gradient:'#ffffffbf'-'#ffffff00' \) +append \
+           \( -size 104x12 xc:none -fill white -draw 'roundrectangle 0,0 103,11 6,6' \) -compose DstIn -composite "$b/shine.png"
   fi
   run sudo rm -rf "${VITRUM_SYSROOT:-}/usr/share/plymouth/themes/niri-tahoe"
+  run sudo rm -rf "$PLY_THEME"   # files of an older theme (the dot spinner) go with it
   run sudo install -d -m 755 "$PLY_THEME"
   run sudo install -m 644 "$VITRUM_DIR/assets/plymouth/vitrum/vitrum.plymouth" "$VITRUM_DIR/assets/plymouth/vitrum/vitrum.script" "$PLY_THEME/"
   local f
-  for f in logo dot bullet capsule; do [[ -f "$b/$f.png" ]] && run sudo install -m 644 "$b/$f.png" "$PLY_THEME/"; done
+  for f in logo light0 light1 light2 light3 light4 light5 bullet capsule track fill shine; do
+    [[ -f "$b/$f.png" ]] && run sudo install -m 644 "$b/$f.png" "$PLY_THEME/"
+  done
 
   # Remembered once, so uninstall can go back to it.
   if [[ ! -f "$VITRUM_STATE/previous-plymouth" ]]; then

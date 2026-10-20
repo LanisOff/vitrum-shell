@@ -1,52 +1,116 @@
-# vitrum Plymouth theme: the mark in the middle, a ring of dots under it,
-# a password capsule for encrypted disks, messages at the bottom.
+# vitrum Plymouth theme: the mark in the middle with light running over its
+# facets, a glass bar under it filling with the boot's progress, a password
+# capsule for encrypted disks, messages at the bottom. Near the end of the boot
+# the mark and the bar fade into the background.
 
 Window.SetBackgroundTopColor(0.07, 0.075, 0.09);
 Window.SetBackgroundBottomColor(0.05, 0.055, 0.065);
 
 cx = Window.GetX() + Window.GetWidth() / 2;
 cy = Window.GetY() + Window.GetHeight() / 2;
+# The images are drawn at twice their 1080p size.
+scale = Window.GetHeight() / 1080 * 0.5;
 
 logo.image = Image("logo.png");
-logo.scale = Window.GetHeight() / 1080 * 0.5;
-logo.image = logo.image.Scale(logo.image.GetWidth() * logo.scale, logo.image.GetHeight() * logo.scale);
+logo.image = logo.image.Scale(logo.image.GetWidth() * scale, logo.image.GetHeight() * scale);
+logo.x = cx - logo.image.GetWidth() / 2;
+logo.y = cy - logo.image.GetHeight() / 2 - Window.GetHeight() * 0.04;
 logo.sprite = Sprite(logo.image);
-logo.sprite.SetX(cx - logo.image.GetWidth() / 2);
-logo.sprite.SetY(cy - logo.image.GetHeight() / 2 - Window.GetHeight() * 0.04);
+logo.sprite.SetX(logo.x);
+logo.sprite.SetY(logo.y);
 logo.sprite.SetZ(10);
 
-# Spinner: twelve dots, one bright, the rest fading behind it.
-dot.image = Image("dot.png");
-spin.count = 12;
-spin.radius = Window.GetHeight() * 0.018;
-spin.y = cy + Window.GetHeight() * 0.13;
-for (i = 0; i < spin.count; i++) {
-    spin.sprite[i] = Sprite(dot.image);
-    angle = i / spin.count * 2 * Math.Pi;
-    spin.sprite[i].SetX(cx + spin.radius * Math.Sin(angle) - dot.image.GetWidth() / 2);
-    spin.sprite[i].SetY(spin.y - spin.radius * Math.Cos(angle) - dot.image.GetHeight() / 2);
-    spin.sprite[i].SetZ(10);
+# The light: each facet in white over the mark, left to right; a soft band of
+# them lights up in turn, then a rest.
+for (i = 0; i < 6; i++) {
+    img = Image("light" + i + ".png");
+    img = img.Scale(img.GetWidth() * scale, img.GetHeight() * scale);
+    light[i] = Sprite(img);
+    light[i].SetX(logo.x);
+    light[i].SetY(logo.y);
+    light[i].SetZ(11);
+    light[i].SetOpacity(0);
 }
-spin.step = 0;
-# While the password prompt is up the spinner stays off (refresh would bring it back).
+
+# The bar: a glass track, the fill stretched to the progress, a glint running along the fill.
+bar.y = cy + Window.GetHeight() * 0.13;
+track.image = Image("track.png");
+track.image = track.image.Scale(track.image.GetWidth() * scale, track.image.GetHeight() * scale);
+bar.x = cx - track.image.GetWidth() / 2;
+bar.w = track.image.GetWidth();
+bar.h = track.image.GetHeight();
+track.sprite = Sprite(track.image);
+track.sprite.SetX(bar.x);
+track.sprite.SetY(bar.y - bar.h / 2);
+track.sprite.SetZ(10);
+fill.source = Image("fill.png");
+fill.sprite = Sprite();
+fill.sprite.SetX(bar.x);
+fill.sprite.SetY(bar.y - bar.h / 2);
+fill.sprite.SetZ(11);
+fill.w = 0;
+shine.image = Image("shine.png");
+shine.image = shine.image.Scale(shine.image.GetWidth() * scale, shine.image.GetHeight() * scale);
+shine.sprite = Sprite(shine.image);
+shine.sprite.SetY(bar.y - bar.h / 2);
+shine.sprite.SetZ(12);
+shine.sprite.SetOpacity(0);
+# The bar only means something while booting; shutting down shows the mark alone.
+bar.shown = Plymouth.GetMode() == "boot";
+
+global.tick = 0;
+global.progress = 0;
+# 1 while the mark and the bar are there, down to 0 as they fade at the end.
+global.presence = 1;
+# While the password prompt is up the bar stays off (refresh would bring it back).
 global.asking = 0;
 
+fun show_bar(o) {
+    track.sprite.SetOpacity(o);
+    fill.sprite.SetOpacity(o);
+    if (o == 0) shine.sprite.SetOpacity(0);
+}
+if (!bar.shown) show_bar(0);
+
 fun refresh_callback() {
-    if (global.asking) return;
-    spin.step++;
-    head = Math.Int(spin.step / 4) % spin.count;
-    for (i = 0; i < spin.count; i++) {
-        d = (head - i + spin.count) % spin.count;
-        spin.sprite[i].SetOpacity(1 - d / spin.count);
-    }
+    global.tick++;
+    # Fading out once the boot is all but done: 30 frames, about 0.6 s.
+    if (global.progress >= 0.99 && global.presence > 0) global.presence = Math.Max(0, global.presence - 1 / 30);
+    p = global.presence;
+    logo.sprite.SetOpacity(p);
+
+    # The light: one pass over the facets every 120 frames (2.4 s); the band enters and leaves off the mark.
+    phase = (global.tick % 120) / 120 * 9 - 1.5;
+    for (i = 0; i < 6; i++)
+        light[i].SetOpacity(0.42 * p * Math.Max(0, 1 - Math.Abs(phase - i) / 1.3));
+
+    if (!bar.shown || global.asking) return;
+    show_bar(p);
+    # The glint: along the fill every 80 frames (1.6 s), easing in and out at its ends.
+    sw = shine.image.GetWidth();
+    if (fill.w < sw * 1.5) { shine.sprite.SetOpacity(0); return; }
+    u = (global.tick % 80) / 80;
+    shine.sprite.SetX(bar.x + u * (fill.w - sw));
+    shine.sprite.SetOpacity(p * Math.Sin(u * Math.Pi));
 }
 Plymouth.SetRefreshFunction(refresh_callback);
 
-# Encrypted disk: a capsule with dots for the typed characters.
+fun boot_progress_callback(duration, progress) {
+    global.progress = progress;
+    w = Math.Int(bar.w * Math.Clamp(progress, 0, 1));
+    # Rescaled only when it grew by a pixel or more; a sliver thinner than the bar's height is not drawn.
+    if (w == fill.w) return;
+    fill.w = w;
+    if (w < bar.h) return;
+    fill.sprite.SetImage(fill.source.Scale(w, bar.h));
+}
+Plymouth.SetBootProgressFunction(boot_progress_callback);
+
+# Encrypted disk: a capsule with dots for the typed characters, where the bar was.
 prompt.box = Image("capsule.png");
 prompt.sprite = Sprite(prompt.box);
 prompt.sprite.SetX(cx - prompt.box.GetWidth() / 2);
-prompt.sprite.SetY(spin.y - prompt.box.GetHeight() / 2);
+prompt.sprite.SetY(bar.y - prompt.box.GetHeight() / 2);
 prompt.sprite.SetZ(20);
 prompt.sprite.SetOpacity(0);
 prompt.bullet = Image("bullet.png");
@@ -55,16 +119,14 @@ bullets = [];
 label.sprite = Sprite();
 label.sprite.SetZ(20);
 
-fun show_spinner(o) { for (i = 0; i < spin.count; i++) spin.sprite[i].SetOpacity(o); }
-
 fun display_password_callback(text, count) {
     global.asking = 1;
     prompt.sprite.SetOpacity(1);
-    show_spinner(0);
+    show_bar(0);
     global.label.image = Image.Text(text, 0.75, 0.77, 0.82);
     global.label.sprite.SetImage(global.label.image);
     global.label.sprite.SetX(cx - global.label.image.GetWidth() / 2);
-    global.label.sprite.SetY(spin.y - prompt.box.GetHeight() / 2 - global.label.image.GetHeight() - 12);
+    global.label.sprite.SetY(bar.y - prompt.box.GetHeight() / 2 - global.label.image.GetHeight() - 12);
     global.label.sprite.SetOpacity(1);
     for (i = 0; bullets[i]; i++) bullets[i].SetOpacity(0);
     gap = prompt.bullet.GetWidth() * 1.8;
@@ -72,7 +134,7 @@ fun display_password_callback(text, count) {
     for (i = 0; i < count && i < 24; i++) {
         global.bullets[i] = Sprite(prompt.bullet);
         global.bullets[i].SetX(cx - width / 2 + i * gap);
-        global.bullets[i].SetY(spin.y - prompt.bullet.GetHeight() / 2);
+        global.bullets[i].SetY(bar.y - prompt.bullet.GetHeight() / 2);
         global.bullets[i].SetZ(21);
     }
 }
@@ -83,7 +145,7 @@ fun display_normal_callback() {
     prompt.sprite.SetOpacity(0);
     global.label.sprite.SetOpacity(0);
     for (i = 0; bullets[i]; i++) bullets[i].SetOpacity(0);
-    show_spinner(1);
+    # The next refresh brings the bar back (when it is shown at all).
 }
 Plymouth.SetDisplayNormalFunction(display_normal_callback);
 

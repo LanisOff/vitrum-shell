@@ -69,7 +69,7 @@ test_plymouth_theme_set_but_initramfs_only_with_the_flag() {
   _boot_initramfs_tool() { echo dracut; }
   stage_boot >/dev/null
   t="$VITRUM_SYSROOT/usr/share/plymouth/themes/vitrum"
-  [[ -f "$t/vitrum.script" && -f "$t/vitrum.plymouth" && -f "$t/logo.png" && -f "$t/dot.png" ]]
+  [[ -f "$t/vitrum.script" && -f "$t/vitrum.plymouth" && -f "$t/logo.png" && -f "$t/light5.png" && -f "$t/track.png" && -f "$t/fill.png" && ! -e "$t/light6.png" ]]
   assert_contains "$(cat "$HOME/calls")" "set vitrum"
   assert_contains "$(cat "$HOME/calls")" "dracut --force --kver 7.2.9"     # not the newest /lib/modules entry
   assert_eq "$(cat "$VITRUM_STATE/previous-plymouth")" "spinner"
