@@ -18,6 +18,11 @@ What's there now:
   nothing behind it — kitty showed plain translucent for half a second before
   its glass appeared. The effect is now drawn in place, at the animation's
   scale (not with a custom open shader, which transforms the window its own way).
+- `0005-region-overflow.patch`: upstream 2149706c, not in v26.04. A blur
+  region rect near the edge of the i32 range (Quickshell turns a NaN or
+  infinite item position into INT_MIN) overflowed `y + h`, and with
+  overflow checks on niri panicked and took the session down: the screens
+  went black when a game started or got the focus back. The sums saturate now.
 
 After adding or changing one, rebuild with:
 
