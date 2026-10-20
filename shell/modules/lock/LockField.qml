@@ -1,4 +1,5 @@
 import QtQuick
+import QtQuick.Effects
 import qs.services
 import qs.theme
 import qs.components
@@ -60,12 +61,26 @@ LockGlass {
     }
 
     // ------------------------------------------------- the checking sweep ---
+    // Cut to the capsule's own shape. `clip` only ever cuts square, so the
+    // light ran on past the round ends as a bright rectangle — for the couple
+    // of seconds PAM holds a wrong password, just before the red shake. The
+    // mask is the glass's rounded rectangle (same bounds, same radius), as
+    // RoundImage cuts a cover.
+    Rectangle {
+        id: sweepMask
+        anchors.fill: parent
+        radius: field.radius
+        visible: false
+        layer.enabled: true
+        layer.smooth: true
+    }
     Item {
         anchors.fill: parent
-        clip: true
+        visible: field.lock.busy && Motion.enabled
+        layer.enabled: visible
+        layer.effect: MultiEffect { maskEnabled: true; maskSource: sweepMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
         Rectangle {
             id: sweep
-            visible: field.lock.busy && Motion.enabled
             width: field.width * 0.35; height: field.height
             property real p: 0
             x: -width + p * (field.width + width)

@@ -377,7 +377,6 @@ Rectangle {
                 width: 440 * root.unit; height: 54 * root.unit; radius: height / 2
                 tint: Qt.tint(Qt.rgba(1, 1, 1, 0.07), Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, 0.38 * flash))
                 outline: Qt.tint(Qt.rgba(1, 1, 1, 0.14), Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, 0.85 * flash))
-                clip: true
 
                 // A refusal: the glass and the dots blush, one damped swing, then
                 // the dots go out together and the hint comes back.
@@ -404,20 +403,37 @@ Rectangle {
                     ScriptAction { script: { capsule.refusing = false; capsule.dotsOpacity = 1; dots.sync(password.text.length, false); } }
                 }
 
-                // The checking sweep.
+                // The checking sweep, cut to the capsule's own shape. A `clip`
+                // on the capsule cut it square, so the light ran on past the
+                // round ends as a bright rectangle — for the seconds PAM holds
+                // a wrong password, just before the red shake. The mask is the
+                // glass's rounded rectangle: same bounds, same radius.
                 Rectangle {
-                    id: sweep
+                    id: sweepMask
+                    anchors.fill: parent
+                    radius: capsule.radius
+                    visible: false
+                    layer.enabled: true
+                    layer.smooth: true
+                }
+                Item {
+                    anchors.fill: parent
                     visible: root.busy
-                    width: capsule.width * 0.35; height: capsule.height
-                    property real p: 0
-                    x: -width + p * (capsule.width + width)
-                    gradient: Gradient {
-                        orientation: Gradient.Horizontal
-                        GradientStop { position: 0; color: "transparent" }
-                        GradientStop { position: 0.5; color: Qt.rgba(root.cAccent.r, root.cAccent.g, root.cAccent.b, 0.3) }
-                        GradientStop { position: 1; color: "transparent" }
+                    layer.enabled: visible
+                    layer.effect: MultiEffect { maskEnabled: true; maskSource: sweepMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
+                    Rectangle {
+                        id: sweep
+                        width: capsule.width * 0.35; height: capsule.height
+                        property real p: 0
+                        x: -width + p * (capsule.width + width)
+                        gradient: Gradient {
+                            orientation: Gradient.Horizontal
+                            GradientStop { position: 0; color: "transparent" }
+                            GradientStop { position: 0.5; color: Qt.rgba(root.cAccent.r, root.cAccent.g, root.cAccent.b, 0.3) }
+                            GradientStop { position: 1; color: "transparent" }
+                        }
+                        NumberAnimation on p { running: sweep.visible; loops: Animation.Infinite; from: 0; to: 1; duration: 1100; easing.type: Easing.InOutQuad }
                     }
-                    NumberAnimation on p { running: sweep.visible; loops: Animation.Infinite; from: 0; to: 1; duration: 1100; easing.type: Easing.InOutQuad }
                 }
 
                 TextInput {
