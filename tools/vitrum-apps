@@ -10,12 +10,16 @@
 
 Defaults go to ~/.config/mimeapps.list, the file every toolkit and xdg-open
 read (and to niri-mimeapps.list as well when that one already overrides
-them). Autostart follows the XDG autostart spec: ~/.config/autostart over
+them). The current one is what really opens the type: without a default,
+that is the first app of the associations or of mimeinfo.cache.
+
+Autostart follows the XDG autostart spec: ~/.config/autostart over
 $XDG_CONFIG_DIRS/autostart, Hidden, OnlyShowIn/NotShowIn, TryExec. A few
 entries are skipped because vitrum already does their job (a second polkit
 agent or notification daemon would fight the shell's).
 """
 import fnmatch
+import functools
 import json
 import os
 import shutil
@@ -31,7 +35,7 @@ CONFIG_DIRS = [Path(p) for p in (os.environ.get("XDG_CONFIG_DIRS") or "/etc/xdg"
 DATA_DIRS = [Path(p) for p in (os.environ.get("XDG_DATA_DIRS") or "/usr/local/share:/usr/share").split(":") if p]
 DESKTOPS = [d.lower() for d in (os.environ.get("XDG_CURRENT_DESKTOP") or "niri").split(":") if d]
 
-# kind, label, the MIME types it sets (the first one is read back as "current").
+# kind, label, the MIME types it sets (the first one with an app is read back as "current").
 KINDS = [
     ("browser", "Web browser", ["x-scheme-handler/https", "x-scheme-handler/http", "text/html", "application/xhtml+xml"]),
     ("mail", "Mail", ["x-scheme-handler/mailto"]),
@@ -188,9 +192,14 @@ def applications():
     return out
 
 
+def _installed(entry):
+    """There to run: Hidden=true deletes an entry, and a missing TryExec means
+    the program is gone. A NoDisplay one still opens files (kitty-open, satty)."""
+    return entry.get("Type", "Application") == "Application" and not _bool(entry.get("Hidden")) and _tryexec_ok(entry)
+
+
 def _shown(entry):
-    return (entry.get("Type", "Application") == "Application" and not _bool(entry.get("Hidden"))
-            and not _bool(entry.get("NoDisplay")) and _tryexec_ok(entry))
+    return _installed(entry) and not _bool(entry.get("NoDisplay"))
 
 
 def _tryexec_ok(entry):
@@ -230,10 +239,29 @@ def read_group(path, group):
     return out
 
 
-def default_for(mime, apps):
-    for f in mimeapps_chain():
-        for did in read_group(f, "Default Applications").get(mime, []):
-            if did in apps:
+def default_for(mime, apps, read=read_group):
+    """The app that opens a type, in the mime-apps spec's order: the first
+    installed one in [Default Applications] down the chain, then in [Added
+    Associations], then in mimeinfo.cache, the user's data dir first (what
+    xdg-open falls back to). [Removed Associations] takes an app out of the
+    files below its own and out of the cache."""
+    def ok(did):
+        return did in apps and _installed(apps[did][1])
+
+    chain = mimeapps_chain()
+    for f in chain:
+        for did in read(f, "Default Applications").get(mime, []):
+            if ok(did):
+                return did
+    removed = set()
+    for f in chain:
+        for did in read(f, "Added Associations").get(mime, []):
+            if did not in removed and ok(did):
+                return did
+        removed.update(read(f, "Removed Associations").get(mime, []))
+    for base in [DATA_HOME] + DATA_DIRS:
+        for did in read(base / "applications" / "mimeinfo.cache", "MIME Cache").get(mime, []):
+            if did not in removed and ok(did):
                 return did
     return ""
 
@@ -283,22 +311,34 @@ def _write(path, text):
     path = Path(path)
     path.parent.mkdir(parents=True, exist_ok=True)
     fd, tmp = tempfile.mkstemp(dir=str(path.parent), prefix="." + path.name)
-    with os.fdopen(fd, "w", encoding="utf-8") as f:
-        f.write(text)
-    os.replace(tmp, path)
+    try:
+        with os.fdopen(fd, "w", encoding="utf-8") as f:
+            f.write(text)
+        os.replace(tmp, path)
+    except BaseException:
+        # A file that cannot be replaced leaves no half-written copy behind.
+        try:
+            os.unlink(tmp)
+        except OSError:
+            pass
+        raise
 
 
 def defaults(apps):
+    """Each kind: the apps offered, the current one, and whether its types
+    open in more than one app ("mixed": picking one sets them all)."""
+    read = functools.lru_cache(maxsize=None)(read_group)
     out = []
     for kind, label, mimes in KINDS:
         want = OFFER.get(kind, mimes)
         offered = [_brief(did, e) for did, (p, e) in apps.items()
                    if _shown(e) and set(_list(e.get("MimeType"))) & set(want)]
-        cur = default_for(mimes[0], apps)
+        found = [did for did in (default_for(m, apps, read) for m in mimes) if did]
+        cur = found[0] if found else ""
         if cur and not any(a["id"] == cur for a in offered):
             offered.append(_brief(cur, apps[cur][1]))
         offered.sort(key=lambda a: a["name"].lower())
-        out.append({"kind": kind, "label": label, "current": cur, "apps": offered})
+        out.append({"kind": kind, "label": label, "current": cur, "mixed": len(set(found)) > 1, "apps": offered})
     return out
 
 
@@ -463,7 +503,15 @@ def main(argv):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__.strip())
         return 0
-    cmd, rest = argv[0], argv[1:]
+    try:
+        return _main(argv[0], argv[1:])
+    except OSError as err:
+        # One line for Settings to show, not a traceback.
+        print("vitrum-apps: %s: %s" % (err.filename2 or err.filename or "", err.strerror or err), file=sys.stderr)
+        return 1
+
+
+def _main(cmd, rest):
     if cmd == "list":
         apps = applications()
         shown = sorted((_brief(d, e) for d, (p, e) in apps.items() if _shown(e)), key=lambda a: a["name"].lower())

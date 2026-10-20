@@ -116,6 +116,78 @@ class Defaults(Base):
         with self.assertRaises(SystemExit):
             self.A.set_default("files", "nope.desktop", self.A.applications())
 
+    def test_current_without_a_default_is_what_xdg_open_picks(self):
+        # No [Default Applications] line: xdg-open and GLib take the first app
+        # of mimeinfo.cache, the user's data dir before the system's.
+        (self.sysdata / "applications/mimeinfo.cache").write_text("[MIME Cache]\ninode/directory=gone.desktop;org.kde.dolphin.desktop;mine.desktop;\n")
+        self.assertEqual(self.A.default_for("inode/directory", self.A.applications()), "org.kde.dolphin.desktop")
+        (self.data / "applications/mimeinfo.cache").write_text("[MIME Cache]\ninode/directory=mine.desktop;\n")
+        self.assertEqual(self.A.default_for("inode/directory", self.A.applications()), "mine.desktop")
+
+    def test_current_from_added_and_removed_associations(self):
+        (self.sysdata / "applications/mimeinfo.cache").write_text("[MIME Cache]\ninode/directory=org.kde.dolphin.desktop;mine.desktop;\n")
+        f = self.config / "mimeapps.list"
+        f.write_text("[Removed Associations]\ninode/directory=org.kde.dolphin.desktop;\n")
+        self.assertEqual(self.A.default_for("inode/directory", self.A.applications()), "mine.desktop", "a removed association is skipped")
+        f.write_text("[Added Associations]\ninode/directory=kde4-old.desktop;\n")
+        self.assertEqual(self.A.default_for("inode/directory", self.A.applications()), "kde4-old.desktop", "an added one comes before the cache")
+        (self.sysconf / "mimeapps.list").write_text("[Default Applications]\ninode/directory=mine.desktop;\n")
+        self.assertEqual(self.A.default_for("inode/directory", self.A.applications()), "mine.desktop", "any default comes before both")
+
+    def test_a_hidden_app_is_not_installed(self):
+        # Hidden=true deletes an entry (the desktop entry spec); a missing TryExec too.
+        desktop(self.data / "applications/org.kde.dolphin.desktop", Name="Dolphin", Exec="dolphin", Hidden="true")
+        desktop(self.sysdata / "applications/broken.desktop", Name="Broken", Exec="b", TryExec="/no/such/program", MimeType="inode/directory;")
+        (self.config / "mimeapps.list").write_text("[Default Applications]\ninode/directory=broken.desktop;org.kde.dolphin.desktop;mine.desktop;\n")
+        d = {x["kind"]: x for x in self.A.defaults(self.A.applications())}
+        self.assertEqual(d["files"]["current"], "mine.desktop")
+        self.assertEqual([a["id"] for a in d["files"]["apps"]], ["mine.desktop"])
+
+    def test_current_hidden_from_menus_is_still_shown(self):
+        # A NoDisplay helper (kitty-open, satty) that opens the type is what runs: it is shown.
+        (self.sysdata / "applications/mimeinfo.cache").write_text("[MIME Cache]\ninode/directory=kde4-old.desktop;org.kde.dolphin.desktop;\n")
+        d = {x["kind"]: x for x in self.A.defaults(self.A.applications())}
+        self.assertEqual(d["files"]["current"], "kde4-old.desktop")
+        self.assertIn("kde4-old.desktop", [a["id"] for a in d["files"]["apps"]])
+
+    def test_mixed_until_the_kind_is_set(self):
+        # https opens in Firefox, local HTML pages in the viewer: the kind is mixed,
+        # and setting Firefox again (it is already "current") makes it whole.
+        (self.config / "mimeapps.list").write_text("[Default Applications]\nx-scheme-handler/https=firefox.desktop;\ntext/html=viewer.desktop;\n")
+        d = {x["kind"]: x for x in self.A.defaults(self.A.applications())}
+        self.assertEqual(d["browser"]["current"], "firefox.desktop")
+        self.assertTrue(d["browser"]["mixed"])
+        self.assertFalse(d["files"]["mixed"], "nothing set is not mixed")
+        self.A.set_default("browser", "firefox.desktop", self.A.applications())
+        d = {x["kind"]: x for x in self.A.defaults(self.A.applications())}
+        self.assertFalse(d["browser"]["mixed"])
+
+    def test_cli_errors_are_one_line(self):
+        import contextlib
+        import io
+        (self.config / "mimeapps.list").mkdir()
+        buf = io.StringIO()
+        with contextlib.redirect_stderr(buf):
+            self.assertEqual(self.A.main(["default", "files", "mine.desktop"]), 1)
+        self.assertIn("mimeapps.list", buf.getvalue())
+        self.assertNotIn("Traceback", buf.getvalue())
+        self.assertEqual([p.name for p in self.config.iterdir()], ["mimeapps.list"], "no temp file left behind")
+
+
+class Pane(unittest.TestCase):
+    """Settings → Applications, read as source."""
+    text = (ROOT / "apps/settings/panes/AppsPane.qml").read_text(encoding="utf-8")
+
+    def test_picking_the_current_app_still_sets_it(self):
+        # The current app is read from one type; the others may open elsewhere,
+        # so picking it again is how the kind is made whole.
+        picked = self.text.split("onPicked:", 1)[1].split("\n", 1)[0]
+        self.assertIn('"default"', picked)
+        self.assertNotIn("if (!on)", picked)
+
+    def test_mixed_is_said(self):
+        self.assertTrue("modelData.mixed" in self.text, "the pane does not say a kind is mixed")
+
 
 class Autostart(Base):
     def setUp(self):

@@ -55,7 +55,8 @@ Page {
                 readonly property bool expanded: page.open_ === modelData.kind
                 SettingRow {
                     label: kind.modelData.label
-                    hint: kind.modelData.apps.length === 0 ? "No installed app handles this." : ""
+                    hint: kind.modelData.apps.length === 0 ? "No installed app handles this."
+                          : kind.modelData.mixed ? "Some of these open in another app; pick one for all of them." : ""
                     divider: kind.expanded || kind.index < page.data_.defaults.length - 1
                     Rectangle {
                         visible: kind.modelData.apps.length > 0
@@ -79,6 +80,7 @@ Page {
                     }
                 }
                 // The choices: every app that handles it, the current one marked.
+                // Picking the current one again sets it for every type of the kind.
                 Flow {
                     visible: kind.expanded
                     x: Tokens.padding; width: parent.width - Tokens.padding * 2
@@ -90,7 +92,7 @@ Page {
                             required property var modelData
                             app: modelData
                             on: modelData.id === kind.modelData.current
-                            onPicked: { page.open_ = ""; if (!on) page.run(["default", kind.modelData.kind, modelData.id]); }
+                            onPicked: { page.open_ = ""; page.run(["default", kind.modelData.kind, modelData.id]); }
                         }
                     }
                 }
