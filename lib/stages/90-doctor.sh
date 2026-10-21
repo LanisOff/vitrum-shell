@@ -50,7 +50,8 @@ stage_doctor() {
   _chk_path "$HOME/.local/bin/vitrum-startup" "startup script"
   _chk_path "$HOME/.local/bin/vitrum-shell" "shell launcher"
   _chk_path "$XDG_CONFIG_HOME/quickshell/vitrum/shell.qml" "shell files"
-  if have qs || have quickshell; then _chk "quickshell" ok; else _chk "quickshell" fail "not on PATH"; fi
+  _doctor_versions
+  _doctor_init
 
   local fonts; fonts="$(fc-list 2>/dev/null)"
   local f
@@ -69,11 +70,49 @@ stage_doctor() {
 
   printf '\n'
   if (( _DOC_FAIL > 0 )); then
-    err "$_DOC_FAIL problem(s), $_DOC_WARN warning(s)"
+    err '%s problem(s), %s warning(s)' "$_DOC_FAIL" "$_DOC_WARN"
     return 1
   fi
   ok "healthy ($_DOC_WARN warning(s))"
   stage_done
+}
+
+# _doc_version <command> — the first x.y.z its --version prints, or nothing.
+_doc_version() { "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1; }
+
+# A package can be there and still be too old: Fedora's own quickshell is a
+# 0.2 snapshot and its matugen a 3.x, both under the names the COPR builds
+# have, and the theme quietly falls back to the preset with matugen 3.
+_doctor_versions() {
+  local q v
+  if have qs; then q=qs; elif have quickshell; then q=quickshell; else q=""; fi
+  if [[ -z "$q" ]]; then _chk "quickshell" fail "not on PATH"
+  else
+    v="$(_doc_version "$q")"
+    if [[ -n "$v" ]] && [[ "$(version_cmp "$v" 0.3.1)" == -1 ]]; then _chk "quickshell $v" fail "the shell needs 0.3.1 or newer — ./install.sh --only packages"
+    else _chk "quickshell${v:+ $v}" ok; fi
+  fi
+  if have matugen; then
+    v="$(_doc_version matugen)"
+    if [[ -n "$v" ]] && [[ "$(version_cmp "$v" 4.0.0)" == -1 ]]; then _chk "matugen $v" warn "colours from the wallpaper need matugen 4 — the theme falls back to the preset"
+    else _chk "matugen${v:+ $v}" ok; fi
+  fi
+}
+
+# On runit nothing runs a service that is not linked: without the system bus
+# and elogind there is no login screen, no seat and no XDG_RUNTIME_DIR.
+_doctor_init() {
+  [[ "${INIT_BACKEND:-}" == runit ]] && declare -F svc_enabled >/dev/null || return 0
+  local s
+  for s in dbus elogind; do
+    if svc_enabled "$s"; then _chk "runit: $s" ok; else _chk "runit: $s" fail "not enabled — sudo ln -s /etc/sv/$s /var/service/"; fi
+  done
+  for s in polkitd NetworkManager; do
+    if svc_enabled "$s"; then _chk "runit: $s" ok; else _chk "runit: $s" warn "not enabled — sudo ln -s /etc/sv/$s /var/service/"; fi
+  done
+  if [[ -n "${WAYLAND_DISPLAY:-}" && -z "${XDG_RUNTIME_DIR:-}" ]]; then
+    _chk "XDG_RUNTIME_DIR" fail "unset in the session — elogind did not register the login (pam_elogind in /etc/pam.d/system-login)"
+  fi
 }
 
 # Kernel options: warnings, each naming what it costs. Without a readable config

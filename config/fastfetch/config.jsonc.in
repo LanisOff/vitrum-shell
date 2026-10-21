@@ -2,14 +2,15 @@
 //  vitrum — fastfetch. Installed once by vitrum; yours to edit.
 //  The keys use the palette's accent; the logo is the vitrum mark (rendered
 //  by the installer to @VITRUM_STATE@/fastfetch/logo.png; fastfetch falls back
-//  to ASCII when it is missing). kitty shows the image; a TTY gets text.
+//  to ASCII when it is missing), or the distribution's own when the installer
+//  was told so. kitty shows the image; a TTY gets text.
 // ===========================================================================
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
 
   "logo": {
-    "type": "auto",
-    "source": "@VITRUM_STATE@/fastfetch/logo.png",
+    "type": "@FASTFETCH_LOGO_TYPE@",
+    "source": "@FASTFETCH_LOGO_SOURCE@",
     "width": 30,
     "height": 15,
     "padding": { "top": 2, "left": 2, "right": 4 }

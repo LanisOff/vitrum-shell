@@ -112,7 +112,8 @@ def _rgb(hex_: str) -> str:
     return ",".join(str(int(h[i:i + 2], 16)) for i in (0, 2, 4))
 
 
-def substitutions(c: dict, scheme: str, settings: dict, shell: str, source: str = "", config=None) -> dict:
+def substitutions(c: dict, scheme: str, settings: dict, shell: str, source: str = "", config=None,
+                  comps: dict | None = None) -> dict:
     s = {}
     names = {"ACCENT": "accent", "ON_ACCENT": "on_accent", "BG": "bg", "BG_ALT": "bg_alt", "BG_ELEV": "bg_elev",
              "BG_HIGH": "bg_high", "SEL": "sel", "FG": "fg", "FG2": "fg2", "FG_HI": "fg_hi", "DIM": "fg_dim", "LINE": "line",
@@ -149,6 +150,11 @@ def substitutions(c: dict, scheme: str, settings: dict, shell: str, source: str 
     s["CONFIG_HOME"] = str(config)
     s["VITRUM_PREFIX"] = str(config / "vitrum")
     s["VITRUM_STATE"] = str(Path(os.environ.get("XDG_DATA_HOME", Path.home() / ".local/share")) / "vitrum")
+    # fastfetch's logo: the vitrum mark, or the distribution's own (builtin, no source).
+    if (comps or {}).get("fastfetch_logo", "picture") == "distro":
+        s["FASTFETCH_LOGO_TYPE"], s["FASTFETCH_LOGO_SOURCE"] = "builtin", ""
+    else:
+        s["FASTFETCH_LOGO_TYPE"], s["FASTFETCH_LOGO_SOURCE"] = "auto", s["VITRUM_STATE"] + "/fastfetch/logo.png"
     return s
 
 
@@ -311,18 +317,31 @@ def components(data: Path) -> dict:
 
 
 def tmux_keys(comps: dict) -> str:
-    """vitrum (Ctrl+a, | and - splits) or default (tmux's own keys)."""
+    """vitrum (Ctrl+a, | and - splits) or default (tmux's own keys). components.json
+    v2 says author_tmux_keys; a file older installers wrote, tmux_keys."""
+    if "author_tmux_keys" in comps:
+        return "vitrum" if comps["author_tmux_keys"] else "default"
     return "default" if comps.get("tmux_keys") == "default" else "vitrum"
 
 
 # Files that belong to a component under another name.
-COMPONENT_OF = {"MangoHud": "extras"}
+COMPONENT_OF = {"MangoHud": "games"}
+
+# The name a component had in components.json before it was split up.
+OLD_COMPONENT = {"games": "extras"}
 
 
 def _component(dest: str) -> str:
-    """kitty/kitty.conf → kitty, starship.toml → starship, MangoHud/… → extras."""
+    """kitty/kitty.conf → kitty, starship.toml → starship, MangoHud/… → games."""
     name = dest.split("/", 1)[0].split(".", 1)[0]
     return COMPONENT_OF.get(name, name)
+
+
+def _wanted(comps: dict, name: str) -> bool:
+    """On unless components.json turns it off, under its name or the old one."""
+    if name not in comps and name in OLD_COMPONENT:
+        name = OLD_COMPONENT[name]
+    return bool(comps.get(name, True))
 
 
 def _toolkit_on(settings, name: str) -> bool:
@@ -334,8 +353,8 @@ def render_all(pal: dict, scheme: str, settings: dict, templates: Path, config: 
                base: bool = False, source: str = "") -> list:
     """Render the theme outputs (and the base ones with base=True); → paths written."""
     c = terminal_colours(pal, scheme)
-    subs = substitutions(c, scheme, settings, find_shell(), source, config)
     comps = components(data)
+    subs = substitutions(c, scheme, settings, find_shell(), source, config, comps)
     record = _BaseRecord(Path(data) / "base-configs.json")
     written = []
     for tpl, dest, theme in TARGETS:
@@ -344,7 +363,7 @@ def render_all(pal: dict, scheme: str, settings: dict, templates: Path, config: 
         # GTK colours (vitrum.css), unless turned off; gtk.css itself is the user's.
         if theme and dest.startswith("gtk-") and not _toolkit_on(settings, "gtk"):
             continue
-        if not comps.get(_component(dest), True):
+        if not _wanted(comps, _component(dest)):
             continue
         src = Path(templates) / tpl.format(tmux_keys=tmux_keys(comps))
         if not src.is_file():

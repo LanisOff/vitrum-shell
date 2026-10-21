@@ -3,8 +3,10 @@
 #
 # Both are optional components (--with/--no-sddm, --with/--no-plymouth) and
 # only happen when the program is installed. The initramfs is regenerated only
-# with --with-plymouth and a tool we know (dracut, mkinitcpio); the kernel
-# command line is never edited — what to add is printed.
+# with --with-plymouth and a tool we know (dracut, mkinitcpio). The kernel
+# command line gets 'quiet splash' where the boot loader's setup is known —
+# Limine's config, Fedora's grubby, Void's /etc/default/grub — and elsewhere
+# what to add is printed.
 
 SDDM_THEME="${VITRUM_SYSROOT:-}/usr/share/sddm/themes/vitrum"
 # zz-: SDDM reads drop-ins in order and the last [Theme] wins.
@@ -158,7 +160,7 @@ _boot_sddm_overrides() {
   [[ -f "$f" ]] || return 0
   line="$(awk '/^\[/{sec=$0} sec=="[Theme]" && /^[[:space:]]*Current[[:space:]]*=/{print; exit}' "$f")"
   [[ -n "$line" && "${line#*=}" != "vitrum" ]] || return 0
-  warn "/etc/sddm.conf sets $line under [Theme], which overrides the vitrum theme — remove that line (or set Current=vitrum)"
+  warn '/etc/sddm.conf sets %s under [Theme], which overrides the vitrum theme — remove that line (or set Current=vitrum)' "$line"
 }
 
 # The current wallpaper if it is an image file, else nothing.
@@ -269,7 +271,7 @@ _boot_plymouth() {
     *)
       warn "the initramfs is not built by dracut or mkinitcpio here — rebuild it with Plymouth in it the way you usually do" ;;
   esac
-  _boot_limine_splash || info "the splash needs 'quiet splash' on the kernel command line (GRUB_CMDLINE_LINUX_DEFAULT, or your boot entries)"
+  _boot_limine_splash || _boot_cmdline_splash || info "the splash needs 'quiet splash' on the kernel command line (GRUB_CMDLINE_LINUX_DEFAULT, or your boot entries)"
   ok "Plymouth uses the vitrum theme"
 }
 
@@ -291,4 +293,64 @@ _boot_limine_splash() {
   sudo test -e "$f.vitrum-bak" || run sudo cp -p "$f" "$f.vitrum-bak"
   printf '%s\n' "$new" | sudo_write "$f"
   ok "kernel command line: quiet splash added to $f (the old one is $f.vitrum-bak)"
+}
+
+# The distribution's own way to the kernel command line: grubby on Fedora
+# (one call for every boot entry; Fedora's "rhgb" asks for the splash too),
+# GRUB's defaults on Void. → 1 when this distribution has none we know.
+_boot_cmdline_splash() {
+  case "${PKG_BACKEND:-}" in
+    dnf)  _boot_grubby_splash ;;
+    xbps) _boot_grub_splash ;;
+    *) return 1 ;;
+  esac
+}
+
+_boot_grubby_splash() {
+  have grubby || return 1
+  local info kernels=() k
+  info="$(sudo grubby --info=ALL 2>/dev/null)" || return 1
+  [[ -n "$info" ]] || return 1
+  # Every entry's kernel whose arguments lack the splash, except the rescue
+  # ones: those are the way back in when graphics fail, and stay plain.
+  mapfile -t kernels < <(awk '
+    function done_entry() { if (k != "" && k !~ /rescue/ && t !~ /[Rr]escue/ && a !~ /(^|[[:space:]"])(splash|rhgb)([[:space:]"]|$)/) print k; k = a = t = "" }
+    /^index=/ { done_entry() }
+    /^kernel=/ { k = $0; sub(/^kernel=/, "", k); gsub(/"/, "", k) }
+    /^args=/   { a = $0 }
+    /^title=/  { t = $0 }
+    END { done_entry() }' <<<"$info")
+  if [[ ${#kernels[@]} -eq 0 ]]; then ok "kernel command line: the splash is already asked for (grubby)"; return 0; fi
+  for k in "${kernels[@]}"; do
+    run_ok sudo grubby --update-kernel="$k" --args="quiet splash" || { warn "grubby could not add 'quiet splash' to the boot entries"; return 0; }
+  done
+  ok "kernel command line: quiet splash added to ${#kernels[@]} boot entr$( (( ${#kernels[@]} == 1 )) && echo y || echo ies) (grubby; the rescue entries stay as they are)"
+}
+
+# GRUB_CMDLINE_LINUX_DEFAULT is what the normal entries get (the recovery
+# ones only GRUB_CMDLINE_LINUX), so the splash goes there, then grub.cfg is
+# written again.
+_boot_grub_splash() {
+  local f="${VITRUM_SYSROOT:-}/etc/default/grub" cfg="${VITRUM_SYSROOT:-}/boot/grub/grub.cfg"
+  [[ -f "$f" ]] || return 1
+  local old new
+  old="$(cat "$f")"
+  # The value may be in double quotes, single quotes or none; it keeps its kind.
+  new="$(awk -v sq="'" '/^GRUB_CMDLINE_LINUX_DEFAULT=/ {
+      v = $0; sub(/^GRUB_CMDLINE_LINUX_DEFAULT=/, "", v)
+      q = substr(v, 1, 1)
+      if (q == "\"" || q == sq) { v = substr(v, 2); sub(q "[[:space:]]*$", "", v) } else q = "\""
+      if (v ~ /(^|[[:space:]])splash([[:space:]]|$)/) { print; next }
+      add = (v ~ /(^|[[:space:]])quiet([[:space:]]|$)/) ? "splash" : "quiet splash"
+      v = (v == "" ? add : v " " add)
+      $0 = "GRUB_CMDLINE_LINUX_DEFAULT=" q v q } { print }' <<<"$old")"
+  if [[ "$new" == "$old" ]]; then ok "kernel command line: quiet splash already there ($f)"; return 0; fi
+  [[ -e "$f.vitrum-bak" ]] || run sudo cp -p "$f" "$f.vitrum-bak"
+  printf '%s\n' "$new" | sudo_write "$f"
+  if have grub-mkconfig && sudo test -f "$cfg"; then
+    run_ok sudo grub-mkconfig -o "$cfg" >/dev/null 2>&1 || { warn "grub-mkconfig failed — run it yourself: sudo grub-mkconfig -o %s" "$cfg"; return 0; }
+    ok "kernel command line: quiet splash added to $f, $cfg written again (the old file is $f.vitrum-bak)"
+  else
+    ok "kernel command line: quiet splash added to $f (the old one is $f.vitrum-bak); write grub.cfg again with grub-mkconfig"
+  fi
 }

@@ -25,6 +25,9 @@ test_rejects_pacman_openrc() {
 }
 test_rejects_unknown_distro() {
   _clean_path; mkdir -p "$HOME/rootfs/run/systemd/system"; export VITRUM_ROOTFS="$HOME/rootfs"; _load
+  # /usr/bin stays on PATH for the coreutils, and on Arch or Gentoo it holds
+  # the real pacman or emerge: neither is there for this test.
+  have() { [[ "$1" != pacman && "$1" != emerge ]] && command -v "$1" >/dev/null 2>&1; }
   ! (load_backends) 2>/dev/null
 }
 test_load_backends_sources_functions() {
@@ -330,4 +333,537 @@ test_base_use_is_not_a_rebuild_of_everything() {
   _emerge() { echo "emerge $*" >> "$HOME/calls"; }
   pkg_apply_use >/dev/null 2>&1
   [[ ! -e "$HOME/calls" ]]
+}
+
+# ------------------------------------------------------- Fedora and Void -----
+
+_os_release() {  # _os_release <ID> [ID_LIKE] — in the fake root
+  mkdir -p "$HOME/rootfs/etc"; export VITRUM_ROOTFS="$HOME/rootfs"
+  printf 'ID=%s\nVERSION_ID=44\n' "$1" > "$VITRUM_ROOTFS/etc/os-release"
+  [[ -n "${2:-}" ]] && printf 'ID_LIKE="%s"\n' "$2" >> "$VITRUM_ROOTFS/etc/os-release"
+  return 0
+}
+test_detects_dnf_systemd_on_fedora() {
+  _clean_path; stub dnf; _os_release fedora; mkdir -p "$VITRUM_ROOTFS/run/systemd/system"; _load
+  assert_eq "$(detect_pkg_backend)+$(detect_init_backend)" "dnf+systemd"
+}
+test_detects_dnf_on_a_fedora_derivative() {
+  _clean_path; stub dnf; _os_release nobara "rhel fedora"; _load
+  assert_eq "$(detect_pkg_backend)" dnf
+}
+# dnf is packaged elsewhere too (openSUSE, Mageia): it is not Fedora by itself.
+test_dnf_without_fedora_is_not_dnf() {
+  _clean_path; stub dnf; _os_release opensuse-tumbleweed "suse opensuse"; _load
+  have() { [[ "$1" != pacman && "$1" != emerge && "$1" != xbps-install ]] && command -v "$1" >/dev/null 2>&1; }
+  assert_eq "$(detect_pkg_backend)" none
+}
+# A container runs no systemd: Fedora has no other init, so it is systemd.
+test_fedora_without_a_running_systemd_is_systemd() {
+  _clean_path; _os_release fedora; _load
+  assert_eq "$(detect_init_backend)" systemd
+}
+test_detects_xbps_runit_from_run_runit() {
+  _clean_path; stub xbps-install; mkdir -p "$HOME/rootfs/run/runit"; export VITRUM_ROOTFS="$HOME/rootfs"; _load
+  assert_eq "$(detect_pkg_backend)+$(detect_init_backend)" "xbps+runit"
+}
+test_detects_runit_as_pid_1() {
+  _clean_path; mkdir -p "$HOME/rootfs/proc/1"; echo runit > "$HOME/rootfs/proc/1/comm"; export VITRUM_ROOTFS="$HOME/rootfs"; _load
+  assert_eq "$(detect_init_backend)" runit
+}
+# In a container runit is not PID 1 and /run/runit is absent: Void says runit.
+test_detects_runit_from_os_release_on_void() {
+  _clean_path; _os_release void; _load
+  assert_eq "$(detect_init_backend)" runit
+}
+test_load_backends_fedora_and_void() {
+  _clean_path; stub dnf; _os_release fedora; _load
+  load_backends
+  assert_eq "$PKG_BACKEND+$INIT_BACKEND" "dnf+systemd"
+  declare -F _dnf_enable_coprs >/dev/null
+  rm -f "$STUBS/dnf"; stub xbps-install; _os_release void
+  load_backends
+  assert_eq "$PKG_BACKEND+$INIT_BACKEND" "xbps+runit"
+  declare -F svc_use_networkmanager >/dev/null && declare -F _runit_svdir >/dev/null
+}
+test_rejects_xbps_with_systemd() {
+  _clean_path; stub xbps-install; _os_release void; mkdir -p "$VITRUM_ROOTFS/run/systemd/system"; _load
+  out="$( (load_backends) 2>&1 )" && { echo "load_backends should fail"; return 1; }
+  assert_contains "$out" "unsupported system: packages=xbps init=systemd"
+  assert_contains "$out" "Void with runit"
+}
+# Every backend defines what the stages call.
+test_new_backends_define_the_full_function_set() {
+  source "$VITRUM_DIR/lib/common.sh"
+  local f fn
+  for f in pkg-dnf pkg-xbps; do
+    ( source "$VITRUM_DIR/lib/backend/$f.sh"
+      for fn in pkg_installed pkg_available pkg_install pkg_prepare pkg_apply_use pkg_write_portage_files; do
+        declare -F "$fn" >/dev/null || { echo "$f lacks $fn"; exit 1; }
+      done ) || return 1
+  done
+  ( source "$VITRUM_DIR/lib/backend/init-runit.sh"
+    for fn in svc_exists svc_enable_system svc_use_networkmanager svc_enable_display_manager session_exec_line \
+              session_unit_install audio_bootstrap_line audio_enable_user dm_current; do
+      declare -F "$fn" >/dev/null || { echo "init-runit lacks $fn"; exit 1; }
+    done )
+}
+
+# dnf: rpm says what is installed; COPR rows count only from a COPR.
+_dnf() {
+  _clean_path; stub sudo '"$@"'
+  stub dnf 'echo "dnf $*" >> "$HOME/calls"; [[ "$*" == *repoquery* ]] && { echo "dnf repoquery" >> "$HOME/queries"; printf "%s\n" "jq x86_64" "quickshell x86_64" "matugen x86_64" "ffmpeg x86_64" "srconly src"; }; exit 0'
+  stub rpm 'case "$1" in -E) echo 44;; -q) [[ "$2" == --qf ]] && { n="$4"; v="$(grep "^$n " "$HOME/rpmdb" 2>/dev/null | cut -d" " -f2-)"; [[ -n "$v" ]] && { printf "%s" "$v"; exit 0; }; exit 1; }; grep -q "^$2\( \|$\)" "$HOME/rpmdb" 2>/dev/null;; esac'
+  export PKG_BACKEND=dnf; _os_release fedora
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/packages.sh"; source "$VITRUM_DIR/lib/backend/pkg-dnf.sh"
+}
+test_dnf_names_from_the_table_syntax() {
+  _dnf
+  assert_eq "$(_dnf_name copr:errornointernet/quickshell:quickshell)" quickshell
+  assert_eq "$(_dnf_copr copr:errornointernet/quickshell:quickshell)" errornointernet/quickshell
+  assert_eq "$(_dnf_name 'wget1-wget|wget2-wget@wget')" wget1-wget
+  assert_eq "$(_dnf_name rpmfusion:ffmpeg)" ffmpeg
+  assert_eq "$(_dnf_copr rpmfusion:ffmpeg)" ""
+}
+test_dnf_install_strips_prefixes_and_installs_the_first_alternative() {
+  _dnf
+  pkg_install jq 'wget1-wget|wget2-wget@wget' copr:atim/starship:starship
+  assert_contains "$(cat "$HOME/calls")" "dnf install -y jq wget1-wget starship"
+  ! grep -q "copr:\|@\||" "$HOME/calls"
+}
+# Fedora's matugen 3 and quickshell 0.2 are too old: installed under the COPR's
+# name they do not count, and the COPR build replaces them.
+test_dnf_copr_row_needs_the_copr_build() {
+  _dnf
+  echo "matugen Fedora Project" > "$HOME/rpmdb"
+  ! pkg_installed copr:avengemedia/danklinux:matugen
+  echo "matugen Fedora Copr - user avengemedia" > "$HOME/rpmdb"
+  pkg_installed copr:avengemedia/danklinux:matugen
+  echo "matugen Fedora Project" > "$HOME/rpmdb"
+  pkg_install copr:avengemedia/danklinux:matugen >/dev/null
+  assert_contains "$(cat "$HOME/calls")" "dnf upgrade -y matugen"
+}
+test_dnf_swaps_ffmpeg_free_and_tuned_ppd() {
+  _dnf
+  printf 'ffmpeg-free\ntuned-ppd\n' > "$HOME/rpmdb"
+  pkg_install rpmfusion:ffmpeg power-profiles-daemon jq >/dev/null
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "dnf swap -y --allowerasing ffmpeg-free ffmpeg"
+  assert_contains "$calls" "dnf swap -y --allowerasing tuned-ppd power-profiles-daemon"
+  assert_contains "$calls" "dnf install -y jq"
+  # the swaps come first: the batch then links against RPM Fusion's libraries
+  assert_contains "$(head -1 "$HOME/calls")" "swap"
+}
+test_dnf_ffmpeg_without_ffmpeg_free_still_allows_erasing() {
+  _dnf
+  pkg_install rpmfusion:ffmpeg >/dev/null
+  assert_contains "$(cat "$HOME/calls")" "dnf install -y --allowerasing ffmpeg"
+}
+# Only the repositories the rows of this run need, for what is not installed.
+test_dnf_prepare_enables_only_needed_repositories() {
+  _dnf; stub lspci
+  _package_needs() { echo required; }
+  packages_for() { printf '%s\n' jq copr:errornointernet/quickshell:quickshell copr:mineiro/hyprland:satty copr:mineiro/hyprland:awww copr:atim/starship:starship rpmfusion:ffmpeg; }
+  echo "starship Fedora Copr - user atim" > "$HOME/rpmdb"
+  pkg_prepare >"$HOME/out" 2>&1
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "dnf copr enable -y errornointernet/quickshell"
+  assert_eq "$(grep -c "copr enable -y mineiro/hyprland" <<<"$calls")" 1
+  ! grep -q "atim/starship" <<<"$calls"
+  assert_contains "$calls" "rpmfusion-free-release-44.noarch.rpm"
+  ! grep -q "nonfree" <<<"$calls"
+  assert_contains "$(cat "$HOME/out")" "third-party COPR repositories"
+  assert_contains "$(cat "$HOME/out")" "RPM Fusion (free)"
+}
+test_dnf_prepare_skips_enabled_coprs_and_adds_nonfree_for_nvidia() {
+  _dnf
+  _package_needs() { printf '%s\n' required nvidia; }
+  packages_for() { printf '%s\n' copr:errornointernet/quickshell:quickshell; }
+  mkdir -p "$VITRUM_ROOTFS/etc/yum.repos.d"
+  printf '[x]\nenabled=1\n' > "$VITRUM_ROOTFS/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:errornointernet:quickshell.repo"
+  pkg_prepare >/dev/null 2>&1
+  calls="$(cat "$HOME/calls")"
+  ! grep -q "copr enable" <<<"$calls"
+  assert_contains "$calls" "rpmfusion-free-release-44"
+  assert_contains "$calls" "rpmfusion-nonfree-release-44"
+}
+test_dnf_refuses_fedora_older_than_43() {
+  _dnf; _package_needs() { echo required; }; packages_for() { :; }
+  printf 'ID=fedora\nVERSION_ID=41\n' > "$VITRUM_ROOTFS/etc/os-release"
+  out="$( (pkg_prepare) 2>&1 )" && { echo "should refuse"; return 1; }
+  assert_contains "$out" "Fedora 41 is too old"
+}
+# One repoquery for the whole list, not one per package.
+test_dnf_available_reads_the_repositories_once() {
+  _dnf
+  out="$(pkg_unavailable jq quickshell nosuch matugen srconly)"
+  assert_eq "$out" $'nosuch\nsrconly'     # a source package is not installable
+  assert_eq "$(wc -l < "$HOME/queries" | tr -d ' ')" 1
+}
+test_dnf_dry_run_takes_copr_packages_as_available() {
+  _dnf; export DRY_RUN=1
+  pkg_available copr:dejan/lazygit:lazygit
+  ! pkg_available not-a-package
+}
+
+_xbps() {
+  _clean_path; stub sudo '"$@"'
+  stub xbps-install 'echo "xbps-install $*" >> "$HOME/calls"; exit "${XBPS_RC:-0}"'
+  stub xbps-query 'if [[ "$1" == -R ]]; then grep -qx "$2" "$HOME/repo" 2>/dev/null; else grep -qx "$1" "$HOME/installed" 2>/dev/null; fi'
+  stub xbps-uhelper 'echo "${XBPS_ARCH:-x86_64}"'
+  export PKG_BACKEND=xbps
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/packages.sh"; source "$VITRUM_DIR/lib/backend/pkg-xbps.sh"
+}
+test_xbps_installed_and_available() {
+  _xbps; echo fish-shell > "$HOME/installed"; printf 'fish-shell\nquickshell\n' > "$HOME/repo"
+  pkg_installed fish-shell
+  ! pkg_installed quickshell
+  pkg_installed "nope|fish-shell"
+  stub cargo; pkg_installed "cargo@cargo"
+  pkg_available quickshell
+  ! pkg_available nerd-fonts-ttf
+}
+test_xbps_install_names_and_already_installed_is_fine() {
+  _xbps
+  pkg_install "cargo@cargo" fish-shell
+  assert_contains "$(cat "$HOME/calls")" "xbps-install -y cargo fish-shell"
+  XBPS_RC=17 pkg_install fish-shell
+  out="$( (XBPS_RC=19; export XBPS_RC; pkg_install fish-shell) 2>&1 )" && { echo "should fail"; return 1; }
+  assert_contains "$out" "status 19"
+}
+test_xbps_prepare_syncs_and_nonfree_only_for_nvidia() {
+  _xbps; _package_needs() { echo required; }
+  pkg_prepare >/dev/null
+  assert_contains "$(cat "$HOME/calls")" "xbps-install -Sy"
+  ! grep -q nonfree "$HOME/calls"
+  _package_needs() { printf '%s\n' required nvidia; }
+  pkg_prepare >/dev/null
+  assert_contains "$(cat "$HOME/calls")" "xbps-install -y void-repo-nonfree"
+}
+test_xbps_updates_itself_first_when_due() {
+  _xbps; _package_needs() { echo required; }
+  stub xbps-install 'echo "xbps-install $*" >> "$HOME/calls"; [[ "$1" == -un ]] && echo "xbps-0.60.8_1 update x86_64 https://repo"; exit 0'
+  pkg_prepare >/dev/null
+  assert_contains "$(cat "$HOME/calls")" "xbps-install -uy xbps"
+}
+test_xbps_refuses_musl() {
+  _xbps; _package_needs() { echo required; }; export XBPS_ARCH=x86_64-musl
+  out="$( (pkg_prepare) 2>&1 )" && { echo "should refuse"; return 1; }
+  assert_contains "$out" "musl"
+}
+
+# runit: a fake root with /etc/sv and the runlevel directory.
+_runit() {  # _runit [running]
+  stub sudo '"$@"'; stub sv 'echo "sv $*" >> "$HOME/calls"'; stub sleep
+  export VITRUM_ROOTFS="$HOME/rootfs" VITRUM_SYSROOT="$HOME/rootfs" INIT_BACKEND=runit
+  local s
+  for s in dbus elogind polkitd bluetoothd NetworkManager dhcpcd sddm gdm cronie power-profiles-daemon; do mkdir -p "$VITRUM_ROOTFS/etc/sv/$s"; done
+  mkdir -p "$VITRUM_ROOTFS/etc/runit/runsvdir/default"
+  ln -s default "$VITRUM_ROOTFS/etc/runit/runsvdir/current"
+  if [[ "${1:-}" == running ]]; then
+    mkdir -p "$VITRUM_ROOTFS/run/runit/runsvdir"
+    mkdir -p "$VITRUM_ROOTFS/var"
+    ln -s ../etc/runit/runsvdir/current "$VITRUM_ROOTFS/var/service"
+  fi
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-runit.sh"
+}
+_rl() { echo "$VITRUM_ROOTFS/etc/runit/runsvdir/default"; }
+test_runit_enable_links_the_service_and_is_idempotent() {
+  _runit
+  out="$(svc_enable_system bluetoothd 2>&1)"
+  assert_eq "$(readlink "$(_rl)/bluetoothd")" /etc/sv/bluetoothd
+  svc_enable_system bluetoothd >/dev/null 2>&1
+  assert_eq "$(readlink "$(_rl)/bluetoothd")" /etc/sv/bluetoothd
+  # runit is not running (a container): nothing is asked of sv, and that is said.
+  [[ ! -e "$HOME/calls" ]]
+  assert_contains "$out" "starts on the next boot"
+}
+test_runit_enable_starts_it_when_runit_runs() {
+  _runit running
+  svc_enable_system dbus >/dev/null 2>&1
+  [[ -L "$VITRUM_ROOTFS/var/service/dbus" ]]
+  assert_contains "$(cat "$HOME/calls")" "sv up dbus"
+}
+test_runit_missing_service_is_skipped() {
+  _runit
+  svc_enable_system no-such-service >/dev/null 2>&1
+  [[ ! -e "$(_rl)/no-such-service" ]]
+}
+test_runit_session_line_and_no_unit() {
+  _runit
+  assert_contains "$(session_exec_line)" "dbus-run-session /usr/local/bin/niri --session"
+  session_unit_install
+  [[ ! -e "$VITRUM_SYSROOT/etc/systemd" ]]
+}
+test_runit_audio_starts_pipewire_and_the_rest() {
+  _runit
+  l="$(audio_bootstrap_line)"
+  assert_contains "$l" 'spawn-at-startup "sh" "-c" "pipewire & '
+  assert_contains "$l" "pipewire-pulse & "
+  assert_contains "$l" "wireplumber & "
+  # Void's handbook links: PipeWire starts the others itself.
+  mkdir -p "$VITRUM_SYSROOT/etc/pipewire/pipewire.conf.d"
+  touch "$VITRUM_SYSROOT/etc/pipewire/pipewire.conf.d/10-wireplumber.conf" "$VITRUM_SYSROOT/etc/pipewire/pipewire.conf.d/20-pipewire-pulse.conf"
+  assert_eq "$(audio_bootstrap_line)" 'spawn-at-startup "pipewire"'
+  # turnstile user services run it already.
+  mkdir -p "$HOME/.config/service/pipewire"
+  assert_eq "$(audio_bootstrap_line)" ""
+}
+# dhcpcd runs the network of the install: NetworkManager takes over at the next boot.
+test_runit_networkmanager_waits_for_the_next_boot() {
+  _runit running
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  out="$(svc_use_networkmanager 2>&1)"; svc_use_networkmanager >/dev/null 2>&1
+  [[ -L "$(_rl)/dhcpcd" && ! -e "$(_rl)/NetworkManager" ]]
+  rc="$(cat "$VITRUM_ROOTFS/etc/rc.local")"
+  assert_contains "$rc" "rm -f /etc/runit/runsvdir/current/dhcpcd"
+  assert_contains "$rc" "ln -sfn /etc/sv/NetworkManager /etc/runit/runsvdir/current/NetworkManager"
+  assert_eq "$(grep -c "rm -f /etc/runit/runsvdir/current/dhcpcd" <<<"$rc")" 1
+  assert_eq "$(grep -c "^# vitrum begin" <<<"$rc")" 1
+  [[ -x "$VITRUM_ROOTFS/etc/rc.local" ]]
+  assert_contains "$out" "next boot"
+  ! grep -q "sv " "$HOME/calls" 2>/dev/null
+}
+test_runit_rc_local_block_keeps_the_rest_and_removes_itself() {
+  _runit running
+  printf '#!/bin/sh\nmodprobe something\nexit 0\n' > "$VITRUM_ROOTFS/etc/rc.local"; chmod +x "$VITRUM_ROOTFS/etc/rc.local"
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  svc_use_networkmanager >/dev/null 2>&1
+  rc="$VITRUM_ROOTFS/etc/rc.local"
+  # After the shebang, before the user's exit 0, which would never reach it at the end.
+  assert_eq "$(sed -n 2p "$rc")" "$_RUNIT_BOOT_BEGIN"
+  assert_eq "$(tail -2 "$rc")" $'modprobe something\nexit 0'
+  # The block's own last line, run on the file: only the block goes.
+  grep '^vitrum_rc=' "$rc" | sed "s#/etc/rc.local#$rc#g" > "$HOME/selfdel.sh"
+  sh "$HOME/selfdel.sh"
+  assert_eq "$(cat "$rc")" $'#!/bin/sh\nmodprobe something\nexit 0'
+}
+# A begin marker whose end is gone is not a block: what follows it is the user's.
+test_runit_rc_local_lone_begin_marker_keeps_the_user_lines() {
+  _runit running
+  printf '#!/bin/sh\n%s\nmy-command --at-boot\n' "$_RUNIT_BOOT_BEGIN" > "$VITRUM_ROOTFS/etc/rc.local"
+  [[ -z "$(_runit_boot_lines)" ]]
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  svc_use_networkmanager >/dev/null 2>&1
+  rc="$VITRUM_ROOTFS/etc/rc.local"
+  assert_contains "$(cat "$rc")" "my-command --at-boot"
+  assert_eq "$(_runit_boot_lines | tr '\n' ' ')" "rm -f /etc/runit/runsvdir/current/dhcpcd ln -sfn /etc/sv/NetworkManager /etc/runit/runsvdir/current/NetworkManager "
+  grep '^vitrum_rc=' "$rc" | sed "s#/etc/rc.local#$rc#g" > "$HOME/selfdel.sh"; sh "$HOME/selfdel.sh"
+  assert_contains "$(cat "$rc")" "my-command --at-boot"
+  ! grep -q "NetworkManager" "$rc"
+}
+test_runit_rc_local_created_when_missing_and_executable_noted() {
+  _runit running
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  out="$(svc_use_networkmanager 2>&1)"
+  rc="$VITRUM_ROOTFS/etc/rc.local"
+  [[ -x "$rc" ]]
+  assert_eq "$(head -1 "$rc")" "#!/bin/sh"
+  ! grep -q "was not executable" <<<"$out"
+  # A user rc.local that was not executable: its own lines will run at boot now.
+  printf '#!/bin/sh\necho mine\n' > "$HOME/rc"; cp "$HOME/rc" "$rc"; chmod 644 "$rc"
+  out="$(_runit_at_next_boot "rm -f /etc/runit/runsvdir/current/x" 2>&1)"
+  assert_contains "$out" "was not executable"
+  [[ -x "$rc" ]]
+}
+test_runit_networkmanager_now_without_competitors() {
+  _runit running
+  svc_use_networkmanager >/dev/null 2>&1
+  [[ -L "$VITRUM_ROOTFS/var/service/NetworkManager" ]]
+  [[ ! -e "$VITRUM_ROOTFS/etc/rc.local" ]]
+}
+test_runit_networkmanager_in_a_chroot_switches_at_once() {
+  _runit
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  svc_use_networkmanager >/dev/null 2>&1
+  [[ ! -e "$(_rl)/dhcpcd" && -L "$(_rl)/NetworkManager" ]]
+}
+# Nothing starts the bus, the seat or polkit on runit: the packages stage links them.
+test_runit_packages_stage_enables_the_void_services() {
+  _runit
+  export PKG_BACKEND=xbps
+  source "$VITRUM_DIR/lib/packages.sh"; source "$VITRUM_DIR/lib/backend/pkg-xbps.sh"; source "$VITRUM_DIR/lib/stages/10-packages.sh"
+  stub lspci; stub xbps-query 'exit 0'
+  pkg_prepare() { :; }; pkg_install() { :; }; _package_needs() { echo required; }
+  stage_packages >/dev/null 2>&1
+  local s
+  for s in dbus elogind polkitd bluetoothd power-profiles-daemon cronie NetworkManager; do
+    [[ -L "$(_rl)/$s" ]] || { echo "$s not linked"; return 1; }
+  done
+}
+# grep -q quits at the match; systemctl, still writing, got SIGPIPE, and under
+# pipefail the unit counted as absent.
+test_systemd_svc_exists_survives_pipefail() {
+  stub systemctl 'echo "UNIT FILE STATE PRESET"; echo "$2 enabled enabled"; for i in $(seq 1 20000); do echo "padding line $i"; done'
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-systemd.sh"
+  set -o pipefail
+  svc_exists NetworkManager
+}
+
+# Every Void network client is seen, also per interface; iwd stays and becomes
+# NetworkManager's Wi-Fi backend.
+test_runit_network_clients_by_glob_and_iwd_stays() {
+  _runit running
+  for x in dhcpcd-eth0 connmand iwd; do mkdir -p "$VITRUM_ROOTFS/etc/sv/$x"; ln -s "/etc/sv/$x" "$(_rl)/$x"; done
+  assert_eq "$(_runit_network_clients | tr '\n' ' ')" "dhcpcd-eth0 iwd connmand "
+  out="$(svc_use_networkmanager 2>&1)"
+  q="$(_runit_boot_lines)"
+  assert_contains "$q" "rm -f /etc/runit/runsvdir/current/dhcpcd-eth0"
+  assert_contains "$q" "rm -f /etc/runit/runsvdir/current/connmand"
+  ! grep -q "current/iwd" <<<"$q"
+  assert_contains "$(cat "$VITRUM_ROOTFS/etc/NetworkManager/conf.d/wifi_backend.conf")" "wifi.backend=iwd"
+  assert_contains "$out" "iwd stays"
+}
+# wpa_supplicant's service goes only when D-Bus can start it for NetworkManager,
+# and the user is told the Wi-Fi networks must be joined again.
+test_runit_wpa_supplicant_goes_only_with_a_backend_left() {
+  _runit running
+  mkdir -p "$VITRUM_ROOTFS/etc/sv/wpa_supplicant"; ln -s /etc/sv/wpa_supplicant "$(_rl)/wpa_supplicant"
+  out="$(svc_use_networkmanager 2>&1)"
+  ! grep -q "current/wpa_supplicant" <<<"$(_runit_boot_lines)"
+  assert_contains "$out" "no Wi-Fi backend"
+  rm -f "$VITRUM_ROOTFS/etc/rc.local"
+  mkdir -p "$VITRUM_ROOTFS/usr/share/dbus-1/system-services"; : > "$VITRUM_ROOTFS$_RUNIT_WPA_DBUS"
+  out="$(svc_use_networkmanager 2>&1)"
+  assert_contains "$(_runit_boot_lines)" "rm -f /etc/runit/runsvdir/current/wpa_supplicant"
+  assert_contains "$out" "join them again"
+}
+test_runit_knows_more_login_screens() {
+  _runit running
+  mkdir -p "$VITRUM_ROOTFS/etc/sv/ly"; ln -s /etc/sv/ly "$(_rl)/ly"
+  assert_eq "$(dm_current)" ly
+}
+
+# COPRs: only the table's packages (and what they need that only the COPR has).
+_dnf_copr_world() {
+  _dnf; stub dnf5
+  mkdir -p "$VITRUM_ROOTFS/etc/yum.repos.d"
+  stub dnf 'echo "dnf $*" >> "$HOME/calls"
+    case "$*" in
+      *"repo list"*) printf "repo id  repo name\nfedora  Fedora\nupdates  Updates\ncopr:copr.fedorainfracloud.org:errornointernet:quickshell  Q\n" ;;
+      *providers-of*) [[ -e "$HOME/query-fails" ]] && exit 1
+                      printf "glibc fedora\ncpptrace copr:copr.fedorainfracloud.org:errornointernet:quickshell\nqt6-qtbase updates\n" ;;
+      *--installed*) cat "$HOME/installed-from" 2>/dev/null ;;
+    esac; exit 0'
+}
+_copr_repo() { printf '[copr:copr.fedorainfracloud.org:%s:%s]\nname=x\nenabled=1\n' "${1%%/*}" "${1#*/}" > "$VITRUM_ROOTFS/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:${1%%/*}:${1#*/}.repo"; }
+_ours() { mkdir -p "$VITRUM_STATE"; printf '%s\n' "$@" >> "$VITRUM_STATE/coprs-enabled"; }
+test_dnf_copr_takes_only_the_table_packages() {
+  _dnf_copr_world; _copr_repo errornointernet/quickshell; _ours errornointernet/quickshell
+  out="$(_dnf_copr_limit errornointernet/quickshell 2>&1)"
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "dnf config-manager setopt copr:copr.fedorainfracloud.org:errornointernet:quickshell.includepkgs=quickshell,cpptrace"
+  # the dependency query sees the COPR unfiltered, beside the non-COPR repositories only
+  assert_contains "$calls" "--setopt=copr:copr.fedorainfracloud.org:errornointernet:quickshell.includepkgs= --repo=fedora --repo=updates --repo=copr:copr.fedorainfracloud.org:errornointernet:quickshell"
+  assert_contains "$out" "only quickshell, cpptrace come from it"
+}
+# Asked again every run; the same set is no change.
+test_dnf_copr_limit_unchanged_is_not_written_again() {
+  _dnf_copr_world; _copr_repo errornointernet/quickshell; _ours errornointernet/quickshell
+  mkdir -p "$VITRUM_ROOTFS/etc/dnf/repos.override.d"
+  printf '[copr:copr.fedorainfracloud.org:errornointernet:quickshell]\nincludepkgs=cpptrace,quickshell\n' > "$VITRUM_ROOTFS/etc/dnf/repos.override.d/99-config_manager.repo"
+  _dnf_copr_limit errornointernet/quickshell >/dev/null 2>&1
+  assert_contains "$(cat "$HOME/calls")" "providers-of"
+  ! grep -q "setopt copr" "$HOME/calls"
+}
+# A new COPR-only dependency is let in on the next run.
+test_dnf_copr_limit_follows_a_new_dependency() {
+  _dnf_copr_world; _copr_repo errornointernet/quickshell; _ours errornointernet/quickshell
+  mkdir -p "$VITRUM_ROOTFS/etc/dnf/repos.override.d"
+  printf '[copr:copr.fedorainfracloud.org:errornointernet:quickshell]\nincludepkgs=quickshell\n' > "$VITRUM_ROOTFS/etc/dnf/repos.override.d/99-config_manager.repo"
+  _dnf_copr_limit errornointernet/quickshell >/dev/null 2>&1
+  assert_contains "$(cat "$HOME/calls")" "includepkgs=quickshell,cpptrace"
+}
+# The query failed: the list is not written, let alone shrunk.
+test_dnf_copr_limit_keeps_the_list_when_dnf_cannot_say() {
+  _dnf_copr_world; _copr_repo errornointernet/quickshell; _ours errornointernet/quickshell; touch "$HOME/query-fails"
+  mkdir -p "$VITRUM_ROOTFS/etc/dnf/repos.override.d"
+  printf '[copr:copr.fedorainfracloud.org:errornointernet:quickshell]\nincludepkgs=quickshell,cpptrace,breakpad\n' > "$VITRUM_ROOTFS/etc/dnf/repos.override.d/99-config_manager.repo"
+  out="$(_dnf_copr_limit errornointernet/quickshell 2>&1)"
+  ! grep -q "setopt copr" "$HOME/calls"
+  assert_contains "$out" "stays as it is (quickshell,cpptrace,breakpad)"
+}
+# What is installed from the COPR stays reachable through it.
+test_dnf_copr_limit_keeps_what_came_from_it() {
+  _dnf_copr_world; _copr_repo mineiro/hyprland; _ours mineiro/hyprland
+  printf 'hyprutils copr:copr.fedorainfracloud.org:mineiro:hyprland\nbash fedora\n' > "$HOME/installed-from"
+  _dnf_copr_limit mineiro/hyprland >/dev/null 2>&1
+  assert_contains "$(cat "$HOME/calls")" "mineiro:hyprland.includepkgs=awww,satty,hyprutils"
+}
+# A COPR the user enabled before vitrum is theirs: no limit, a note.
+test_dnf_copr_enabled_by_the_user_is_left_alone() {
+  _dnf_copr_world; _copr_repo sdegler/hyprland
+  out="$(_dnf_copr_limit sdegler/hyprland 2>&1)"
+  ! grep -q "setopt\|repoquery" "$HOME/calls" 2>/dev/null
+  assert_contains "$out" "you had it enabled before vitrum — left as it is (vitrum takes mpvpaper from it)"
+}
+# Enabling records the COPR as vitrum's (not in a dry run).
+test_dnf_enabling_a_copr_records_it() {
+  _dnf_copr_world
+  _dnf_enable_coprs atim/starship >/dev/null 2>&1
+  assert_eq "$(cat "$VITRUM_STATE/coprs-enabled")" atim/starship
+  _dnf_enable_coprs atim/starship >/dev/null 2>&1
+  assert_eq "$(grep -c . "$VITRUM_STATE/coprs-enabled")" 1
+  rm -f "$VITRUM_STATE/coprs-enabled"; export DRY_RUN=1
+  _dnf_enable_coprs dejan/lazygit >/dev/null 2>&1
+  [[ ! -e "$VITRUM_STATE/coprs-enabled" ]]
+}
+# A COPR vitrum enabled in an earlier run, for a part not chosen now, is limited too.
+test_dnf_prepare_limits_coprs_from_earlier_runs() {
+  _dnf_copr_world; _copr_repo dejan/lazygit; _ours dejan/lazygit; _copr_repo sdegler/hyprland
+  _package_needs() { echo required; }; packages_for() { :; }
+  pkg_prepare >/dev/null 2>&1
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "copr:copr.fedorainfracloud.org:dejan:lazygit.includepkgs=lazygit"
+  ! grep -q "sdegler:hyprland.includepkgs" <<<"$calls"                      # the user's
+  ! grep -q "errornointernet:quickshell.includepkgs=quickshell" <<<"$calls"   # not enabled here
+}
+test_dnf4_copr_limit_goes_into_the_repo_file() {
+  _dnf_copr_world; rm -f "$STUBS/dnf5"; _copr_repo atim/starship; _ours atim/starship
+  f="$VITRUM_ROOTFS/etc/yum.repos.d/_copr:copr.fedorainfracloud.org:atim:starship.repo"
+  printf '[copr:copr.fedorainfracloud.org:atim:starship-dep]\nenabled=1\n' >> "$f"
+  _dnf_copr_limit atim/starship >/dev/null 2>&1
+  assert_eq "$(awk '/^\[/{s=$0} /^includepkgs=/{print s " " $0}' "$f")" "[copr:copr.fedorainfracloud.org:atim:starship] includepkgs=starship"
+  _dnf_copr_limit atim/starship >/dev/null 2>&1
+  assert_eq "$(grep -c '^includepkgs=' "$f")" 1
+}
+# tuned-ppd swapped out: tuned itself is turned off, and what dnf removed is said.
+test_dnf_swap_turns_tuned_off_and_says_what_went() {
+  _dnf
+  printf 'tuned-ppd\ntuned\n' > "$HOME/rpmdb"
+  stub rpm 'case "$1" in -qa) cat "$HOME/rpmdb";; -q) grep -qx "$2" "$HOME/rpmdb";; esac'
+  stub dnf 'echo "dnf $*" >> "$HOME/calls"; [[ "$1" == swap ]] && { grep -v tuned-ppd "$HOME/rpmdb" > "$HOME/x"; echo power-profiles-daemon >> "$HOME/x"; mv "$HOME/x" "$HOME/rpmdb"; }; exit 0'
+  stub systemctl 'echo "systemctl $*" >> "$HOME/calls"; [[ "$*" == *is-enabled* ]] && exit 0; exit 0'
+  out="$(pkg_install power-profiles-daemon 2>&1)"
+  assert_contains "$(cat "$HOME/calls")" "systemctl disable --now tuned.service"
+  assert_contains "$out" "dnf removed to make room: tuned-ppd"
+}
+
+# rc.local runs as runit runs it, bash and all: the block's commands run, every
+# line of the user's runs exactly once, and the block is gone afterwards.
+# Rewritten in place, bash went on at its old offset and skipped them.
+test_runit_rc_local_runs_whole_under_bash() {
+  _runit running
+  rc="$VITRUM_ROOTFS/etc/rc.local"
+  { printf '#!/bin/bash\n'; for i in $(seq 1 120); do printf 'echo "user line %s" >> "%s/ran"\n' "$i" "$HOME"; done; } > "$rc"
+  chmod 755 "$rc"
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  svc_use_networkmanager >/dev/null 2>&1
+  # As at boot, with this fake root standing in for /.
+  sed -i.bak "s#/etc/#$VITRUM_ROOTFS/etc/#g" "$rc" && rm -f "$rc.bak"
+  "$rc"
+  [[ -L "$(_rl)/NetworkManager" && ! -e "$(_rl)/dhcpcd" ]]
+  assert_eq "$(wc -l < "$HOME/ran" | tr -d ' ')" 120
+  assert_eq "$(sort -u "$HOME/ran" | wc -l | tr -d ' ')" 120
+  ! grep -q "vitrum begin" "$rc"
+  assert_eq "$(sed -n 2p "$rc")" "echo \"user line 1\" >> \"$HOME/ran\""
+  [[ -x "$rc" ]]
+}
+# An /etc/rc.local that points to a file not there yet: made where it points.
+test_runit_rc_local_dangling_symlink() {
+  _runit running
+  ln -s rc.d/rc.local "$VITRUM_ROOTFS/etc/rc.local"
+  ln -s /etc/sv/dhcpcd "$(_rl)/dhcpcd"
+  ( svc_use_networkmanager >/dev/null 2>&1 ) || { echo "died"; return 1; }
+  [[ -L "$VITRUM_ROOTFS/etc/rc.local" ]]
+  assert_contains "$(cat "$VITRUM_ROOTFS/etc/rc.d/rc.local")" "rm -f /etc/runit/runsvdir/current/dhcpcd"
 }

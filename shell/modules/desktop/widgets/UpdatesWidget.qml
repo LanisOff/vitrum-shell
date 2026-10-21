@@ -6,7 +6,8 @@ import qs.components
 
 /*
  * The package updates waiting (Packages: emerge @world on Gentoo, checkupdates
- * on Arch). A click opens the bar's updates panel: the list, and a way to update.
+ * on Arch, xbps-install -Mun on Void, dnf check-update on Fedora). A click
+ * opens the bar's updates panel: the list, and a way to update.
  *   S   how many, large, "updates" under it
  *   M   the header; how many; the first packages beside it
  * None waiting: a check and "Up to date".

@@ -1,7 +1,8 @@
 #!/usr/bin/env bash
 # vitrum — keep the desktop up to date, and undo a change that went wrong.
 #
-#   vitrum update            pull the vitrum checkout and reinstall what changed
+#   vitrum update [--choose] pull the vitrum checkout and reinstall what changed
+#                            (--choose: the whole choice screen again)
 #   vitrum behind [--json]   how many commits the checkout is behind (nothing pulled)
 #   vitrum snapshot [name]   save your vitrum configs (the last ten are kept)
 #   vitrum snapshots         list them
@@ -45,7 +46,9 @@ snapshot() {
       say "a snapshot was just made"; return 0
     fi
   fi
-  stamp="${VITRUM_SNAPSHOT_STAMP:-$(date +%Y%m%d-%H%M%S)}"
+  stamp="$(date +%Y%m%d-%H%M%S)"
+  # The tests name their snapshots; nobody else does.
+  [[ "${VITRUM_TEST:-}" == 1 && -n "${VITRUM_SNAPSHOT_STAMP:-}" ]] && stamp="$VITRUM_SNAPSHOT_STAMP"
   for p in "${PATHS[@]}"; do [[ -e "$HOME/$p" ]] && have+=("$p"); done
   [[ ${#have[@]} -gt 0 ]] || { say "nothing to save yet"; return 0; }
   # Configs can hold secrets: the snapshots are yours alone.
@@ -128,11 +131,17 @@ print(json.dumps(out, indent=1))
 PY
 }
 
+# The checkout's revision the last complete install was made from (empty when
+# none is recorded: an older installer, or a run that skipped a stage).
+installed_revision() {
+  sed -n 's/^ *"revision": *"\([0-9a-f]*\)".*/\1/p' "$STATE/install.json" 2>/dev/null | head -n 1
+}
+
 update() {
   local src; src="$(source_dir)"
   if ! git -C "$src" rev-parse --git-dir >/dev/null 2>&1; then
     say "$src is not a git checkout — reinstalling it as it is"
-    exec "$src/install.sh" --yes "$@"
+    exec "$src/install.sh" --update "$@"
   fi
   upstream "$src"; case $? in
     1) die "could not reach $(git -C "$src" remote get-url origin) (offline, or the repository is not there yet)" ;;
@@ -146,13 +155,23 @@ update() {
   git -C "$src" pull --ff-only --quiet || die "could not fast-forward $src (diverged from upstream?)"
   after="$(git -C "$src" rev-parse HEAD)"
   if [[ "$before" == "$after" ]]; then
-    say "vitrum is up to date"
-    # Nothing new, but a package or font may have gone missing since.
-    exec "$src/install.sh" --yes --check
+    # Arguments (--choose) are a request for the installer, pulled or not.
+    if (( $# == 0 )) && [[ "$(installed_revision)" == "$after" ]]; then
+      say "vitrum is up to date"
+      # Nothing new, but a package or font may have gone missing since.
+      exec "$src/install.sh" --yes --check
+    fi
+    # An earlier pull that was never installed (cancelled, or a stage
+    # skipped or failed): nothing new to pull, but that is still to do.
+    (( $# == 0 )) && say "nothing new to pull, but the last update was not finished — installing it"
+  else
+    say "new in vitrum:"
+    git -C "$src" log --oneline --no-decorate "$before..$after" | sed 's/^/  /'
   fi
-  say "new in vitrum:"
-  git -C "$src" log --oneline --no-decorate "$before..$after" | sed 's/^/  /'
-  exec "$src/install.sh" --yes "$@"
+  # No --yes: on a terminal the installer asks about what is new or still not
+  # installed, and says nothing when there is neither. Without a terminal it
+  # takes the defaults for the new parts by itself. --choose passes through.
+  exec "$src/install.sh" --update "$@"
 }
 
 case "${1:-help}" in

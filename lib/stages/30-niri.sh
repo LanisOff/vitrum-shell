@@ -68,6 +68,11 @@ _niri_up_to_date() {
   [[ "$(cat "$VITRUM_STATE/niri.rev" 2>/dev/null)" == "$(niri_stamp)" ]]
 }
 
+# niri_needs_build — 0 when this stage will build niri (the stamp does not
+# match, or --fresh): the confirmation screen's estimate and its disk space
+# row are about that build. The same test the stage makes, nothing changed.
+niri_needs_build() { ! _niri_up_to_date; }
+
 # _niri_fetch <repo> <rev> <dir> — exactly that revision, clean tree.
 _niri_fetch() {
   local repo="$1" rev="$2" dir="$3"
@@ -87,8 +92,8 @@ _niri_apply_overlay() {
   local f
   for f in "${OVERLAY_FILES[@]}"; do
     [[ "$DRY_RUN" == "1" ]] && continue
-    [[ -f "$GLASS_SRC/$f" ]] || die "overlay file missing: $f (Niri-glass ${GLASS_REV:0:7})"
-    install -m644 "$GLASS_SRC/$f" "$NIRI_SRC/$f" || die "could not copy $f"
+    [[ -f "$GLASS_SRC/$f" ]] || die 'overlay file missing: %s (Niri-glass %s)' "$f" "${GLASS_REV:0:7}"
+    install -m644 "$GLASS_SRC/$f" "$NIRI_SRC/$f" || die 'could not copy %s' "$f"
   done
 }
 
@@ -102,16 +107,32 @@ _niri_apply_patches() {
   done
 }
 
+# niri's systemd feature (the global environment, apps in transient scopes)
+# only makes D-Bus calls to systemd, and runit has none; Void's own niri
+# package is built the same way.
+niri_cargo_features() {
+  case "${INIT_BACKEND:-}" in
+    runit) printf '%s\n' --no-default-features --features dbus,xdp-gnome-screencast ;;
+  esac
+}
+
+# Where cargo puts the binary: target/ in the tree, or CARGO_TARGET_DIR.
+_niri_target() { printf '%s\n' "${CARGO_TARGET_DIR:-$NIRI_SRC/target}"; }
+
 _niri_build() {
-  local jobs; jobs="$(half_jobs)"
+  local jobs feats=() flags="${RUSTFLAGS:-}"; jobs="$(half_jobs)"
+  mapfile -t feats < <(niri_cargo_features)
+  # A target-cpu given in RUSTFLAGS wins over native: an emulated CPU (Rosetta)
+  # advertises instructions it cannot run, and the build crashes.
+  [[ "$flags" == *target-cpu* ]] || flags+=" -C target-cpu=native"
   step "building (20–40 minutes, $jobs jobs)"
   info "progress: tail -f $BUILD_DIR/niri-build.log"
-  if [[ "$DRY_RUN" == "1" ]]; then dim "would run: cargo build --release"; return 0; fi
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would run: cargo build --release${feats[*]:+ ${feats[*]}}"; return 0; fi
   mkdir -p "$BUILD_DIR"
-  if ! ( cd "$NIRI_SRC" && RUSTFLAGS="${RUSTFLAGS:-} -C target-cpu=native" cargo build --release --locked --jobs "$jobs" ) \
+  if ! ( cd "$NIRI_SRC" && RUSTFLAGS="$flags" cargo build --release --locked --jobs "$jobs" "${feats[@]}" ) \
        > "$BUILD_DIR/niri-build.log" 2>&1; then
     tail -n 40 "$BUILD_DIR/niri-build.log" >&2
-    die "niri did not build — full log: $BUILD_DIR/niri-build.log (the installed niri, if any, is untouched)"
+    die 'niri did not build — full log: %s (the installed niri, if any, is untouched)' "$BUILD_DIR/niri-build.log"
   fi
   ok "built"
 }
@@ -119,7 +140,7 @@ _niri_build() {
 _niri_install() {
   step "installing $VITRUM_NIRI_BIN"
   if [[ "$DRY_RUN" == "1" ]]; then dim "would install the binary"; return 0; fi
-  sudo install -m755 "$NIRI_SRC/target/release/niri" "$VITRUM_NIRI_BIN" || die "could not install $VITRUM_NIRI_BIN"
+  sudo install -m755 "$(_niri_target)/release/niri" "$VITRUM_NIRI_BIN" || die 'could not install %s' "$VITRUM_NIRI_BIN"
   mkdir -p "$VITRUM_STATE"
   niri_stamp > "$VITRUM_STATE/niri.rev"
   ok "installed $("$VITRUM_NIRI_BIN" --version 2>/dev/null | head -1)"

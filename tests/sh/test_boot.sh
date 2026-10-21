@@ -171,3 +171,66 @@ test_limine_gets_quiet_splash_but_not_the_rescue_entry() {
 test_no_limine_config_is_not_an_error() {
   _load_boot; ( _boot_limine_splash >/dev/null 2>&1 ) && { echo "should report no config"; return 1; }; true
 }
+
+# Void: the splash goes on GRUB's default command line, then grub.cfg is written again.
+test_void_grub_gets_quiet_splash() {
+  _load_boot xbps
+  mkdir -p "$VITRUM_SYSROOT/etc/default" "$VITRUM_SYSROOT/boot/grub"; : > "$VITRUM_SYSROOT/boot/grub/grub.cfg"
+  printf '%s\n' 'GRUB_DEFAULT=0' 'GRUB_CMDLINE_LINUX_DEFAULT="loglevel=4"' 'GRUB_CMDLINE_LINUX=""' > "$VITRUM_SYSROOT/etc/default/grub"
+  stub grub-mkconfig 'echo "grub-mkconfig $*" >> "$HOME/calls"'
+  _boot_cmdline_splash >/dev/null 2>&1
+  g="$(cat "$VITRUM_SYSROOT/etc/default/grub")"
+  assert_contains "$g" 'GRUB_CMDLINE_LINUX_DEFAULT="loglevel=4 quiet splash"'
+  assert_contains "$g" 'GRUB_CMDLINE_LINUX=""'
+  assert_contains "$(cat "$HOME/calls")" "grub-mkconfig -o $VITRUM_SYSROOT/boot/grub/grub.cfg"
+  [[ -f "$VITRUM_SYSROOT/etc/default/grub.vitrum-bak" ]]
+  rm "$HOME/calls"
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_eq "$(grep -c splash "$VITRUM_SYSROOT/etc/default/grub")" 1
+  [[ ! -e "$HOME/calls" ]]
+}
+test_void_grub_keeps_an_existing_quiet() {
+  _load_boot xbps
+  mkdir -p "$VITRUM_SYSROOT/etc/default"
+  printf '%s\n' 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3"' > "$VITRUM_SYSROOT/etc/default/grub"
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_eq "$(cat "$VITRUM_SYSROOT/etc/default/grub")" 'GRUB_CMDLINE_LINUX_DEFAULT="quiet loglevel=3 splash"'
+}
+# Fedora: grubby, for every entry; rhgb already asks for the splash.
+test_fedora_grubby_adds_the_splash_only_when_missing() {
+  _load_boot dnf
+  stub grubby 'if [[ "$1" == --info=ALL ]]; then cat "$HOME/entries"; else echo "grubby $*" >> "$HOME/calls"; fi'
+  printf 'index=0\nkernel="/boot/vmlinuz-a"\nargs="ro rootflags=subvol=root rhgb quiet"\nindex=1\nkernel="/boot/vmlinuz-b"\nargs="ro rhgb quiet"\n' > "$HOME/entries"
+  _boot_cmdline_splash >/dev/null 2>&1
+  [[ ! -e "$HOME/calls" ]]
+  printf 'index=0\nkernel="/boot/vmlinuz-a"\nargs="ro rootflags=subvol=root"\n' > "$HOME/entries"
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_contains "$(cat "$HOME/calls")" 'grubby --update-kernel=/boot/vmlinuz-a --args=quiet splash'
+}
+test_arch_and_gentoo_have_no_cmdline_tool_here() {
+  _load_boot pacman
+  ! _boot_cmdline_splash
+}
+
+# grubby: the normal kernels get the splash, the rescue entry stays plain.
+test_fedora_grubby_leaves_the_rescue_entry_alone() {
+  _load_boot dnf
+  stub grubby 'if [[ "$1" == --info=ALL ]]; then cat "$HOME/entries"; else echo "grubby $*" >> "$HOME/calls"; fi'
+  printf '%s\n' 'index=0' 'kernel="/boot/vmlinuz-6.19.4-300.fc44.x86_64"' 'args="ro root=UUID=x"' 'title="Fedora Linux (6.19.4)"' \
+    'index=1' 'kernel="/boot/vmlinuz-0-rescue-abc"' 'args="ro root=UUID=x"' 'title="Fedora Linux (0-rescue-abc)"' \
+    'index=2' 'kernel="/boot/vmlinuz-6.18.9-300.fc44.x86_64"' 'args="ro rhgb quiet"' 'title="Fedora Linux (6.18.9)"' > "$HOME/entries"
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_eq "$(cat "$HOME/calls")" 'grubby --update-kernel=/boot/vmlinuz-6.19.4-300.fc44.x86_64 --args=quiet splash'
+}
+test_void_grub_single_quotes_and_bare_values() {
+  _load_boot xbps
+  mkdir -p "$VITRUM_SYSROOT/etc/default"
+  printf '%s\n' "GRUB_CMDLINE_LINUX_DEFAULT='loglevel=4 nvidia-drm.modeset=1'" > "$VITRUM_SYSROOT/etc/default/grub"
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_eq "$(cat "$VITRUM_SYSROOT/etc/default/grub")" "GRUB_CMDLINE_LINUX_DEFAULT='loglevel=4 nvidia-drm.modeset=1 quiet splash'"
+  printf '%s\n' 'GRUB_CMDLINE_LINUX_DEFAULT=loglevel=4' > "$VITRUM_SYSROOT/etc/default/grub"
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_eq "$(cat "$VITRUM_SYSROOT/etc/default/grub")" 'GRUB_CMDLINE_LINUX_DEFAULT="loglevel=4 quiet splash"'
+  _boot_cmdline_splash >/dev/null 2>&1
+  assert_eq "$(grep -c splash "$VITRUM_SYSROOT/etc/default/grub")" 1
+}

@@ -6,7 +6,7 @@ svc_exists() { [[ -x "${VITRUM_ROOTFS:-}/etc/init.d/$1" ]]; }
 svc_enable_system() {  # <service> [runlevel, default: default]
   local level="${2:-default}"
   if ! svc_exists "$1"; then dim "no OpenRC service $1 — skipped"; return 0; fi
-  run_ok sudo rc-update add "$1" "$level" || warn "could not add $1 to the $level runlevel"
+  run_ok sudo rc-update add "$1" "$level" || warn 'could not add %s to the %s runlevel' "$1" "$level"
   run_ok sudo rc-service "$1" start >/dev/null 2>&1 || true
 }
 

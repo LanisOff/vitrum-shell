@@ -5,7 +5,8 @@ import qs.theme
 import qs.components
 import "../../../lib/emerge.js" as Lib
 
-// Activity: emerge is building, or pacman installing. How far (3/27) and how long to go.
+// Activity: emerge is building, or pacman, xbps or dnf installing. How far
+// (3/27) and how long to go; xbps and dnf count no steps, so only their name.
 BarModule {
     id: root
     shown: Packages.state.running

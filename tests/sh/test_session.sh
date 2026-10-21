@@ -1,4 +1,4 @@
-# shellcheck shell=bash disable=SC1090,SC1091
+# shellcheck shell=bash disable=SC1090,SC1091,SC2016
 _load_session() {
   export INIT_BACKEND="$1"
   source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-$1.sh"
@@ -34,6 +34,25 @@ test_session_kdl_is_idempotent() {
   assert_contains "$(cat "$f")" "gentoo-pipewire-launcher"
   # The clipboard history goes through vitrum-clip (no count limit on text).
   assert_eq "$(grep -c 'watch vitrum-clip store' "$f")" 2
+}
+# Void: no PipeWire launcher and no user services, so session.kdl starts
+# PipeWire itself, the others waiting for its socket.
+test_session_kdl_runit_starts_pipewire_itself() {
+  _load_session runit
+  _session_spawns
+  local f="$VITRUM_PREFIX/niri/generated/session.kdl"
+  assert_contains "$(cat "$f")" 'spawn-at-startup "sh" "-c" "pipewire & for i in'
+  assert_contains "$(cat "$f")" 'pipewire-pulse & wireplumber & wait"'
+  assert_eq "$(grep -c 'vitrum-startup' "$f")" 1
+}
+# Nobody starts a session bus on runit either: niri runs as a session under
+# dbus-run-session, as on OpenRC.
+test_session_wrapper_runit_uses_dbus_run_session() {
+  _load_session runit
+  _session_wrapper
+  local w="$VITRUM_SYSROOT/usr/local/bin/vitrum-session"
+  assert_contains "$(cat "$w")" "dbus-run-session /usr/local/bin/niri --session"
+  sh -n "$w"
 }
 test_config_has_includes_and_no_tahoe() {
   _load_session openrc
@@ -208,4 +227,70 @@ test_keyring_pam_password_line_and_no_trailing_newline() {
   assert_eq "$(grep -c 'pam_gnome_keyring' "$f")" 3
   assert_contains "$(cat "$f")" "-password  optional     pam_gnome_keyring.so use_authtok"
   assert_eq "$(grep -vc 'pam_gnome_keyring\|^# vitrum' "$f")" 3
+}
+
+# Without logind (Void with seatd only) nobody makes XDG_RUNTIME_DIR. The
+# wrapper makes /run/user/UID when sudo or doas allow it without a password;
+# here neither does, so it is a private directory under TMPDIR, gone after.
+# And the VT switch is not asked of a login1 that is not there. /run/user is
+# moved under HOME (VITRUM_RUNTIME_PREFIX) and sudo and doas refuse, so a
+# desktop with logind, or with sudo that asks for nothing, runs these as well.
+_wrapper_world() {
+  _load_session openrc
+  export VITRUM_RUNTIME_PREFIX="$HOME/rt-root"
+  _session_wrapper
+  stub sudo 'exit 1'; stub doas 'exit 1'
+}
+_run_wrapper() {
+  stub dbus-run-session 'ls -ld "$XDG_RUNTIME_DIR" > "$HOME/rt"; printf "%s\n" "$XDG_RUNTIME_DIR" >> "$HOME/rt"'
+  stub busctl 'echo called > "$HOME/busctl"'
+  mkdir -p "$HOME/tmp"
+  env -u DBUS_SESSION_BUS_ADDRESS "$@" TMPDIR="$HOME/tmp" sh "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" </dev/null
+}
+test_session_wrapper_makes_a_private_runtime_dir_without_logind() {
+  _wrapper_world
+  stub dbus-send 'exit 0'      # the bus answers, but login1 has no owner
+  _run_wrapper -u XDG_RUNTIME_DIR
+  assert_contains "$(head -n 1 "$HOME/rt")" "drwx------"
+  d="$(tail -n 1 "$HOME/rt")"
+  assert_contains "$d" "$HOME/tmp/vitrum-runtime-$(id -u)."
+  [[ ! -e "$d" ]] || { echo "$d left behind"; return 1; }
+  [[ ! -e "$HOME/busctl" ]] || { echo "SwitchTo asked of an absent login1"; return 1; }
+}
+test_session_wrapper_keeps_the_runtime_dir_it_was_given() {
+  _wrapper_world
+  stub dbus-send 'case "$*" in *NameHasOwner*) echo "   boolean true" ;; esac'
+  mkdir -p "$HOME/given"
+  _run_wrapper XDG_RUNTIME_DIR="$HOME/given"
+  assert_eq "$(tail -n 1 "$HOME/rt")" "$HOME/given"
+  [[ -d "$HOME/given" ]]
+  # login1 is there: the VT switch is asked for, as before.
+  assert_eq "$(cat "$HOME/busctl")" "called"
+}
+test_session_wrapper_replaces_a_runtime_dir_that_is_gone() {
+  _wrapper_world
+  stub dbus-send 'exit 0'
+  _run_wrapper XDG_RUNTIME_DIR="$HOME/nonexistent"
+  assert_contains "$(tail -n 1 "$HOME/rt")" "$HOME/tmp/vitrum-runtime-"
+}
+test_session_wrapper_sets_no_runtime_dir_when_none_can_be_made() {
+  _wrapper_world
+  stub dbus-send 'exit 0'
+  stub mktemp 'exit 1'
+  stub dbus-run-session 'printf "%s\n" "${XDG_RUNTIME_DIR-unset}" > "$HOME/rt"'
+  env -u DBUS_SESSION_BUS_ADDRESS -u XDG_RUNTIME_DIR sh "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" </dev/null
+  assert_eq "$(cat "$HOME/rt")" "unset"
+}
+
+# The runtime directory logind made is used as it is; the prefix is a test's.
+test_session_wrapper_uses_the_run_user_dir_that_is_there() {
+  _wrapper_world
+  stub dbus-send 'exit 0'
+  mkdir -p "$VITRUM_RUNTIME_PREFIX/run/user/$(id -u)"
+  _run_wrapper -u XDG_RUNTIME_DIR
+  assert_eq "$(tail -n 1 "$HOME/rt")" "$VITRUM_RUNTIME_PREFIX/run/user/$(id -u)"
+  # Written outside the tests, the wrapper knows only /run/user.
+  stub sudo '"$@"'
+  ( unset VITRUM_TEST; _session_wrapper )
+  assert_contains "$(cat "$VITRUM_SYSROOT/usr/local/bin/vitrum-session")" 'XDG_RUNTIME_DIR=/run/user/$uid'
 }

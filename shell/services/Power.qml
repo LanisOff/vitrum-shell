@@ -114,19 +114,43 @@ Singleton {
 
     function lock()      { run(["vitrum-ipc", "lock", "lock"]); }
     function logout()    { run([Niri.bin, "msg", "action", "quit", "--skip-confirmation"]); }
-    function suspend()   { _logind("Suspend", "suspend"); }
-    function hibernate() { _logind("Hibernate", "hibernate"); }
-    function reboot()    { _logind("Reboot", "reboot"); }
-    function shutdown()  { _logind("PowerOff", "poweroff"); }
+    function suspend()   { _logind("Suspend", "suspend", "zzz"); }
+    function hibernate() { _logind("Hibernate", "hibernate", "ZZZ"); }
+    function reboot()    { _logind("Reboot", "reboot", "reboot"); }
+    function shutdown()  { _logind("PowerOff", "poweroff", "poweroff"); }
 
     // logind over D-Bus, which systemd-logind and elogind both answer — their
     // loginctl verbs differ (systemd's has no poweroff, reboot or suspend, so
     // these did nothing on Arch). interactive=true: polkit may ask first (another
     // user logged in), through the shell's prompt. systemctl and elogind's
     // loginctl after it, should D-Bus fail.
-    function _logind(method, verb) {
-        run(["sh", "-c", 'dbus-send --system --print-reply --reply-timeout=120000 --dest=org.freedesktop.login1 /org/freedesktop/login1 '
-             + '"org.freedesktop.login1.Manager.$1" boolean:true >/dev/null 2>&1 || systemctl "$2" 2>/dev/null || loginctl "$2"', "_", method, verb]);
+    //
+    // Last, where there is no logind at all (Void with seatd only): the init's
+    // own tool — poweroff and reboot, Void's zzz and ZZZ for sleep — through
+    // sudo or doas, and only if they let it through without a password (-n:
+    // nothing could ask). Only without logind: where it is there and polkit
+    // said no (you cancelled its prompt), that no stands. When none of it can
+    // (exit 3), say so: otherwise the button would just do nothing.
+    function _logind(method, verb, tool) {
+        if (action.running) return;
+        action.label = ({ poweroff: "power off", reboot: "restart", suspend: "sleep", hibernate: "hibernate" })[verb] || verb;
+        action.command = ["sh", "-c", 'dbus-send --system --print-reply --reply-timeout=120000 --dest=org.freedesktop.login1 /org/freedesktop/login1 '
+             + '"org.freedesktop.login1.Manager.$1" boolean:true >/dev/null 2>&1 || systemctl "$2" 2>/dev/null || loginctl "$2" 2>/dev/null || { '
+             + 'dbus-send --system --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.NameHasOwner '
+             + 'string:org.freedesktop.login1 2>/dev/null | grep -q "boolean true" && exit 1; '
+             + 'if [ "$(id -u)" = 0 ]; then "$3"; elif command -v sudo >/dev/null; then sudo -n "$3"; '
+             + 'elif command -v doas >/dev/null; then doas -n "$3"; else false; fi || exit 3; }', "_", method, verb, tool];
+        action.running = true;
+    }
+    Process {
+        id: action
+        property string label: ""
+        onExited: (code) => {
+            if (code === 3)
+                Notifs.inject("Power", "Could not " + label,
+                              "There is no logind (elogind) to ask, and sudo or doas want a password for it. "
+                              + "Start elogind, or allow this without a password.");
+        }
     }
 
     function run(cmdline) { Quickshell.execDetached(cmdline); }

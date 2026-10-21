@@ -7,7 +7,9 @@ test_packages_for_portage_skips_dash() {
   assert_contains "$out" "gui-apps/quickshell"
   ! grep -qx -- "-" <<<"$out"
   ! grep -q "bluez-utils" <<<"$out"
-  assert_contains "$(cat "$HOME/err")" "bluez-utils is not packaged here"
+  # "-": not packaged, noted; ".": not needed here (in bluez, in the base), silent.
+  assert_contains "$(cat "$HOME/err")" "portal-gnome is not packaged here"
+  ! grep -q "bluez-utils\|build-base\|elogind\|build-make" "$HOME/err"
 }
 test_packages_for_pacman_keeps_aur_prefix() {
   _pk pacman
@@ -29,10 +31,10 @@ test_portage_env_marks_half_jobs() {
   assert_contains "$(packages_portage_column env)" "net-libs/webkit-gtk vitrum-half-jobs.conf"
 }
 test_table_is_well_formed() {
-  awk -F'\t' '!/^#/ && NF && NF!=7 {print "line "NR": "NF" columns"; bad=1} END{exit bad}' "$VITRUM_DIR/lib/packages.tsv"
+  awk -F'\t' '!/^#/ && NF && NF!=9 {print "line "NR": "NF" columns"; bad=1} END{exit bad}' "$VITRUM_DIR/lib/packages.tsv"
 }
 test_every_row_has_a_name_somewhere() {
-  awk -F'\t' '!/^#/ && NF && $2=="-" && $3=="-" {print "line "NR" has no package anywhere"; bad=1} END{exit bad}' "$VITRUM_DIR/lib/packages.tsv"
+  awk -F'\t' '!/^#/ && NF && $2 ~ /^[-.]$/ && $3 ~ /^[-.]$/ && $8 ~ /^[-.]$/ && $9 ~ /^[-.]$/ {print "line "NR" has no package anywhere"; bad=1} END{exit bad}' "$VITRUM_DIR/lib/packages.tsv"
 }
 test_portage_unavailable_atoms_stop_before_emerge() {
   export PKG_BACKEND=portage INIT_BACKEND=openrc VITRUM_ROOTFS="$HOME/rootfs"
@@ -166,4 +168,92 @@ test_portage_use_rebuild_comes_before_install() {
   pkg_install() { echo install >> "$HOME/calls"; }
   stage_packages >/dev/null 2>&1
   assert_eq "$(head -2 "$HOME/calls" | tr '\n' ' ')" "apply_use install "
+}
+
+# ------------------------------------------------------- Fedora and Void -----
+
+test_dnf_and_xbps_columns_come_last() {
+  _pk dnf
+  out="$(packages_for required 2>/dev/null)"
+  assert_contains "$out" "copr:errornointernet/quickshell:quickshell"
+  assert_contains "$out" "rpmfusion:ffmpeg"
+  assert_contains "$out" "mesa-libgbm-devel"
+  ! grep -qx "base-devel" <<<"$out"
+  _pk xbps
+  out="$(packages_for required 2>/dev/null)"
+  assert_contains "$out" "fish-shell"
+  assert_contains "$out" "ffmpeg6"
+  assert_contains "$out" "elogind"
+  ! grep -q "copr:" <<<"$out"
+  # the older columns kept their numbers
+  _pk pacman
+  assert_contains "$(packages_for required 2>/dev/null)" "aur:matugen-bin"
+}
+# The extra Fedora and Void rows ask nothing of Arch and Gentoo.
+test_fedora_void_rows_are_not_needed_elsewhere() {
+  local r
+  for r in build-make build-pkgconf build-gbm build-udev pipewire-pulse keyring-pam font-noto-serif elogind cron sddm-greeter-ds; do
+    awk -F'\t' -v r="$r" '$1 == r && ($2 != "." || $3 != ".") { bad = 1 } $1 == r { found = 1 } END { exit bad || !found }' "$VITRUM_DIR/lib/packages.tsv" \
+      || { echo "row $r"; return 1; }
+  done
+  _pk dnf
+  ! grep -q sddm-wayland-generic <<<"$(packages_for required 2>/dev/null)"
+  assert_contains "$(packages_for required sddm 2>/dev/null)" "sddm-wayland-generic"
+}
+# Every Nerd font there is, 7 GB: never.
+test_xbps_never_installs_all_nerd_fonts() {
+  ! awk -F'\t' '!/^#/ && $9 ~ /nerd-fonts/' "$VITRUM_DIR/lib/packages.tsv" | grep -q .
+}
+test_copr_entries_are_well_formed() {
+  awk -F'\t' '!/^#/ && NF && $8 ~ /copr:/ && $8 !~ /^copr:[A-Za-z0-9_.-]+\/[A-Za-z0-9_.+-]+:[A-Za-z0-9_.+-]+$/ { print "line " NR ": " $8; bad = 1 } END { exit bad }' "$VITRUM_DIR/lib/packages.tsv"
+}
+# What Void and Fedora lack comes from lib/assets.tsv; Arch has it all packaged.
+test_unpackaged_rows_get_their_asset() {
+  _pk xbps; source "$VITRUM_DIR/lib/assets.sh"
+  _package_needs() { printf '%s\n' required utilities; }
+  assert_eq "$(packages_unpackaged required | grep -c 'font-nerd\|font-jetbrains\|adw-gtk3')" 3
+  w="$(assets_wanted)"
+  assert_contains "$w" "jetbrains-mono-nerd"
+  assert_contains "$w" "adw-gtk3"
+  assert_contains "$w" "noise-suppression"
+  assert_contains "$w" "material-symbols"
+  _pk dnf; _package_needs() { printf '%s\n' required utilities; }
+  w="$(assets_wanted)"
+  assert_contains "$w" "jetbrains-mono-nerd"
+  ! grep -qx "jetbrains-mono\|adw-gtk3\|noise-suppression" <<<"$w"
+  _pk pacman; _package_needs() { printf '%s\n' required utilities; }
+  assert_eq "$(assets_wanted | tr '\n' ' ')" "material-symbols bibata apple-emoji "
+}
+test_every_asset_stand_in_names_a_table_row() {
+  local f
+  for f in $(awk -F'\t' '!/^#/ && NF && $6 != "-" { print $6 }' "$VITRUM_DIR/lib/assets.tsv"); do
+    awk -F'\t' -v f="$f" '$1 == f { found = 1 } END { exit !found }' "$VITRUM_DIR/lib/packages.tsv" || { echo "no row $f"; return 1; }
+  done
+}
+test_unavailable_messages_per_distribution() {
+  _pk dnf
+  assert_contains "$(pkg_unavailable_message foo)" "sudo dnf makecache"
+  _pk xbps
+  assert_contains "$(pkg_unavailable_message foo)" "sudo xbps-install -S"
+}
+
+# Arch and Gentoo runs say nothing about the Fedora and Void rows, and a row
+# fetched from upstream instead is no "not packaged" either.
+test_packages_for_is_quiet_about_rows_not_needed_here() {
+  local b
+  for b in portage pacman; do
+    _pk "$b"
+    packages_for required sddm utilities 2>"$HOME/err.$b" >/dev/null
+  done
+  ! grep -q . "$HOME/err.pacman"
+  assert_eq "$(cat "$HOME/err.portage")" "note: portal-gnome is not packaged here, skipped"
+  _pk xbps
+  packages_for required utilities 2>"$HOME/err.x" >/dev/null
+  ! grep -q "font-nerd\|adw-gtk3\|noise-suppression\|pipewire-pulse" "$HOME/err.x"
+  _pk dnf
+  ! grep -qx "\." <<<"$(packages_for required 2>/dev/null)"
+}
+test_dot_never_reaches_the_portage_files() {
+  _pk portage
+  ! grep -q '^\. ' <<<"$(packages_portage_column use; packages_portage_column keywords; packages_portage_column env)"
 }

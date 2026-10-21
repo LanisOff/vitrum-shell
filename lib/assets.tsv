@@ -1,5 +1,13 @@
-# Assets fetched from upstream on every distribution (not packaged on Gentoo).
-# Columns (TAB): name  url  sha256  kind(file|tar)  dest (~ = $HOME; for tar, the directory to unpack into)
-material-symbols	https://github.com/google/material-design-icons/raw/bd8cb85bd4bad964fe6918f79665bb40c3a8efef/variablefont/MaterialSymbolsRounded%5BFILL,GRAD,opsz,wght%5D.ttf	c2182b6337495e64cc9e2311c52522567ac277d25a842bd027f9c9e3a5cc6d86	file	~/.local/share/fonts/vitrum/MaterialSymbolsRounded.ttf
-bibata	https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Classic.tar.xz	7d3495864e5bbef02f5e77de760b2905903b63c71495a78ef6306d19a3b556d8	tar	~/.local/share/icons
-apple-emoji	https://github.com/samuelngs/apple-emoji-ttf/releases/download/macos-26-20260722-484daf4e/AppleColorEmoji-Linux.ttf	e37c7af6265ac4a0af6d57bc65e86109a776d9966e8343334557f63da482516f	file	~/.local/share/fonts/vitrum/AppleColorEmoji.ttf
+# Assets fetched from upstream (pinned URL and checksum).
+# Columns (TAB): name  url  sha256  kind  dest  instead
+#   kind     file | tar | zip | zip:<pattern> (only the matching members, without their folders)
+#   dest     ~ = $HOME; for an archive, the directory to unpack into. Outside $HOME it is written as root.
+#   instead  - : fetched on every distribution (not packaged on Gentoo);
+#            a lib/packages.tsv row: fetched only where that row is - and this run needs it.
+material-symbols	https://github.com/google/material-design-icons/raw/bd8cb85bd4bad964fe6918f79665bb40c3a8efef/variablefont/MaterialSymbolsRounded%5BFILL,GRAD,opsz,wght%5D.ttf	c2182b6337495e64cc9e2311c52522567ac277d25a842bd027f9c9e3a5cc6d86	file	~/.local/share/fonts/vitrum/MaterialSymbolsRounded.ttf	-
+bibata	https://github.com/ful1e5/Bibata_Cursor/releases/download/v2.0.7/Bibata-Modern-Classic.tar.xz	7d3495864e5bbef02f5e77de760b2905903b63c71495a78ef6306d19a3b556d8	tar	~/.local/share/icons	-
+apple-emoji	https://github.com/samuelngs/apple-emoji-ttf/releases/download/macos-26-20260722-484daf4e/AppleColorEmoji-Linux.ttf	e37c7af6265ac4a0af6d57bc65e86109a776d9966e8343334557f63da482516f	file	~/.local/share/fonts/vitrum/AppleColorEmoji.ttf	-
+adw-gtk3	https://github.com/lassekongo83/adw-gtk3/releases/download/v6.5/adw-gtk3v6.5.tar.xz	a81780fadfc432be0fc3d89c4ebb41aa28e4f032d42c36f9789c57dd10cfa41c	tar	~/.local/share/themes	adw-gtk3
+jetbrains-mono	https://github.com/JetBrains/JetBrainsMono/releases/download/v2.304/JetBrainsMono-2.304.zip	6f6376c6ed2960ea8a963cd7387ec9d76e3f629125bc33d1fdcd7eb7012f7bbf	zip:fonts/ttf/*.ttf	~/.local/share/fonts/vitrum/JetBrainsMono	font-jetbrains
+jetbrains-mono-nerd	https://github.com/ryanoasis/nerd-fonts/releases/download/v3.5.1/JetBrainsMono.tar.xz	04d5e8f903693f9dd13e16f867e994834e681eb3c72c0d337a770dcda09010cf	tar	~/.local/share/fonts/vitrum/JetBrainsMonoNerd	font-nerd
+noise-suppression	https://github.com/werman/noise-suppression-for-voice/releases/download/v1.10/linux-rnnoise.zip	811390b6eb6e28dde023c70590c74d26e74ebb2e595bcf4b95af2341db160e99	zip:linux-rnnoise/ladspa/*	/usr/local/lib/ladspa	noise-suppression

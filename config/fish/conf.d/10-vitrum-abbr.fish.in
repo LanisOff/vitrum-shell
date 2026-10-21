@@ -56,13 +56,35 @@ abbr -a gstp   git stash pop
 abbr -a grh    git reset --hard
 command -q lazygit; and abbr -a lg lazygit
 
-# ---------------------------------------------------------------- pacman ----
-abbr -a pi     sudo pacman -S
-abbr -a prm    sudo pacman -Rns
-abbr -a pu     sudo pacman -Syu
-abbr -a pse    pacman -Ss
-abbr -a pq     pacman -Qs
-abbr -a orphan pacman -Qtdq
+# -------------------------------------------------------------- packages ----
+#
+# The same verbs for whichever package manager the machine has: install,
+# remove, update, search the repositories, query what is installed, orphans.
+# The letter in front is the manager's: p pacman, x xbps, d dnf.
+if command -q pacman
+    abbr -a pi     sudo pacman -S
+    abbr -a prm    sudo pacman -Rns
+    abbr -a pu     sudo pacman -Syu
+    abbr -a pse    pacman -Ss
+    abbr -a pq     pacman -Qs
+    abbr -a orphan pacman -Qtdq
+else if command -q xbps-install
+    # Void's xtools has commands called xi and xq; where it is installed they
+    # stay its own (rule 1).
+    for _a in 'xi sudo xbps-install -S' 'xrm sudo xbps-remove -R' 'xu sudo xbps-install -Su' \
+              'xse xbps-query -Rs' 'xq xbps-query -s' 'orphan xbps-query -O'
+        set -l _w (string split -m 1 ' ' -- $_a)
+        command -q $_w[1]; or abbr -a $_w[1] $_w[2]
+    end
+    set -e _a
+else if command -q dnf
+    abbr -a di     sudo dnf install
+    abbr -a drm    sudo dnf remove
+    abbr -a dup    sudo dnf upgrade      # not du: that is the disk usage command
+    abbr -a dse    dnf search
+    abbr -a dq     dnf list --installed
+    abbr -a orphan dnf repoquery --unneeded
+end
 
 # ------------------------------------------------------------------ tmux ----
 abbr -a tm     tmux
@@ -71,9 +93,16 @@ abbr -a tn     tmux new -s
 abbr -a tls    tmux list-sessions
 abbr -a tk     tmux kill-session -t
 
-# ------------------------------------------------------------ journalctl ----
-abbr -a jctl   journalctl -xe
-abbr -a jctlu  journalctl --user -xe
+# ------------------------------------------------------------------ logs ----
+#
+# The system log: journalctl's under systemd; on Void, socklog's, which
+# svlogtail follows (you need to be in the socklog group to read it).
+if command -q journalctl
+    abbr -a jctl   journalctl -xe
+    abbr -a jctlu  journalctl --user -xe
+else if command -q svlogtail
+    abbr -a jctl   svlogtail
+end
 
 # ------------------------------------------------------------- navigation ---
 abbr -a ..     cd ..

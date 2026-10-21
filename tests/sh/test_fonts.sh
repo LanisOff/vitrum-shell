@@ -42,7 +42,7 @@ test_unknown_asset_dies() {
   ! (fetch_asset nope) 2>/dev/null
 }
 test_real_table_is_well_formed() {
-  awk -F'\t' '!/^#/ && NF && (NF!=5 || length($3)!=64) {print "line "NR; bad=1} END{exit bad}' "$VITRUM_DIR/lib/assets.tsv"
+  awk -F'\t' '!/^#/ && NF && (NF!=6 || length($3)!=64) {print "line "NR; bad=1} END{exit bad}' "$VITRUM_DIR/lib/assets.tsv"
 }
 test_stage_fonts_writes_vitrum_fontconfig_and_drops_tahoe() {
   stub fc-cache
@@ -68,4 +68,42 @@ test_font_cache_success_is_quiet() {
   stub fc-cache
   _load
   assert_eq "$(font_cache_refresh 2>&1)" ""
+}
+
+# zip:<pattern>: only the matching members, without their folders.
+test_fetch_zip_members_without_folders() {
+  _fixture
+  mkdir -p "$HOME/fx/z/pkg/ladspa" "$HOME/fx/z/pkg/lv2"; echo so > "$HOME/fx/z/pkg/ladspa/lib.so"; echo no > "$HOME/fx/z/pkg/lv2/other.so"
+  # python3, not zip: the zip command is not on every machine that runs the tests
+  python3 -c 'import sys, zipfile, os
+os.chdir(sys.argv[2])
+with zipfile.ZipFile(sys.argv[1], "w") as z:
+    for p in ("pkg/ladspa/lib.so", "pkg/lv2/other.so"): z.write(p)' "$HOME/fx/plugin.zip" "$HOME/fx/z"
+  printf 'plug\thttps://x/plugin.zip\t%s\tzip:pkg/ladspa/*\t%s\tnoise-suppression\n' "$(_sum "$HOME/fx/plugin.zip")" "$HOME/out/ladspa" > "$HOME/assets.tsv"
+  export VITRUM_ASSETS_TABLE="$HOME/assets.tsv"; _load
+  fetch_asset plug >/dev/null
+  assert_eq "$(cat "$HOME/out/ladspa/lib.so")" so
+  [[ ! -e "$HOME/out/ladspa/other.so" && ! -d "$HOME/out/ladspa/pkg" ]]
+}
+# Outside $HOME (a system plugin folder) the asset is written as root.
+test_fetch_outside_home_goes_through_sudo() {
+  _fixture
+  stub sudo 'echo "sudo $*" >> "$HOME/calls"; "$@"'
+  dest="$(mktemp -d)/lib/ladspa"
+  printf 'font\thttps://x/font.ttf\t%s\tfile\t%s\t-\n' "$(_sum "$HOME/fx/font.ttf")" "$dest/font.ttf" > "$HOME/assets.tsv"
+  export VITRUM_ASSETS_TABLE="$HOME/assets.tsv"; _load
+  fetch_asset font >/dev/null
+  assert_contains "$(cat "$HOME/calls")" "sudo install -m644"
+  assert_eq "$(cat "$dest/font.ttf")" fontdata
+}
+# On a fresh system fontconfig can come later than the fonts (a run with
+# --only packages fetches them first): fc-cache missing, and its folders too,
+# is a warning, not the end of the install.
+test_font_cache_missing_and_no_folders_goes_on() {
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/assets.sh"
+  PATH="$STUBS:/usr/bin:/bin"; have() { [[ "$1" != fc-cache ]] && command -v "$1" >/dev/null 2>&1; }
+  stub fc-cache 'echo "fc-cache: command not found" >&2; exit 127'
+  out="$(set -e; font_cache_refresh 2>&1; echo after)"
+  assert_contains "$out" "fc-cache failed"
+  assert_contains "$out" "after"
 }

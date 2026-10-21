@@ -1,4 +1,4 @@
-# shellcheck shell=bash disable=SC1090,SC1091
+# shellcheck shell=bash disable=SC1090,SC1091,SC2016,SC2329
 _load_term() {
   source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/stages/45-terminal.sh"
   stub sudo '"$@"'
@@ -53,4 +53,38 @@ test_terminal_backs_up_tmux_keys() {
   mkdir -p "$XDG_CONFIG_HOME/tmux"; echo mine > "$XDG_CONFIG_HOME/tmux/keys.conf"
   stage_terminal >/dev/null 2>&1
   grep -q "saved .config/tmux/keys.conf" "$XDG_DATA_HOME/vitrum/originals/.manifest"
+}
+test_distro_logo_removes_the_kitty_logo() {
+  _load_term
+  stub rsvg-convert 'for a; do o="$a"; done; printf "\x89PNG" > "$o"'
+  mkdir -p "$XDG_DATA_HOME/vitrum/fastfetch"
+  : > "$XDG_DATA_HOME/vitrum/fastfetch/logo.kitty"; : > "$XDG_DATA_HOME/vitrum/fastfetch/logo.tmux"
+  VITRUM_FASTFETCH_LOGO=distro
+  stage_terminal >/dev/null 2>&1
+  [[ ! -e "$XDG_DATA_HOME/vitrum/fastfetch/logo.kitty" && ! -e "$XDG_DATA_HOME/vitrum/fastfetch/logo.tmux" ]]
+}
+# The login shell is WANT_LOGIN_SHELL's to decide (the confirmation screen's
+# row, 1 unless unticked); the stage asks nothing.
+_login_world() {
+  _load_term
+  stub fish 'exit 0'
+  stub sudo 'echo "sudo $*" >> "$HOME/calls"'
+  stub chsh 'echo "chsh $*" >> "$HOME/calls"'
+  SHELL=/bin/bash ASSUME_YES=0
+  confirm() { echo asked >> "$HOME/asked"; return 1; }
+}
+test_login_shell_set_by_default_without_asking() {
+  _login_world
+  unset WANT_LOGIN_SHELL
+  _terminal_default_shell >/dev/null 2>&1
+  [[ ! -e "$HOME/asked" ]] || { echo "the stage asked"; return 1; }
+  assert_contains "$(cat "$HOME/calls")" "sudo chsh -s $STUBS/fish"
+}
+test_login_shell_left_when_unticked() {
+  _login_world
+  WANT_LOGIN_SHELL=0
+  local out; out="$(_terminal_default_shell 2>&1)"
+  [[ ! -e "$HOME/asked" ]] || { echo "the stage asked"; return 1; }
+  [[ "$(cat "$HOME/calls" 2>/dev/null)" != *chsh* ]] || { echo "chsh ran"; return 1; }
+  assert_contains "$out" "left as /bin/bash"
 }

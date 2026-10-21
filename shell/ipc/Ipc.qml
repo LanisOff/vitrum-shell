@@ -40,6 +40,11 @@ Scope {
         function close(): void { UiState.keybinds = false; }
     }
     IpcHandler {
+        target: "welcome"
+        function open(): void { UiState.closeAll(); UiState.welcome = true; }
+        function close(): void { UiState.welcome = false; }
+    }
+    IpcHandler {
         target: "picker"
         function start(): void { ColorPick.start(); }
         function cancel(): void { ColorPick.cancel(); }

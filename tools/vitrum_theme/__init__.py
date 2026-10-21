@@ -537,13 +537,20 @@ def set_icon_theme(name: str) -> None:
         pass
 
 
-def gtk_theme_name(scheme: str, themes: Path = Path("/usr/share/themes")) -> str:
+def gtk_theme_name(scheme: str, themes: Path = None) -> str:
     """adw-gtk3 when installed: GTK 4's built-in theme (what GTK 4 apps without
     libadwaita — pavucontrol — get from "Adwaita") has its colours baked in and
     ignores vitrum.css's @define-color; adw-gtk3 reads libadwaita's colour names,
-    so the palette reaches those apps too, and GTK 3 ones."""
+    so the palette reaches those apps too, and GTK 3 ones. The package puts it
+    in /usr/share/themes; on Void, which has none, the installer unpacks the
+    upstream release into the user's own themes folder."""
     name = "adw-gtk3-dark" if scheme == "dark" else "adw-gtk3"
-    return name if (themes / name).is_dir() else "Adwaita"
+    if themes is not None:
+        dirs = [Path(themes)]
+    else:
+        data = Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share")
+        dirs = [Path("/usr/share/themes"), data / "themes"]
+    return name if any((d / name).is_dir() for d in dirs) else "Adwaita"
 
 
 def set_gtk_theme_ini(name: str, config: Path = None) -> None:

@@ -70,7 +70,9 @@ _theme_gtk() {
   # the name already in each settings.ini is kept, gsettings' is not touched.
   local gtk_theme=Adwaita gtk_on=1 v
   [[ "$(_theme_setting toolkits.gtk "")" == false ]] && gtk_on=0
-  [[ -d /usr/share/themes/adw-gtk3-dark ]] && gtk_theme=adw-gtk3-dark
+  # The package puts it in /usr/share/themes; where the distribution has none
+  # (Void), lib/assets.tsv unpacks the upstream release into the user's themes.
+  if [[ -d /usr/share/themes/adw-gtk3-dark || -d "$XDG_DATA_HOME/themes/adw-gtk3-dark" ]]; then gtk_theme=adw-gtk3-dark; fi
   for v in 3 4; do
     local f="$XDG_CONFIG_HOME/gtk-$v.0/settings.ini" name="$gtk_theme"
     if [[ $gtk_on == 0 ]]; then
@@ -222,6 +224,7 @@ _theme_wallpapers() {
   local pick="${def:-$first}"
   [[ -n "$pick" ]] && have python3 || return 0
   mkdir -p "$XDG_CONFIG_HOME/vitrum"
+  # shellcheck disable=SC2088  # settings.json keeps the path with ~, as the shell writes it
   python3 - "$XDG_CONFIG_HOME/vitrum/settings.json" "~/Pictures/Wallpapers/$pick" <<'PY'
 import json, os, sys
 path, pick = sys.argv[1], sys.argv[2]

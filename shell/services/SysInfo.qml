@@ -67,7 +67,10 @@ Singleton {
             printf 'serial=%s\\n' "$(cat /sys/devices/virtual/dmi/id/product_serial 2>/dev/null || echo unavailable)"
             printf 'niri=%s\\n' "$(niri --version 2>/dev/null | head -n1 | sed 's/^niri //')"
             if [ -d /var/db/pkg ]; then printf 'packages=%s\\n' "$(ls -d /var/db/pkg/*/*/ 2>/dev/null | wc -l)"
-            else printf 'packages=%s\\n' "$(pacman -Qq 2>/dev/null | wc -l)"; fi
+            elif command -v pacman >/dev/null; then printf 'packages=%s\\n' "$(pacman -Qq 2>/dev/null | wc -l)"
+            elif command -v xbps-query >/dev/null; then printf 'packages=%s\\n' "$(xbps-query -l 2>/dev/null | wc -l)"
+            elif command -v rpm >/dev/null; then printf 'packages=%s\\n' "$(rpm -qa 2>/dev/null | wc -l)"
+            else printf 'packages=0\\n'; fi
             printf 'uptime=%s\\n' "$(cut -d. -f1 /proc/uptime)"
         `]
         stdout: StdioCollector {

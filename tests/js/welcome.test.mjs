@@ -1,0 +1,14 @@
+import { load, eq } from "./lib.mjs";
+const w = load("welcome.js");
+const s = w.steps();
+eq(s.length, 7, "seven steps");
+eq(s.map(x => x.id).join(","), "bar,dock,search,centre,widgets,settings,keys", "order");
+eq(s.every(x => x.title && x.body), true, "every step has a title and a body");
+eq(s.find(x => x.id === "search").keys.join("+"), "Super+Space", "search keys");
+eq(s.find(x => x.id === "widgets").keys.join("+"), "Super+Alt+W", "widgets keys");
+eq(s.find(x => x.id === "keys").keys.join("+"), "Super+/", "keys keys");
+eq(w.next(6, 7), 7, "next on the last step is done");
+eq(w.next(0, 7), 1, "next");
+eq(w.next(7, 7), 7, "next stays done");
+eq(w.prev(0), 0, "prev stops at the first");
+eq(w.prev(3), 2, "prev");

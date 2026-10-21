@@ -11,13 +11,33 @@ _sha256() {
 _asset_row() {
   local row
   row="$(awk -F'\t' -v n="$1" '!/^#/ && $1 == n' "$VITRUM_ASSETS_TABLE")"
-  [[ -n "$row" ]] || die "unknown asset: $1"
-  IFS=$'\t' read -r _ _a_url _a_sum _a_kind _a_dest <<<"$row"
+  [[ -n "$row" ]] || die 'unknown asset: %s' "$1"
+  IFS=$'\t' read -r _ _a_url _a_sum _a_kind _a_dest _ <<<"$row"
   _a_dest="${_a_dest/#\~/$HOME}"
 }
 
-# asset_names — every asset in the table, one per line.
-asset_names() { awk -F'\t' '!/^#/ && NF { print $1 }' "$VITRUM_ASSETS_TABLE"; }
+
+# assets_wanted — the assets this run needs, one per line: every one that
+# stands in for no package, and the ones standing in for a row this run needs
+# that the distribution does not package (Void has no JetBrains Mono, no
+# distribution packages its Nerd Font on its own). Without the package table
+# (PKG_BACKEND unset) only the first kind.
+assets_wanted() {
+  local gaps=" "
+  if [[ -n "${PKG_BACKEND:-}" ]] && declare -F packages_unpackaged >/dev/null; then
+    local needs=()
+    mapfile -t needs < <(_package_needs)
+    gaps+="$(packages_unpackaged "${needs[@]}" | tr '\n' ' ')"
+  fi
+  awk -F'\t' -v gaps="$gaps" '!/^#/ && NF {
+    f = ($6 == "" ? "-" : $6)
+    if (f == "-" || index(gaps, " " f " ")) print $1 }' "$VITRUM_ASSETS_TABLE"
+}
+
+# asset_names — the same: the assets of this run. A row standing in for a
+# package of another distribution (a LADSPA plugin in /usr/local/lib on Void)
+# is no asset of a run on this one.
+asset_names() { assets_wanted; }
 
 # asset_missing <name> — true when fetch_asset would fetch it: the destination
 # is absent or the stamp does not carry the pinned checksum.
@@ -41,17 +61,24 @@ fetch_asset() {
 
   local tmp="$BUILD_DIR/assets/$name.download"
   mkdir -p "$(dirname "$tmp")"
-  curl -fL --retry 3 --silent --show-error -o "$tmp" "$url" || die "could not download $name from $url"
+  curl -fL --retry 3 --silent --show-error -o "$tmp" "$url" || die 'could not download %s from %s' "$name" "$url"
   local got; got="$(_sha256 "$tmp")"
   if [[ "$got" != "$sum" ]]; then
     rm -f "$tmp"
-    die "$name: checksum mismatch (expected $sum, got $got) — not installed"
+    die '%s: checksum mismatch (expected %s, got %s) — not installed' "$name" "$sum" "$got"
   fi
+  # Outside $HOME (a LADSPA plugin in /usr/local/lib) it is root's to write,
+  # and an archive's owners are not kept there.
+  local as=() own=()
+  if [[ "$dest" != "$HOME"/* ]]; then as=(sudo); own=(--no-same-owner); fi
   case "$kind" in
-    file) mkdir -p "$(dirname "$dest")" && install -m644 "$tmp" "$dest" ;;
-    tar)  mkdir -p "$dest" && tar -xf "$tmp" -C "$dest" ;;
-    *) die "asset $name: unknown kind $kind" ;;
-  esac
+    file) "${as[@]}" mkdir -p "$(dirname "$dest")" && "${as[@]}" install -m644 "$tmp" "$dest" ;;
+    tar)  "${as[@]}" mkdir -p "$dest" && "${as[@]}" tar "${own[@]}" -xf "$tmp" -C "$dest" ;;
+    zip)  "${as[@]}" mkdir -p "$dest" && "${as[@]}" unzip -oq "$tmp" -d "$dest" ;;
+    # zip:<pattern> — only the members matching it, without their folders.
+    zip:*) "${as[@]}" mkdir -p "$dest" && "${as[@]}" unzip -ojq "$tmp" "${kind#zip:}" -d "$dest" ;;
+    *) die 'asset %s: unknown kind %s' "$name" "$kind" ;;
+  esac || { rm -f "$tmp"; die 'could not unpack %s into %s' "$name" "$dest"; }
   rm -f "$tmp"
   mkdir -p "$(dirname "$stamp")" && printf '%s\n' "$sum" > "$stamp"
   ok "$name installed"
@@ -65,12 +92,13 @@ font_cache_refresh() {
   if [[ "$DRY_RUN" == "1" ]]; then dim "would run: fc-cache -f"; return 0; fi
   local out
   out="$(fc-cache -f 2>&1)" && return 0
-  warn "fc-cache failed${out:+: $(head -n1 <<<"$out")}"
+  if [[ -n "$out" ]]; then warn 'fc-cache failed: %s' "$(head -n1 <<<"$out")"; else warn 'fc-cache failed'; fi
   local line
   while IFS= read -r line; do [[ -n "$line" ]] && dim "$line"; done < <(sed -n '2,6p' <<<"$out")
   local dir stray
   for dir in "$XDG_CACHE_HOME/fontconfig" "$XDG_DATA_HOME/fonts"; do
-    stray="$(find "$dir" ! -user "$(id -u)" -print -quit 2>/dev/null)"
+    # A folder that does not exist yet is nobody's: find fails there, which is no reason to stop.
+    stray="$(find "$dir" ! -user "$(id -u)" -print -quit 2>/dev/null)" || stray=""
     [[ -n "$stray" ]] && info "$stray belongs to someone else — sudo chown -R $(id -un): $dir"
   done
   return 0

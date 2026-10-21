@@ -21,6 +21,8 @@
   <a href="https://quickshell.org"><img src="https://img.shields.io/badge/shell-Quickshell-4f6fd6?style=flat-square" alt="Quickshell"></a>
   <img src="https://img.shields.io/badge/Arch-systemd-1793d1?style=flat-square&logo=archlinux&logoColor=white" alt="Arch">
   <img src="https://img.shields.io/badge/Gentoo-OpenRC%20%7C%20systemd-54487a?style=flat-square&logo=gentoo&logoColor=white" alt="Gentoo">
+  <img src="https://img.shields.io/badge/Fedora-systemd-51a2da?style=flat-square&logo=fedora&logoColor=white" alt="Fedora">
+  <img src="https://img.shields.io/badge/Void-runit-478061?style=flat-square&logo=voidlinux&logoColor=white" alt="Void">
   <img src="https://img.shields.io/badge/NVIDIA-works-76b900?style=flat-square&logo=nvidia&logoColor=white" alt="NVIDIA works">
 </p>
 
@@ -115,7 +117,24 @@ to arrange: right-click a widget, or press `Mod+Alt+W`, to open the editor.
 
 ## Install
 
-Gentoo (OpenRC or systemd) and Arch (systemd) are supported. NVIDIA works.
+Supported: Arch (systemd), CachyOS and other Arch-based systems included;
+Gentoo (OpenRC or systemd); Fedora 43 or newer (tested on 44), with
+systemd; and Void, the glibc flavour, with runit and elogind. NVIDIA works.
+Notes on [Fedora and Void](#fedora-and-void) are below.
+
+The one-liner needs bash, curl and sudo. A minimal Void can lack all
+three: there, first run `xbps-install -Sy bash curl sudo` as root, then
+add your user to the `wheel` group (`usermod -aG wheel <you>`, with the
+`%wheel` line enabled in `visudo`) or set up sudo another way.
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/LanisOff/vitrum-shell/main/get.sh | bash
+```
+
+The line installs git if it is missing, clones vitrum next to your data
+(`~/.local/share/vitrum-src`) and starts the installer. Run again, it pulls
+that clone first, unless it has local changes: then it says so and installs
+from it as it is. Or by hand:
 
 ```sh
 git clone https://github.com/LanisOff/vitrum-shell
@@ -123,28 +142,121 @@ cd vitrum-shell
 ./install.sh
 ```
 
-The installer asks a few questions once (login screen, boot splash, video
-wallpapers, extras like game mode), builds niri, sets everything up and
-remembers your answers. Useful flags:
+### What the installer asks
+
+1. **The language** of the installer: English or Russian. Your system's is
+   picked already. This is the language of the screens; the stages' own
+   messages, which also go to the log, follow the system locale instead:
+   Russian on a `ru_*` locale, English otherwise.
+2. **What to install**, on one screen. Tick or untick with space, pick an
+   option with the arrows, `a` toggles a whole group. The line at the bottom
+   explains the part under the cursor.
+   - **Desktop**: the login screen, the boot splash, video wallpapers, your
+     phone (KDE Connect).
+   - **Tools**: tmux with its plugins, game mode and its HUD, the microphone
+     filter, VPN, sensors and mixer, command-line tools (eza, bat, fzf,
+     zoxide, delta), the Dolphin file manager, text recognition on
+     screenshots.
+   - **Extras**: the author's own setup, off unless you tick it: Neovim
+     with the author's config, the author's tmux keys (`Ctrl+a`, `|` and
+     `-` splits) and tmux starting with every terminal. Without them tmux
+     keeps its own keys.
+3. **A confirmation**: what will be installed and what will not, about how
+   long it takes, and the few questions that matter on your machine
+   (making fish your login shell, replacing another login screen, going on
+   with little disk space).
+
+Then it works on its own: one line per stage with the time it took, the
+running stage showing its last lines of output, and a bar with the time
+left. If a stage fails, you choose: retry it, skip it, read its log or
+quit and carry on later with `./install.sh --from <stage>`. At the end you
+get what was installed, anything that went wrong and what to do about it,
+and a few first shortcuts. The full log is kept in
+`~/.local/share/vitrum/`.
+
+A stage that was skipped or failed can be run later: on its own with
+`./install.sh --only <stage>`, or with every stage after it with
+`./install.sh --from <stage>` (the final screen says which). Until a run
+goes through completely, `vitrum update` counts the update as unfinished
+and runs the installer again.
+
+On the first login a short tour shows the bar, the dock, search, the
+control centre, widgets and Settings.
+
+Useful flags, which also pass through the one-liner with `bash -s --`:
 
 ```sh
 ./install.sh --dry-run   # show what it would do, change nothing
+./install.sh --update    # update: ask only about parts new or still unticked
+./install.sh --choose    # the choice screen again, with your choices
+./install.sh --fresh     # the first-run screens again; everything is redone
 ./install.sh --doctor    # check an existing install
-./install.sh --yes       # no questions, reuse earlier answers
+./install.sh --yes       # no screens: earlier answers, defaults for new parts
+./install.sh --help      # every flag, one per part (--with-games, --no-ocr...)
 ```
 
-On Gentoo the first run takes a while: niri and a few Qt pieces are built
-from source.
+```sh
+curl -fsSL https://raw.githubusercontent.com/LanisOff/vitrum-shell/main/get.sh | bash -s -- --dry-run
+```
+
+Without a terminal (a pipe, `ssh -T`) the installer prints line by line
+and takes the defaults, as `--yes` does. On Gentoo the first run takes a
+while: niri and a few Qt pieces are built from source.
+
+### Fedora and Void
+
+**Fedora** does not package everything vitrum needs, so the installer
+enables third-party repositories, says which on screen, and enables only
+those the parts you chose need:
+
+- **RPM Fusion free**, always: Fedora's own `ffmpeg-free` cannot decode
+  H.264 or HEVC, so it is replaced with RPM Fusion's `ffmpeg`. **RPM Fusion
+  nonfree** is enabled only on a machine with an NVIDIA GPU.
+- **COPR repositories**: `errornointernet/quickshell` (the shell),
+  `avengemedia/danklinux` (matugen), `mineiro/hyprland` (satty, awww),
+  `brycensranch/gpu-screen-recorder-git` (screen recording) and
+  `atim/starship` (the prompt) for every install; `sdegler/hyprland`
+  (mpvpaper) for video wallpapers, `dejan/lazygit` for the author's Neovim
+  and `uriesk/noise-suppression-for-voice` for the microphone filter.
+
+On a Workstation install `tuned-ppd` is replaced with
+`power-profiles-daemon`, which the shell's power modes use. Fedora 43 or
+newer is needed (tested on 44): older releases have no builds left in those
+COPRs.
+
+**Void** needs the glibc flavour (musl is refused) and elogind, which the
+installer installs and enables: it gives the session its seat, and the
+password-free root helper relies on it. Packages come from the main
+repository only, plus nonfree with an NVIDIA GPU. Services are runit
+links in `/var/service`. A link starts its service at once, so the two
+that must not change under a running system wait for the next boot: the
+login screen (SDDM), and NetworkManager taking over from dhcpcd and the
+other network services it would fight. `/etc/rc.local` makes those
+switches once and then removes its lines. If SDDM replaced another login
+screen, `./uninstall.sh` puts that one back the same way, and before the
+reboot it simply cancels the switch.
 
 ## Keep it up to date
 
 ```sh
-vitrum update      # pull and reinstall only what changed
-vitrum rollback    # undo the last update (your configs are snapshotted first)
-vitrum doctor      # find out what is broken and how to fix it
+vitrum update           # pull and reinstall only what changed
+vitrum update --choose  # the same, with the choice screen to change your parts
+vitrum rollback         # undo the last update (your configs are snapshotted first)
+vitrum doctor           # find out what is broken and how to fix it
 ```
 
-`vitrum update` also puts back packages and fonts that went missing.
+An update keeps your choices and asks nothing, unless the new version
+brings a part to choose or a part is still unticked: then the choice screen
+comes up with just those. The parts you left unticked are offered again on
+every update; Esc on that screen keeps your choices and goes on. Unticking
+a part later removes nothing: its packages and configs stay, and vitrum
+simply stops managing it. `vitrum update --choose` shows the whole choice
+screen, also when there is nothing new to pull. `vitrum update` also puts
+back packages and fonts that went missing.
+
+A run with `--only`, `--from` or `--skip` (`./install.sh --only shell`
+after editing the QML is the author's daily one) asks nothing: it is about
+those stages, not about the choices.
 
 The bar shows a small island when the repository is a few commits ahead of
 you; click it to see what is new.
@@ -162,8 +274,17 @@ Settings app (or `~/.config/vitrum/settings.json` if you prefer text).
 ```
 
 It removes what the installer added and restores every file it backed up.
-Your settings stay unless you add `--purge`, and packages are left installed:
-you may depend on them by now.
+Packages are left installed: you may depend on them by now. Your settings
+(`~/.config/vitrum`) and the installer's state directory
+(`~/.local/share/vitrum`: your choices, config snapshots and logs) stay,
+and so does the one-liner's clone in `~/.local/share/vitrum-src`, which is
+yours to delete. `--purge` removes the settings and the state directory,
+not the clone. Installing again afterwards is a first install, with the
+language screen and the tour.
+
+On Void, uninstalling before the reboot cancels a queued switch to the
+login screen, but NetworkManager stays in charge of the network: the
+installer's switch to it is not undone, on Void or anywhere else.
 
 ## Star history
 

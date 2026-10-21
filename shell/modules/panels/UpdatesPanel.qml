@@ -4,7 +4,9 @@ import qs.theme
 import qs.components
 import "../../lib/emerge.js" as Lib
 
-// The package manager (Portage or pacman): what runs now, and what waits.
+// The package manager (Portage, pacman, xbps or dnf): what runs now, and what
+// waits. xbps and dnf give no steps to count (Packages.logless): their run is
+// "Updating…" and how long it has run so far.
 Column {
     id: root
     spacing: Tokens.gap
@@ -18,18 +20,22 @@ Column {
             spacing: Tokens.gap / 2
             Label {
                 font.weight: Font.DemiBold
-                text: Packages.gentoo ? "Building " + (Packages.state.done + 1) + " of " + Packages.state.total
+                text: Packages.logless ? "Updating…"
+                    : Packages.gentoo ? "Building " + (Packages.state.done + 1) + " of " + Packages.state.total
                     : Packages.state.done === 0 ? "Downloading…"
                     : Packages.state.total ? "Installing " + Math.min(Packages.state.done + 1, Packages.state.total) + " of " + Packages.state.total
                     : Packages.state.done + " installed"
             }
             Label { width: parent.width; text: Packages.state.current; role: "dim"; elide: Text.ElideMiddle }
             Rectangle {
+                visible: !Packages.logless
                 width: parent.width; height: 6; radius: 3; color: Colors.alpha(Colors.text, 0.12)
                 Rectangle { width: parent.width * (Packages.state.total ? Packages.state.done / Packages.state.total : 0); height: parent.height; radius: 3; color: Colors.accent
                             Behavior on width { enabled: Motion.enabled; NumberAnimation { duration: Motion.standard } } }
             }
-            Label { visible: text.length > 0; text: Lib.formatEta(Packages.secondsLeft) + (Packages.secondsLeft >= 0 ? " left" : ""); role: "dim"; size: Tokens.textSmall }
+            Label { visible: text.length > 0; role: "dim"; size: Tokens.textSmall
+                    text: Packages.logless ? "Running for " + Math.max(1, Math.round((Packages.now - Packages.state.started) / 60)) + " min, in its terminal window"
+                        : Lib.formatEta(Packages.secondsLeft) + (Packages.secondsLeft >= 0 ? " left" : "") }
         }
     }
     Label { visible: !Packages.readable; width: root.width; wrapMode: Text.WordWrap; role: "dim"; text: Packages.gentoo ? "Build progress shows after the next login (you were added to the portage group)." : "pacman's log cannot be read." }

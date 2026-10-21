@@ -40,3 +40,29 @@ test_doctor_kernel_without_config_only_warns() {
   out="$(_doctor_kernel 2>&1)"
   assert_contains "$out" "not checked"
 }
+
+# Fedora's own quickshell (0.2) and matugen (3) install under the right names
+# and are too old: the doctor says so.
+test_doctor_names_a_too_old_quickshell_and_matugen() {
+  _load; export VITRUM_NIRI_BIN="$HOME/nope"
+  stub qs 'echo "quickshell 0.2.1, revision dacfa9d"'
+  stub matugen 'echo "matugen 3.1.0"'
+  out="$(stage_doctor 2>&1)" || true
+  assert_contains "$out" "quickshell 0.2.1"
+  assert_contains "$out" "0.3.1 or newer"
+  assert_contains "$out" "matugen 3.1.0"
+  stub qs 'echo "quickshell 0.3.2"'; stub matugen 'echo "matugen 4.2.0"'
+  out="$(stage_doctor 2>&1)" || true
+  ! grep -q "0.3.1 or newer" <<<"$out"
+  ! grep -q "need matugen 4" <<<"$out"
+}
+# runit: no bus and no elogind linked means no login at all.
+test_doctor_checks_the_runit_services() {
+  _load; export VITRUM_NIRI_BIN="$HOME/nope" INIT_BACKEND=runit VITRUM_ROOTFS="$HOME/rootfs"
+  mkdir -p "$VITRUM_ROOTFS/etc/runit/runsvdir/default"
+  ln -s /etc/sv/dbus "$VITRUM_ROOTFS/etc/runit/runsvdir/default/dbus"
+  source "$VITRUM_DIR/lib/backend/init-runit.sh"
+  out="$(stage_doctor 2>&1)" || true
+  assert_contains "$out" "runit: dbus"
+  assert_contains "$out" "runit: elogind — not enabled"
+}

@@ -1,13 +1,16 @@
 # shellcheck shell=bash
 # Init backend: systemd.
 
-svc_exists() { systemctl list-unit-files "$1.service" 2>/dev/null | grep -q "^$1.service"; }
+# Read whole, then matched: grep -q stopping at the match leaves systemctl
+# writing into a closed pipe, and under pipefail its SIGPIPE made a unit that
+# is there look absent (on Fedora: NetworkManager and power-profiles-daemon).
+svc_exists() { grep -q "^$1.service" <<<"$(systemctl list-unit-files "$1.service" 2>/dev/null)"; }
 
 svc_use_networkmanager() { svc_enable_system NetworkManager; }
 
 svc_enable_system() {
   if ! svc_exists "$1"; then dim "no systemd unit $1 — skipped"; return 0; fi
-  run_ok sudo systemctl enable --now "$1.service" || warn "could not enable $1"
+  run_ok sudo systemctl enable --now "$1.service" || warn 'could not enable %s' "$1"
 }
 
 # Like upstream niri-session: hand the environment to systemd --user, then
@@ -57,8 +60,8 @@ audio_enable_user() {
 # svc_enable_display_manager <dm> [force] — force replaces the current
 # display-manager.service alias; only with the user's consent (lib/dm.sh).
 svc_enable_display_manager() {
-  if [[ "${2:-}" == force ]]; then run_ok sudo systemctl enable --force "$1.service" || warn "could not enable $1"
-  else run_ok sudo systemctl enable "$1.service" || warn "could not enable $1"; fi
+  if [[ "${2:-}" == force ]]; then run_ok sudo systemctl enable --force "$1.service" || warn 'could not enable %s' "$1"
+  else run_ok sudo systemctl enable "$1.service" || warn 'could not enable %s' "$1"; fi
 }
 
 dm_current() {

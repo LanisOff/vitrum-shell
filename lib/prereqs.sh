@@ -22,7 +22,7 @@ prereqs_check() {
   done < <(packages_for "${needs[@]}" 2>/dev/null)
   while IFS= read -r a; do
     [[ -n "$a" ]] && { asset_missing "$a" && assets+=("$a"); }
-  done < <(asset_names)
+  done < <(assets_wanted)
 
   if [[ ${#pkgs[@]} -eq 0 && ${#assets[@]} -eq 0 ]]; then
     ok "packages and fonts: ok"
@@ -41,7 +41,7 @@ prereqs_check() {
       local gone=() q
       mapfile -t gone < <(pkg_unavailable "${pkgs[@]}")
       if [[ ${#gone[@]} -gt 0 ]]; then
-        warn "$(pkg_unavailable_message "${gone[@]}")"
+        warn '%s' "$(pkg_unavailable_message "${gone[@]}")"
         local keep=()
         for p in "${pkgs[@]}"; do
           for q in "${gone[@]}"; do [[ "${p%@*}" == "$q" ]] && continue 2; done
@@ -64,9 +64,25 @@ prereqs_check() {
       dim "${#assets[@]} missing fonts: ${assets[*]}, would fetch them"
     else
       step "${#assets[@]} missing fonts: ${assets[*]}, fetching them"
+      _prereqs_fetch_tools
       for a in "${assets[@]}"; do fetch_asset "$a"; done
       font_cache_refresh
     fi
   fi
   return 0
+}
+
+# What fetching and unpacking the assets takes. When the packages stage is
+# still to come, a fresh system can lack it (Void's base has no xz and no
+# unzip), so it goes in first, on its own.
+_prereqs_fetch_tools() {
+  local tools=() p
+  while IFS= read -r p; do
+    [[ -n "$p" ]] && { pkg_installed "$p" || tools+=("$p"); }
+  done < <(packages_named curl xz unzip 2>/dev/null)
+  [[ ${#tools[@]} -gt 0 ]] || return 0
+  step "first what unpacks them: ${tools[*]}"
+  sudo_keepalive
+  pkg_prepare
+  pkg_install "${tools[@]}"
 }

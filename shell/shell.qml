@@ -20,6 +20,7 @@ import qs.modules.desktop
 import qs.modules.wallpaper
 import qs.modules.overview
 import qs.modules.keybinds
+import qs.modules.welcome
 import qs.modules.screencast
 import qs.modules.corners
 import qs.modules.picker
@@ -100,6 +101,7 @@ ShellRoot {
             Toasts { modelData: perScreen.modelData }
             Launcher { modelData: perScreen.modelData }
             KeybindSheet { modelData: perScreen.modelData }
+            WelcomeTour { modelData: perScreen.modelData }
             ScreenSharePicker { modelData: perScreen.modelData }
             Osd { modelData: perScreen.modelData }
             PolkitDialog { modelData: perScreen.modelData }

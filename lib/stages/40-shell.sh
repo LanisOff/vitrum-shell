@@ -31,7 +31,7 @@ stage_shell() {
 # `steam` of vitrum's own in ~/.local/bin, ahead of the real one on PATH; one
 # of yours there is left alone.
 _shell_steam_hud() {
-  [[ "${WANT_EXTRAS:-1}" == 1 ]] || return 0
+  [[ "${WANT_GAMES:-1}" == 1 ]] || return 0
   local real="" p f="$HOME/.local/bin/steam"
   for p in /usr/bin/steam /usr/games/bin/steam /usr/local/bin/steam; do [[ -x "$p" ]] && { real="$p"; break; }; done
   [[ -n "$real" ]] || return 0
@@ -85,7 +85,7 @@ _shell_restart() {
 _shell_check_default_config() {
   local stray="$QS_ROOT/shell.qml"
   [[ -e "$stray" ]] || return 0
-  warn "$stray exists — Quickshell will ignore named configs while it is there; move it aside if you do not rely on it"
+  warn '%s exists — Quickshell will ignore named configs while it is there; move it aside if you do not rely on it' "$stray"
 }
 
 # Refuse to install a shell that cannot load: everything visible lives in one
@@ -102,7 +102,7 @@ _shell_check_qml() {
     dim "    ${out##*$'\n'}"
     return 0
   fi
-  printf '%s\n' "$out" | while IFS= read -r line; do err "$line"; done
+  printf '%s\n' "$out" | while IFS= read -r line; do err '%s' "$line"; done
   die "the QML will not load — fix the above, or run with --skip shell to install the rest"
 }
 

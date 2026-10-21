@@ -55,7 +55,7 @@ pkg_install() {
     _emerge "$a" || failed+=("$a")
   done
   [[ ${#failed[@]} -eq 0 ]] && return 0
-  die "not installed: ${failed[*]} — see the emerge output above (a download failure means no network or a dead mirror)"
+  die 'not installed: %s — see the emerge output above (a download failure means no network or a dead mirror)' "${failed[*]}"
 }
 
 # The overlays the Gentoo atoms in lib/packages.tsv come from (quickshell,
@@ -121,7 +121,7 @@ pkg_apply_use() {
   done < <(packages_portage_column use)
   [[ ${#todo[@]} -eq 0 ]] && return 0
   step "rebuilding with vitrum's USE flags: ${todo[*]}"
-  _emerge --oneshot --changed-use "${todo[@]}" || warn "could not rebuild ${todo[*]} with vitrum's USE flags — see the emerge output above"
+  _emerge --oneshot --changed-use "${todo[@]}" || warn "could not rebuild %s with vitrum's USE flags — see the emerge output above" "${todo[*]}"
 }
 
 # /etc/portage/package.{accept_keywords,use,env} may be directories or plain

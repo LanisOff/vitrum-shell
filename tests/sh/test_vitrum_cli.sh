@@ -56,7 +56,7 @@ test_update_adds_the_vitrum_repository_as_origin() {
   out="$(VITRUM_REPO="$HOME/upstream" "$V" update 2>&1)"
   assert_eq "$(git -C "$HOME/lonely" remote get-url origin)" "$HOME/upstream"
   assert_contains "$out" "two"
-  assert_contains "$(cat "$HOME/installs")" "install.sh --yes"
+  assert_contains "$(cat "$HOME/installs")" "install.sh --update"
 }
 test_behind_counts_and_lists_new_commits() {
   _origin
@@ -94,8 +94,16 @@ test_update_pulls_and_reinstalls() {
   cd "$HOME/origin" && echo more >> install.sh && git commit -qam two
   out="$("$V" update 2>&1)"
   assert_contains "$out" "two"
-  assert_contains "$(cat "$HOME/installs")" "install.sh --yes"
+  assert_contains "$(cat "$HOME/installs")" "install.sh --update"
+  # The installer decides whether to ask; update no longer says --yes for it.
+  ! grep -q -- "--yes" "$HOME/installs" || { echo "update passed --yes"; return 1; }
   assert_contains "$(git -C "$HOME/src" log --oneline | head -1)" "two"
+}
+test_update_choose_passes_through() {
+  _origin
+  cd "$HOME/origin" && echo more >> install.sh && git commit -qam two
+  "$V" update --choose >/dev/null 2>&1
+  assert_contains "$(cat "$HOME/installs")" "install.sh --update --choose"
 }
 test_update_refuses_local_changes() {
   _origin
@@ -104,8 +112,14 @@ test_update_refuses_local_changes() {
   assert_contains "$out" "local changes"
   [[ ! -e "$HOME/installs" ]]
 }
+# _installed_at <checkout> — install.json naming the checkout's HEAD, as a
+# complete install of it leaves it.
+_installed_at() {
+  printf '{\n  "version": "0.4.0",\n  "revision": "%s",\n  "complete": true\n}\n' \
+    "$(git -C "$1" rev-parse HEAD)" > "$XDG_DATA_HOME/vitrum/install.json"
+}
 test_update_up_to_date_still_reinstalls_nothing() {
-  _origin
+  _origin; _installed_at "$HOME/src"
   out="$("$V" update 2>&1)"
   assert_contains "$out" "up to date"
   # only the prerequisite check, never a full reinstall
@@ -117,7 +131,7 @@ test_update_without_git_reinstalls_the_copy() {
   echo "$HOME/copy" > "$XDG_DATA_HOME/vitrum/source"
   out="$("$V" update 2>&1)"
   assert_contains "$out" "not a git checkout"
-  assert_contains "$(cat "$HOME/installs")" "install.sh --yes"
+  assert_contains "$(cat "$HOME/installs")" "install.sh --update"
 }
 test_doctor_runs_the_installers_check() {
   mkdir -p "$HOME/copy" "$XDG_DATA_HOME/vitrum"
@@ -133,9 +147,39 @@ test_snapshot_unless_within_skips_a_recent_one() {
   assert_eq "$(ls "$XDG_DATA_HOME/vitrum/snapshots" | wc -l | tr -d ' ')" "1"
 }
 test_update_without_news_still_checks_prerequisites() {
-  _lonely
+  _lonely; _installed_at "$HOME/lonely"
   git clone -q "$HOME/lonely" "$HOME/upstream"
   out="$(VITRUM_REPO="$HOME/upstream" "$V" update 2>&1)"
   assert_contains "$out" "up to date"
   assert_contains "$(cat "$HOME/installs")" "install.sh --yes --check"
+}
+
+# Pulled earlier but never installed (Esc, Cancel, a skipped stage): nothing
+# new to pull, and still the installer runs, as an update.
+test_update_installs_a_pull_that_was_never_installed() {
+  _origin
+  printf '{\n  "version": "0.3.2",\n  "revision": "0000000000000000000000000000000000000000"\n}\n' > "$XDG_DATA_HOME/vitrum/install.json"
+  out="$("$V" update 2>&1)"
+  assert_contains "$out" "not finished"
+  assert_contains "$(cat "$HOME/installs")" "install.sh --update"
+  ! grep -q -- "--check" "$HOME/installs" || { echo "only the check"; return 1; }
+  # Recorded by an older installer, without a revision: the same.
+  rm -f "$HOME/installs"
+  printf '{"version": "0.3.2"}\n' > "$XDG_DATA_HOME/vitrum/install.json"
+  "$V" update >/dev/null 2>&1
+  assert_contains "$(cat "$HOME/installs")" "install.sh --update"
+}
+
+# --choose with nothing new still brings the choice screen up.
+test_update_choose_when_up_to_date() {
+  _origin; _installed_at "$HOME/src"
+  "$V" update --choose >/dev/null 2>&1
+  assert_eq "$(cat "$HOME/installs")" "install.sh --update --choose"
+}
+
+# Only the tests name their snapshots.
+test_snapshot_stamp_needs_vitrum_test() {
+  mkdir -p "$HOME/.config/vitrum"; echo x > "$HOME/.config/vitrum/x"
+  VITRUM_SNAPSHOT_STAMP=20260101-000000 env -u VITRUM_TEST "$V" snapshot >/dev/null
+  [[ ! -e "$XDG_DATA_HOME/vitrum/snapshots/20260101-000000.tar.gz" ]] || { echo "the stamp was honoured outside the tests"; return 1; }
 }

@@ -198,6 +198,32 @@ class Components(unittest.TestCase):
             self.assertFalse((home / ".config/tmux/vitrum.conf").exists())
             self.assertTrue((home / ".config/fish/conf.d/00-vitrum-colors.fish").is_file())
 
+    def render_with(self, comps):
+        t = tempfile.TemporaryDirectory(); self.addCleanup(t.cleanup)
+        home = Path(t.name); data = home / ".local/share/vitrum"; data.mkdir(parents=True)
+        if comps is not None:
+            (data / "components.json").write_text(json.dumps(comps))
+        R.render_all(palette("dark"), "dark", {}, templates=ROOT / "config", config=home / ".config", data=data, base=True)
+        return home / ".config"
+
+    def test_mangohud_follows_games_or_the_old_extras(self):
+        self.assertFalse((self.render_with({"games": False, "extras": True}) / "MangoHud/MangoHud.conf").exists())
+        self.assertTrue((self.render_with({"games": True, "extras": False}) / "MangoHud/MangoHud.conf").is_file())
+        self.assertFalse((self.render_with({"extras": False}) / "MangoHud/MangoHud.conf").exists())
+        self.assertTrue((self.render_with({}) / "MangoHud/MangoHud.conf").is_file())
+
+    def test_fastfetch_logo_pick(self):
+        def logo(comps):
+            text = (self.render_with(comps) / "fastfetch/config.jsonc").read_text()
+            return text[text.index('"logo"'):text.index('"display"')]
+        distro = logo({"fastfetch_logo": "distro"})
+        self.assertIn('"type": "builtin"', distro)
+        self.assertNotIn("logo.png", distro)
+        for comps in ({"fastfetch_logo": "picture"}, {}, None):
+            picture = logo(comps)
+            self.assertIn('"type": "auto"', picture)
+            self.assertRegex(picture, r'"source": "[^"]*/vitrum/fastfetch/logo\.png"')
+
     def test_reload_sources_only_the_colours_and_skips_tmux_when_off(self):
         calls = []
         real = R.subprocess.run
@@ -257,6 +283,13 @@ class TmuxKeys(unittest.TestCase):
         binds = json.loads((data / "tmux-binds.json").read_text())
         self.assertTrue(any(b["keys"] == "Ctrl+b %" for b in binds))
         self.assertFalse(any("Ctrl+a" in b["keys"] for b in binds))
+
+    def test_author_tmux_keys_wins_over_the_old_key(self):
+        # components.json v2 names the choice author_tmux_keys; tmux_keys stays for older copies.
+        tmux, data = self.run_with({"tmux": True, "author_tmux_keys": False, "tmux_keys": "vitrum"})
+        self.assertNotIn("prefix C-a", (tmux / "keys.conf").read_text())
+        tmux, data = self.run_with({"tmux": True, "author_tmux_keys": True, "tmux_keys": "default"})
+        self.assertIn("set -g prefix C-a", (tmux / "keys.conf").read_text())
 
     def test_no_tmux_no_sheet_section(self):
         tmux, data = self.run_with({"tmux": False})

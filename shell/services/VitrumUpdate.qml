@@ -30,6 +30,8 @@ Singleton {
         checking = true;
         proc.running = true;
     }
+    // In a terminal, so the installer can show its choice screen when the
+    // update brings something new; without one it would take the defaults.
     function update() {
         Quickshell.execDetached(["kitty", "--title", "Updating vitrum", "-e", "sh", "-c",
                                  "vitrum update; echo; echo 'Press Enter to close.'; read -r _"]);

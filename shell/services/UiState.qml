@@ -45,6 +45,8 @@ Singleton {
     property string dockState: ""
     /// The keybind sheet (Mod+/).
     property bool keybinds: false
+    /// The welcome tour (the installer's marker, or vitrum-ipc welcome open).
+    property bool welcome: false
     /// A screen-share request from vitrum-portal: { id, types, multiple, app }, or null.
     property var screencastRequest: null
     signal screencastShareRequested(int index)      // vitrum-ipc debug screencastshare (tests)
@@ -74,7 +76,7 @@ Singleton {
     }
     function closePanel() { panel = ""; }
 
-    function closeOverlays() { launcher = false; switcher = false; capture = false; power = false; wallpaperPicker = false; keybinds = false; }
+    function closeOverlays() { launcher = false; switcher = false; capture = false; power = false; wallpaperPicker = false; keybinds = false; welcome = false; }
     function toggle(name) {
         const was = root[name];
         closePanel(); closeOverlays();

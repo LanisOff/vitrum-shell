@@ -11,7 +11,7 @@
 #   ~/.config/vitrum/niri/overrides.kdl       yours, never touched, included last
 #
 # User processes start from niri (spawn-at-startup → vitrum-startup), so their
-# lifetime is the compositor's on OpenRC and systemd alike.
+# lifetime is the compositor's on OpenRC, systemd and runit alike.
 
 VITRUM_SYSROOT="${VITRUM_SYSROOT:-}"
 NIRI_DIR="$VITRUM_PREFIX/niri"
@@ -41,6 +41,11 @@ _session_wrapper() {
   step "login entry and session wrapper ($INIT_BACKEND)"
   local exec_line; exec_line="$(session_exec_line)"
   local greeter_vt; greeter_vt="$(_session_greeter_vt)"
+  # Where logind keeps the runtime directories. The tests (VITRUM_TEST=1, see
+  # lib/common.sh) move it, so a machine whose /run/user/UID exists does not
+  # decide their outcome; the wrapper itself has no such hook.
+  local run_user=/run/user
+  [[ "${VITRUM_TEST:-}" == 1 && -n "${VITRUM_RUNTIME_PREFIX:-}" ]] && run_user="$VITRUM_RUNTIME_PREFIX/run/user"
   sudo_write "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" 0755 <<EOF
 #!/bin/sh
 # vitrum session wrapper — environment, then the compositor. Written by the installer.
@@ -53,6 +58,39 @@ export _JAVA_AWT_WM_NONREPARENTING=1
 # A display manager does not necessarily start us from a login shell.
 case ":\$PATH:" in *":\$HOME/.local/bin:"*) ;; *) PATH="\$HOME/.local/bin:\$PATH" ;; esac
 export PATH
+# The runtime directory (Wayland's socket, PipeWire, D-Bus, the shell's own
+# files) is made by logind or elogind at login. Without either (Void with seatd
+# only) nothing makes it: /run/user/UID, as they would, if sudo or doas allow
+# it without a password (nothing could ask for one here). Otherwise a private
+# directory under TMPDIR, made fresh each time by mktemp (a fixed name there
+# could be taken first by another user), mode 0700, and removed at the end.
+own_runtime=
+if [ -z "\${XDG_RUNTIME_DIR:-}" ] || [ ! -d "\$XDG_RUNTIME_DIR" ]; then
+  uid=\$(id -u)
+  XDG_RUNTIME_DIR=$run_user/\$uid
+  if [ ! -d "\$XDG_RUNTIME_DIR" ]; then
+    if [ "\$uid" = 0 ]; then
+      install -d -m 0700 "\$XDG_RUNTIME_DIR" 2>/dev/null
+    else
+      # Where sudo wants a password, this -n is refused at every login and the
+      # auth log says so once: harmless, and the price of not asking.
+      for su in sudo doas; do
+        command -v "\$su" >/dev/null 2>&1 || continue
+        "\$su" -n install -d -m 0700 -o "\$uid" -g "\$(id -g)" "\$XDG_RUNTIME_DIR" >/dev/null 2>&1 && break
+      done
+    fi
+  fi
+  # Ours, or not to be used (test -O is not POSIX).
+  if [ ! -d "\$XDG_RUNTIME_DIR" ] || [ -z "\$(find "\$XDG_RUNTIME_DIR" -maxdepth 0 -user "\$uid" 2>/dev/null)" ]; then
+    # Should even that fail, none at all: better than one that is not ours.
+    if own_runtime=\$(mktemp -d "\${TMPDIR:-/tmp}/vitrum-runtime-\$uid.XXXXXX"); then
+      XDG_RUNTIME_DIR=\$own_runtime
+    else
+      own_runtime='' XDG_RUNTIME_DIR=''
+    fi
+  fi
+  if [ -n "\$XDG_RUNTIME_DIR" ]; then export XDG_RUNTIME_DIR; else unset XDG_RUNTIME_DIR; fi
+fi
 if grep -qs '^nvidia ' /proc/modules; then
   export GBM_BACKEND=nvidia-drm __GLX_VENDOR_LIBRARY_NAME=nvidia LIBVA_DRIVER_NAME=nvidia NVD_BACKEND=direct
 fi
@@ -60,12 +98,20 @@ fi
 [ -f "\$HOME/.config/vitrum/session.env" ] && . "\$HOME/.config/vitrum/session.env"
 $exec_line
 rc=\$?
+[ -n "\$own_runtime" ] && rm -rf "\$own_runtime"
 # Back to the login screen's VT. The display manager switches there itself once
 # this session has ended, but that switch can get lost while the session is
 # still closing: the greeter then starts on an inactive VT and the screen stays
 # black. While this session is still active, logind lets it switch. Not when
-# started from a console (stdin is that tty): you stay on your console.
-if [ ! -t 0 ]; then
+# started from a console (stdin is that tty): you stay on your console. Not
+# without logind (seatd only): there is nobody to ask. Without dbus-send to
+# tell, it is tried as before.
+login1=yes
+if command -v dbus-send >/dev/null 2>&1; then
+  dbus-send --system --print-reply --dest=org.freedesktop.DBus /org/freedesktop/DBus org.freedesktop.DBus.NameHasOwner \\
+    string:org.freedesktop.login1 2>/dev/null | grep -q 'boolean true' || login1=
+fi
+if [ ! -t 0 ] && [ -n "\$login1" ]; then
   busctl --system call org.freedesktop.login1 /org/freedesktop/login1/seat/seat0 org.freedesktop.login1.Seat SwitchTo u $greeter_vt >/dev/null 2>&1 \\
     || dbus-send --system --dest=org.freedesktop.login1 /org/freedesktop/login1/seat/seat0 org.freedesktop.login1.Seat.SwitchTo uint32:$greeter_vt >/dev/null 2>&1
 fi
@@ -191,7 +237,7 @@ EOF
 _session_keybinds() {
   step "keybinds"
   local src="${VITRUM_KEYBINDS_MD:-$VITRUM_DIR/KEYBINDS.md}"
-  [[ -f "$src" ]] || die "no KEYBINDS.md at $src"
+  [[ -f "$src" ]] || die 'no KEYBINDS.md at %s' "$src"
   if [[ "$DRY_RUN" == "1" ]]; then dim "would generate binds from $(basename "$src")"; return 0; fi
   mkdir -p "$NIRI_DIR/generated"
   python3 "$VITRUM_DIR/lib/keybinds.py" "$src" "$NIRI_DIR/generated/binds.kdl" "$VITRUM_PREFIX/binds.json" \
@@ -272,7 +318,7 @@ _session_validate() {
     ok "niri accepts the config"
   else
     niri validate -c "$NIRI_DIR/config.kdl" 2>&1 | tail -n 15 >&2
-    die "niri rejected $NIRI_DIR/config.kdl"
+    die 'niri rejected %s' "$NIRI_DIR/config.kdl"
   fi
 }
 
@@ -344,10 +390,10 @@ _pam_keyring_add() {
   if [[ "$DRY_RUN" == "1" ]]; then dim "would add gnome-keyring to $f"; return 0; fi
   # Worked out whole and checked before anything is written: an empty PAM
   # file would lock everyone out of the login screen.
-  new="$(pam_keyring_lines "$f")" || { warn "could not read $f — keyring not added there"; return 0; }
+  new="$(pam_keyring_lines "$f")" || { warn 'could not read %s — keyring not added there' "$f"; return 0; }
   if [[ "$(grep -vc 'pam_gnome_keyring\|^# vitrum: open the keyring' <<<"$new")" -ne "$(grep -c '' "$f")" ]] \
      || ! grep -q 'pam_gnome_keyring' <<<"$new"; then
-    warn "$f: unexpected result — keyring not added there"; return 0
+    warn '%s: unexpected result — keyring not added there' "$f"; return 0
   fi
   printf '%s\n' "$new" | sudo_write "$f"
 }
@@ -380,6 +426,9 @@ EOF
 # emerge's log (the bar's build progress) only needs the portage group.
 _session_root_helper() {
   step "root helper for VPN, disk health and the login screen (polkit)"
+  # "local and active" is what logind (elogind on Void and OpenRC) says of the
+  # session. Without one the rule never matches, and pkexec falls back to
+  # polkit's default for it: the administrator's password.
   local dir="$VITRUM_SYSROOT/usr/local/libexec/vitrum" user="${USER:-$(id -un)}"
   if [[ "$DRY_RUN" == "1" ]]; then dim "would install vitrum-root and its polkit rule"; return 0; fi
   run sudo mkdir -p "$dir"

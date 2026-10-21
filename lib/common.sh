@@ -4,6 +4,19 @@
 [[ -n "${_VITRUM_COMMON_LOADED:-}" ]] && return 0
 _VITRUM_COMMON_LOADED=1
 
+# ----------------------------------------------------------- test hooks -----
+
+# The tests point the installer at a fake world through these: a root to
+# detect the system in, a place for system files, the screens drawn into a
+# file with keys from another, every stage skipped. They are honoured only
+# with VITRUM_TEST=1 (tests/sh/lib.sh sets it); anywhere else a stray one in
+# the environment must not skip every stage or send the screens to a file.
+if [[ "${VITRUM_TEST:-}" != 1 ]]; then
+  unset VITRUM_SKIP_STAGES_FOR_TEST VITRUM_FORCE_TUI TUI_IN TUI_OUT \
+    VITRUM_ROOTFS VITRUM_SYSROOT VITRUM_RUNTIME_PREFIX VITRUM_ASSETS_TABLE \
+    VITRUM_KEYBINDS_MD VITRUM_NIRI_BIN VITRUM_NIRI_OLD
+fi
+
 # ---------------------------------------------------------------- paths -----
 
 VITRUM_DIR="${VITRUM_DIR:?VITRUM_DIR must be set by install.sh}"
@@ -16,6 +29,10 @@ VITRUM_STATE="$XDG_DATA_HOME/vitrum"
 # One persistent place for the originals of every file vitrum ever replaced.
 BACKUP_DIR="${VITRUM_BACKUP_DIR:-$VITRUM_STATE/originals}"
 BUILD_DIR="${BUILD_DIR:-$XDG_CACHE_HOME/vitrum-build}"
+
+# Translations: T for the screens, L for the messages below.
+# shellcheck source=lib/i18n.sh
+source "$VITRUM_DIR/lib/i18n.sh"
 
 # --------------------------------------------------------------- output -----
 
@@ -123,6 +140,10 @@ if ! _utf8_ok; then
   done
   : "${VITRUM_LOCALE_MISSING:=${LANG:-C}}"
   unset _v
+  # LC_ALL is about to name a borrowed locale; the language the user asked
+  # for is still the one the messages should speak.
+  : "${VITRUM_DEVICE_LOCALE:=${LC_ALL:-${LC_MESSAGES:-${LANG:-}}}}"
+  export VITRUM_DEVICE_LOCALE
   for _loc in C.UTF-8 C.utf8 $(locale -a 2>/dev/null | grep -iE '\.utf-?8$'); do
     export LC_ALL="$_loc"
     _utf8_ok && break
@@ -143,26 +164,70 @@ else
 fi
 
 info()   { printf '    %s\n' "$*"; }
-step()   { printf '  %s%s%s %s\n' "$C_BLUE" "$G_STEP" "$C_RESET" "$*"; }
+# Under the progress view (VITRUM_RUN_DIR) the step is also the state shown
+# beside the stage's name.
+step() {
+  printf '  %s%s%s %s\n' "$C_BLUE" "$G_STEP" "$C_RESET" "$*"
+  if [[ -n "${VITRUM_RUN_DIR:-}" && -n "${VITRUM_STAGE_KEY:-}" ]]; then
+    printf '%s\n' "$*" > "$VITRUM_RUN_DIR/$VITRUM_STAGE_KEY.step" 2>/dev/null || true
+  fi
+}
 ok()     { printf '  %s%s%s %s\n' "$C_GREEN" "$G_OK" "$C_RESET" "$*"; }
 dim()    { printf '%s    %s%s\n' "$C_DIM" "$*" "$C_RESET"; }
 
 # Everything that went wrong, kept so it can be replayed at the end. On a long
 # install the interesting lines scroll past twenty minutes before you look.
+# Under the progress view each stage runs in a subshell, whose arrays die
+# with it, so the lines also go to files in VITRUM_RUN_DIR for the final
+# screen to read.
 VITRUM_WARNINGS=()
 VITRUM_ERRORS=()
 
-warn()   { VITRUM_WARNINGS+=("$*"); printf '  %s%s%s %s\n' "$C_YELLOW" "$G_WARN" "$C_RESET" "$*" >&2; }
-err()    { VITRUM_ERRORS+=("$*");   printf '  %s%s%s %s\n' "$C_RED" "$G_ERR" "$C_RESET" "$*" >&2; }
+# _run_note <file> <text> — append to that file of the run directory, if any.
+_run_note() {
+  [[ -n "${VITRUM_RUN_DIR:-}" ]] || return 0
+  printf '%s\n' "$2" >> "$VITRUM_RUN_DIR/$1" 2>/dev/null || true
+}
 
+# warn <template> [args...] — the template is formatted through L, so it is
+# shown in the device's language with %s taking the arguments in turn. A lone
+# argument is printed as it is.
+warn() {
+  local msg; msg="$(L "$@")"
+  VITRUM_WARNINGS+=("$msg")
+  _run_note warnings "$msg"
+  printf '  %s%s%s %s\n' "$C_YELLOW" "$G_WARN" "$C_RESET" "$msg" >&2
+}
+err() {
+  local msg; msg="$(L "$@")"
+  VITRUM_ERRORS+=("$msg")
+  _run_note errors "$msg"
+  printf '  %s%s%s %s\n' "$C_RED" "$G_ERR" "$C_RESET" "$msg" >&2
+}
+
+# die — the message, where to resume and the log, then exit 1. Under the
+# progress view the message is also the stage's .error, which the failure
+# prompt shows.
 die() {
-  err "$*"
+  err "$@"
+  if [[ -n "${VITRUM_RUN_DIR:-}" && -n "${VITRUM_STAGE_KEY:-}" ]]; then
+    L "$@" > "$VITRUM_RUN_DIR/$VITRUM_STAGE_KEY.error" 2>/dev/null || true
+    # The failure prompt says where to resume and where the log is; printed
+    # here as well they would be all the tail it shows of the stage.
+    [[ "${VITRUM_PROGRESS:-0}" == 1 ]] && exit 1
+  fi
+  # The two labels line up, in whichever language they come out; ${#} counts
+  # characters, which printf's field width would not.
+  local resume log
+  resume="$(L 'Resume with:')" log="$(L 'Full log:')"
+  while (( ${#resume} < ${#log} )); do resume+=' '; done
+  while (( ${#log} < ${#resume} )); do log+=' '; done
   if [[ -n "$_stage_name" ]]; then
-    printf '\n%sStage that failed:%s %s\n' "$C_BOLD" "$C_RESET" "$_stage_name" >&2
-    printf 'Resume with: %s./install.sh --from %s%s\n' "$C_DIM" "${VITRUM_STAGE_KEY:-$_stage_name}" "$C_RESET" >&2
+    printf '\n%s%s%s %s\n' "$C_BOLD" "$(L 'Stage that failed:')" "$C_RESET" "$_stage_name" >&2
+    printf '%s %s./install.sh --from %s%s\n' "$resume" "$C_DIM" "${VITRUM_STAGE_KEY:-$_stage_name}" "$C_RESET" >&2
   fi
   if [[ -n "${VITRUM_LOG:-}" ]]; then
-    printf 'Full log:    %s%s%s\n\n' "$C_DIM" "$VITRUM_LOG" "$C_RESET" >&2
+    printf '%s %s%s%s\n\n' "$log" "$C_DIM" "$VITRUM_LOG" "$C_RESET" >&2
   else
     printf '\n' >&2
   fi
@@ -180,7 +245,7 @@ run() {
     dim "would run: $*"
     return 0
   fi
-  "$@" || die "command failed: $*"
+  "$@" || die 'command failed: %s' "$*"
 }
 
 # run_ok <cmd...> — same, but a non-zero exit is a return value, not fatal.
@@ -192,10 +257,19 @@ run_ok() {
   "$@"
 }
 
+# confirm <prompt> [y|n] — ask on the terminal. Under the progress view
+# (VITRUM_PROGRESS=1) nothing may stop for an answer: the questions were asked
+# on the confirmation screen, so one still asked here takes its default and
+# says so in the log.
 confirm() {
   local prompt="$1" default="${2:-n}" reply
   [[ "$ASSUME_YES" == "1" ]] && return 0
   [[ "$DRY_RUN" == "1" ]] && return 0
+  if [[ "${VITRUM_PROGRESS:-0}" == 1 ]]; then
+    dim "(asked: $prompt — took $default)"
+    [[ "$default" == y ]]
+    return
+  fi
   local hint="[y/N]"; [[ "$default" == "y" ]] && hint="[Y/n]"
   read -r -p "  $prompt $hint " reply </dev/tty || reply=""
   reply="${reply:-$default}"
@@ -203,6 +277,16 @@ confirm() {
 }
 
 have() { command -v "$1" >/dev/null 2>&1; }
+
+# trap_cmd <signal> — the command of the trap now set for it, if any, so a
+# new trap can run it too instead of replacing it. trap -p prints it quoted
+# for the shell; set -- unquotes it the same way.
+trap_cmd() {
+  local out; out="$(trap -p "$1")"
+  [[ -n "$out" ]] || return 0
+  eval "set -- ${out#trap }"
+  printf '%s' "$2"
+}
 
 # Number of CPUs, without assuming coreutils' nproc.
 cpu_count() {
@@ -267,12 +351,17 @@ sudo_refresh() {
 # Ask for the password once and keep the timestamp alive until the installer
 # exits, so hours of building never end at a second prompt. Started before the
 # first stage whatever --from or --only says; a second call does nothing.
+# install.sh asks before the progress view takes the screen, so the prompt is
+# seen. Its EXIT trap runs the one set before it (the screens' own, which gives
+# the terminal back) rather than replacing it.
 sudo_keepalive() {
   [[ "$DRY_RUN" == "1" || -n "${SUDO_KEEPALIVE:-}" ]] && return 0
   sudo -v || die "sudo is required"
   ( while true; do sudo -n true 2>/dev/null; sleep 50; kill -0 "$$" 2>/dev/null || exit; done ) &
   SUDO_KEEPALIVE=$!
-  trap 'kill "$SUDO_KEEPALIVE" 2>/dev/null || true' EXIT
+  local prev; prev="$(trap_cmd EXIT)"
+  # shellcheck disable=SC2064  # the earlier command is meant to be fixed now
+  trap "kill \"\$SUDO_KEEPALIVE\" 2>/dev/null || true${prev:+; $prev}" EXIT
 }
 
 # --------------------------------------------------------------- backup -----
@@ -295,7 +384,7 @@ backup_path() {
   mkdir -p "$BACKUP_DIR"
   if [[ -e "$target" || -L "$target" ]]; then
     mkdir -p "$(dirname "$BACKUP_DIR/$rel")"
-    cp -a "$target" "$BACKUP_DIR/$rel" || die "could not back up $target"
+    cp -a "$target" "$BACKUP_DIR/$rel" || die 'could not back up %s' "$target"
     printf 'saved %s\n' "$rel" >> "$manifest"
   else
     printf 'created %s\n' "$rel" >> "$manifest"
@@ -305,7 +394,7 @@ backup_path() {
 # install_tree <src-dir> <dest-dir> — back up dest, then mirror src into it.
 install_tree() {
   local src="$1" dest="$2"
-  [[ -d "$src" ]] || die "missing source tree: $src"
+  [[ -d "$src" ]] || die 'missing source tree: %s' "$src"
   backup_path "$dest"
   if [[ "$DRY_RUN" == "1" ]]; then
     dim "would sync $src -> $dest"
@@ -320,10 +409,10 @@ install_tree() {
   if have rsync; then
     rsync -a --delete-after \
           --exclude '._*' --exclude '.DS_Store' \
-          "$src"/ "$dest"/ || die "rsync failed: $src -> $dest"
+          "$src"/ "$dest"/ || die 'rsync failed: %s -> %s' "$src" "$dest"
   else
     rm -rf "${dest:?}"/* 2>/dev/null || true
-    cp -a "$src"/. "$dest"/ || die "copy failed: $src -> $dest"
+    cp -a "$src"/. "$dest"/ || die 'copy failed: %s -> %s' "$src" "$dest"
     find "$dest" \( -name '._*' -o -name '.DS_Store' \) -delete 2>/dev/null || true
   fi
 }
@@ -331,14 +420,14 @@ install_tree() {
 # install_file <src> <dest> [mode]
 install_file() {
   local src="$1" dest="$2" mode="${3:-0644}"
-  [[ -f "$src" ]] || die "missing source file: $src"
+  [[ -f "$src" ]] || die 'missing source file: %s' "$src"
   backup_path "$dest"
   if [[ "$DRY_RUN" == "1" ]]; then
     dim "would install $dest"
     return 0
   fi
   mkdir -p "$(dirname "$dest")"
-  install -m "$mode" "$src" "$dest" || die "could not install $dest"
+  install -m "$mode" "$src" "$dest" || die 'could not install %s' "$dest"
 }
 
 # write_file <dest> <<'EOF' ... EOF — back up then write stdin.
@@ -351,7 +440,7 @@ write_file() {
     return 0
   fi
   mkdir -p "$(dirname "$dest")"
-  printf '%s\n' "$content" > "$dest" || die "could not write $dest"
+  printf '%s\n' "$content" > "$dest" || die 'could not write %s' "$dest"
 }
 
 # sudo_write <dest> [mode] — same, for root-owned destinations.
@@ -363,7 +452,7 @@ sudo_write() {
     return 0
   fi
   sudo mkdir -p "$(dirname "$dest")"
-  printf '%s\n' "$content" | sudo tee "$dest" >/dev/null || die "could not write $dest"
+  printf '%s\n' "$content" | sudo tee "$dest" >/dev/null || die 'could not write %s' "$dest"
   sudo chmod "$mode" "$dest"
 }
 
@@ -396,7 +485,7 @@ gh_release_asset() {
 # named here survives the sync.
 install_tree_keep() {
   local src="$1" dest="$2"; shift 2
-  [[ -d "$src" ]] || die "missing source tree: $src"
+  [[ -d "$src" ]] || die 'missing source tree: %s' "$src"
   backup_path "$dest"
   if [[ "$DRY_RUN" == "1" ]]; then
     dim "would sync $src -> $dest (keeping: $*)"
@@ -408,89 +497,12 @@ install_tree_keep() {
     local keep
     for keep in "$@"; do excludes+=(--exclude "$keep"); done
     rsync -a --delete-after "${excludes[@]}" "$src"/ "$dest"/ \
-      || die "rsync failed: $src -> $dest"
+      || die 'rsync failed: %s -> %s' "$src" "$dest"
   else
     # Without rsync, copy over the top rather than clearing first: leaving a
     # stale file behind is better than deleting something we promised to keep.
-    cp -a "$src"/. "$dest"/ || die "copy failed: $src -> $dest"
+    cp -a "$src"/. "$dest"/ || die 'copy failed: %s -> %s' "$src" "$dest"
   fi
-}
-
-# ------------------------------------------------------------ components ----
-#
-# The optional parts. Recorded in $VITRUM_STATE/components.json so that an
-# update repeats the choices made at install time instead of asking again,
-# and so vitrum-theme knows which files it is allowed to write.
-
-WANT_STARSHIP=1        # the prompt is part of the rice, not a choice
-WANT_FISH=1
-WANT_TMUX="${WANT_TMUX:-}"
-WANT_NVIM="${WANT_NVIM:-}"
-WANT_TMUX_AUTOSTART="${WANT_TMUX_AUTOSTART:-}"
-WANT_TMUX_KEYS="${WANT_TMUX_KEYS:-}"      # vitrum (Ctrl+a…) or default (tmux's own)
-WANT_SDDM="${WANT_SDDM:-}"
-WANT_PLYMOUTH="${WANT_PLYMOUTH:-}"
-WANT_LIVE_WALLPAPER="${WANT_LIVE_WALLPAPER:-}"
-WANT_EXTRAS="${WANT_EXTRAS:-}"          # game mode, MangoHud, mic filter, VPN, sensors
-WANT_PHONE="${WANT_PHONE:-}"            # KDE Connect
-
-components_file() { printf '%s\n' "$VITRUM_STATE/components.json"; }
-
-load_components() {
-  local f; f="$(components_file)"
-  [[ -f "$f" ]] || return 1
-  have python3 || return 1
-  local out
-  out="$(python3 - "$f" <<'PY' 2>/dev/null
-import json, sys
-try:
-    d = json.load(open(sys.argv[1], encoding="utf-8"))
-except Exception:
-    raise SystemExit(1)
-for key in ("tmux", "nvim", "tmux_autostart", "sddm", "plymouth", "live_wallpaper", "extras", "phone"):
-    print("%s=%d" % (key.upper(), 1 if d.get(key) else 0))
-if d.get("tmux_keys") in ("vitrum", "default"):
-    print("TMUX_KEYS=%s" % d["tmux_keys"])
-PY
-)" || return 1
-  [[ -n "$out" ]] || return 1
-  local line
-  while IFS= read -r line; do
-    case "$line" in
-      TMUX_AUTOSTART=*) [[ -z "$WANT_TMUX_AUTOSTART" ]] && WANT_TMUX_AUTOSTART="${line#*=}" ;;
-      TMUX_KEYS=*)      [[ -z "$WANT_TMUX_KEYS" ]] && WANT_TMUX_KEYS="${line#*=}" ;;
-      TMUX=*)           [[ -z "$WANT_TMUX" ]] && WANT_TMUX="${line#*=}" ;;
-      NVIM=*)           [[ -z "$WANT_NVIM" ]] && WANT_NVIM="${line#*=}" ;;
-      SDDM=*)           [[ -z "$WANT_SDDM" ]] && WANT_SDDM="${line#*=}" ;;
-      PLYMOUTH=*)       [[ -z "$WANT_PLYMOUTH" ]] && WANT_PLYMOUTH="${line#*=}" ;;
-      LIVE_WALLPAPER=*) [[ -z "$WANT_LIVE_WALLPAPER" ]] && WANT_LIVE_WALLPAPER="${line#*=}" ;;
-      EXTRAS=*)         [[ -z "$WANT_EXTRAS" ]] && WANT_EXTRAS="${line#*=}" ;;
-      PHONE=*)          [[ -z "$WANT_PHONE" ]] && WANT_PHONE="${line#*=}" ;;
-    esac
-  done <<<"$out"
-  return 0
-}
-
-save_components() {
-  if [[ "$DRY_RUN" == "1" ]]; then dim "would record component choices"; return 0; fi
-  mkdir -p "$VITRUM_STATE"
-  cat > "$(components_file)" <<EOF
-{
-  "starship": true,
-  "fish": true,
-  "kitty": true,
-  "fastfetch": true,
-  "tmux": $([[ "$WANT_TMUX" == "1" ]] && echo true || echo false),
-  "tmux_autostart": $([[ "$WANT_TMUX_AUTOSTART" == "1" ]] && echo true || echo false),
-  "tmux_keys": "$([[ "$WANT_TMUX_KEYS" == "default" ]] && echo default || echo vitrum)",
-  "nvim": $([[ "$WANT_NVIM" == "1" ]] && echo true || echo false),
-  "sddm": $([[ "$WANT_SDDM" == "1" ]] && echo true || echo false),
-  "plymouth": $([[ "$WANT_PLYMOUTH" == "1" ]] && echo true || echo false),
-  "live_wallpaper": $([[ "$WANT_LIVE_WALLPAPER" == "1" ]] && echo true || echo false),
-  "extras": $([[ "$WANT_EXTRAS" == "1" ]] && echo true || echo false),
-  "phone": $([[ "$WANT_PHONE" == "1" ]] && echo true || echo false)
-}
-EOF
 }
 
 # --------------------------------------------------------------- version ----
@@ -533,15 +545,58 @@ print(-1 if a < b else (1 if a > b else 0))
 PY
 }
 
+# _install_json_field <field> — a string field of install.json, empty when
+# there is none. Plain sed: install.json is written below, one field a line.
+_install_json_field() {
+  local f="$VITRUM_STATE/install.json"
+  [[ -f "$f" ]] || return 0
+  sed -n "s/^ *\"$1\": *\"\([^\"]*\)\".*/\1/p" "$f" 2>/dev/null | head -n 1 || true
+}
+
+# vitrum_checkout_revision — the commit the checkout is at, empty for a copy
+# that is not a git checkout.
+vitrum_checkout_revision() {
+  git -C "$VITRUM_DIR" rev-parse HEAD 2>/dev/null || true
+}
+
+# vitrum_install_pending — 0 when the checkout holds something the last
+# complete run did not install: vitrum update pulled it and the run was
+# cancelled, or a stage was skipped or failed. A copy without git cannot say.
+vitrum_install_pending() {
+  local head; head="$(vitrum_checkout_revision)"
+  [[ -n "$head" && "$head" != "$(_install_json_field revision)" ]]
+}
+
+# record_install [partial] — install.json: the version and the checkout's
+# revision this run installed. A partial run (a stage skipped or failed, or
+# left out with --only, --from or --skip) is not the new version installed:
+# it keeps the version and revision of the last complete one, or names no
+# revision on a first install, so vitrum update sees what is still to do and
+# runs the installer again.
 record_install() {
   if [[ "$DRY_RUN" == "1" ]]; then dim "would record the install manifest"; return 0; fi
   mkdir -p "$VITRUM_STATE"
+  local version revision complete=true old
+  version="$(vitrum_repo_version)"
+  revision="$(vitrum_checkout_revision)"
+  if [[ -n "${1:-}" ]]; then
+    complete=false
+    old="$(vitrum_installed_version 2>/dev/null)" || old=""
+    version="${old:-$version}"
+    revision="$(_install_json_field revision)"
+  fi
   cat > "$VITRUM_STATE/install.json" <<EOF
 {
-  "version": "$(vitrum_repo_version)",
+  "version": "$version",
+  "revision": "$revision",
+  "complete": $complete,
   "installed": "$(date -Iseconds)",
   "repo": "$VITRUM_DIR",
   "backup": "$BACKUP_DIR"
 }
 EOF
 }
+
+# The optional parts and the stored choices (components.json).
+# shellcheck source=lib/components.sh
+source "$VITRUM_DIR/lib/components.sh"

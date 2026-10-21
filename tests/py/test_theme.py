@@ -367,6 +367,18 @@ class GtkTheme(unittest.TestCase):
             self.assertEqual(vt.gtk_theme_name("dark", themes), "adw-gtk3-dark")
             self.assertEqual(vt.gtk_theme_name("light", themes), "adw-gtk3")
 
+    def test_adw_gtk3_from_the_user_themes(self):
+        """Void has no package: the installer unpacks it into ~/.local/share/themes."""
+        with tempfile.TemporaryDirectory() as tmp:
+            (Path(tmp) / "themes" / "adw-gtk3-dark").mkdir(parents=True)
+            old = os.environ.get("XDG_DATA_HOME")
+            os.environ["XDG_DATA_HOME"] = tmp
+            try:
+                self.assertEqual(vt.gtk_theme_name("dark"), "adw-gtk3-dark")
+            finally:
+                if old is None: del os.environ["XDG_DATA_HOME"]
+                else: os.environ["XDG_DATA_HOME"] = old
+
     def test_ini_rewritten_in_place(self):
         with tempfile.TemporaryDirectory() as tmp:
             cfg = Path(tmp)

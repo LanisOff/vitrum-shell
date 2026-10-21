@@ -9,6 +9,7 @@
 #  Usage:
 #    ./uninstall.sh                 remove vitrum, restore backups, keep your settings
 #    ./uninstall.sh --purge         also remove ~/.config/vitrum (settings, overrides)
+#                                   and ~/.local/share/vitrum (choices, snapshots, logs)
 #    ./uninstall.sh --dry-run       show what would happen
 #    ./uninstall.sh --yes           never prompt
 #
@@ -29,7 +30,7 @@ while [[ $# -gt 0 ]]; do
     --purge)   PURGE=1 ;;
     --dry-run) DRY_RUN=1 ;;
     --yes|-y)  ASSUME_YES=1 ;;
-    --help|-h) sed -n '3,13p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
+    --help|-h) sed -n '3,14p' "$0" | sed 's/^# \{0,1\}//'; exit 0 ;;
     *) die "unknown option: $1" ;;
   esac
   shift
@@ -62,7 +63,14 @@ fi
 if [[ -f "$VITRUM_STATE/previous-dm" ]]; then
   prev="$(cat "$VITRUM_STATE/previous-dm")"
   if [[ $HAVE_BACKENDS == 1 ]]; then
-    step "login screen: back to $prev"
+    # Under a running runit the switch waits for the next boot: unlinking the
+    # login screen now would stop it and the session on it. Without its
+    # service nothing is queued (the backend says so), so no "next boot".
+    if [[ "$INIT_BACKEND" == runit ]] && _runit_running && svc_exists "$prev"; then
+      step "login screen: back to $prev from the next boot"
+    else
+      step "login screen: back to $prev"
+    fi
     svc_enable_display_manager "$prev" force
   else
     warn "could not detect the init system — re-enable $prev as your login screen yourself"
@@ -151,7 +159,10 @@ if [[ "$PURGE" == "1" ]]; then
   step "purging settings"
   _rm "$VITRUM_PREFIX" "$VITRUM_STATE"
 else
-  _rm "$VITRUM_STATE/niri.rev"
+  # install.json says vitrum is installed, which it no longer is: without it
+  # the next install.sh is a first install again (the language, the whole
+  # choice screen, the tour), with the choices kept here as its defaults.
+  _rm "$VITRUM_STATE/niri.rev" "$VITRUM_STATE/install.json"
   info "kept ~/.config/vitrum (settings, overrides) — --purge removes it"
 fi
 

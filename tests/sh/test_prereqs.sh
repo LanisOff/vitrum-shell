@@ -100,3 +100,38 @@ test_install_sh_documents_and_parses_check() {
   grep -q -- '--check' "$VITRUM_DIR/install.sh"
   sed -n '2,30p' "$VITRUM_DIR/install.sh" | grep -q -- '--check'
 }
+
+# Fedora and Void: the same check through their backends.
+test_xbps_missing_package_and_gap_asset() {
+  _pre; _present; rm "$HOME/all-installed"
+  unset -f packages_for pkg_installed pkg_available
+  export PKG_BACKEND=xbps
+  source "$VITRUM_DIR/lib/packages.sh"; source "$VITRUM_DIR/lib/backend/pkg-xbps.sh"
+  _package_needs() { echo required; }
+  stub xbps-query 'exit 1'   # nothing installed
+  printf 'nerd\thttps://x/n.tar.xz\tabc\ttar\t%s\tfont-nerd\n' "$HOME/out/nerd" >> "$VITRUM_ASSETS_TABLE"
+  out="$(prereqs_check 2>&1)"
+  assert_contains "$out" "fish-shell"
+  assert_contains "$out" "nerd"
+  ! grep -q "font-nerd" <<<"$(grep 'missing packages' <<<"$out")"
+}
+test_dnf_unavailable_package_is_warned_with_the_dnf_advice() {
+  _pre; _present; rm "$HOME/all-installed"
+  PKG_BACKEND=dnf
+  packages_for() { printf 'pkg-a\npkg-b\npkg-c\n'; }
+  pkg_available() { [[ "$1" != pkg-c ]]; }
+  should_run() { [[ "$1" != packages ]]; }
+  prereqs_check 2>"$HOME/err" >/dev/null
+  assert_contains "$(cat "$HOME/err")" "sudo dnf makecache"
+  assert_contains "$(cat "$HOME/calls")" "install pkg-b"
+}
+# Fetched before the packages stage runs: what unpacks them comes first.
+test_assets_fetched_early_bring_their_unpack_tools_first() {
+  _pre; _present; rm "$HOME/out/Font.ttf" "$HOME/all-installed"
+  should_run() { [[ "$1" == packages ]]; }   # packages later, fonts not at all
+  pkg_installed() { [[ "$1" == pkg-a || "$1" == curl ]]; }
+  prereqs_check >/dev/null 2>&1
+  calls="$(cat "$HOME/calls")"
+  assert_contains "$calls" "install unzip xz"
+  [[ "$(grep -n "install unzip xz" <<<"$calls" | cut -d: -f1)" -lt "$(grep -n 'fetch font' <<<"$calls" | cut -d: -f1)" ]]
+}

@@ -21,7 +21,7 @@ stage_packages() {
   local unavailable=()
   mapfile -t unavailable < <(pkg_unavailable "${todo[@]}")
   if [[ ${#unavailable[@]} -gt 0 ]]; then
-    die "$(pkg_unavailable_message "${unavailable[@]}")"
+    die '%s' "$(pkg_unavailable_message "${unavailable[@]}")"
   fi
 
   # Installed packages first: what gets built next links against them, and a
@@ -39,14 +39,21 @@ stage_packages() {
   fi
 
   step "system services ($INIT_BACKEND)"
-  local svc
-  # systemd always runs these; on OpenRC nothing starts them, and without them
-  # SDDM has no system bus and niri no seat (elogind early, as Gentoo advises).
-  if [[ "$INIT_BACKEND" == openrc ]]; then
-    svc_enable_system elogind boot
-    svc_enable_system dbus
-  fi
-  for svc in bluetooth power-profiles-daemon; do svc_enable_system "$svc"; done
+  local svc bt=bluetooth
+  # systemd always runs these; on OpenRC and runit nothing starts them, and
+  # without them SDDM has no system bus and niri no seat (elogind early, as
+  # Gentoo advises). Void's polkit daemon is a service too, and its plocate
+  # updates its database from cron.daily, which needs a cron daemon.
+  case "$INIT_BACKEND" in
+    openrc)
+      svc_enable_system elogind boot
+      svc_enable_system dbus ;;
+    runit)
+      for svc in dbus elogind polkitd cronie; do svc_enable_system "$svc"; done
+      bt=bluetoothd ;;
+  esac
+  # UPower needs nothing here: D-Bus starts it on the first call, everywhere.
+  for svc in "$bt" power-profiles-daemon; do svc_enable_system "$svc"; done
   # The shell's network panel talks to NetworkManager.
   svc_use_networkmanager
 

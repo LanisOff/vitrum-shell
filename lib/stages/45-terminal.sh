@@ -43,9 +43,15 @@ _terminal_legacy() {
   done
 }
 
-# fastfetch shows the vitrum mark.
+# fastfetch shows the vitrum mark, or the distribution's logo when that was
+# picked: then fastfetch draws its own (config.jsonc says builtin), and with
+# no logo.kitty the fish function runs plain fastfetch.
 _terminal_logo() {
   [[ "$DRY_RUN" == "1" ]] && return 0
+  if [[ "${VITRUM_FASTFETCH_LOGO:-picture}" == distro ]]; then
+    rm -f "$VITRUM_STATE/fastfetch/logo.kitty" "$VITRUM_STATE/fastfetch/logo.tmux"
+    return 0
+  fi
   local out="$VITRUM_STATE/fastfetch/logo.png"
   mkdir -p "$(dirname "$out")"
   if have rsvg-convert; then rsvg-convert -w 256 -h 256 "$VITRUM_DIR/assets/vitrum-mark.svg" -o "$out" 2>/dev/null
@@ -126,8 +132,14 @@ EOF
   if [[ "${WANT_FISH:-1}" == "1" ]]; then _terminal_default_shell; else dim "login shell: left as it is (--no-fish)"; fi
 }
 
-# Offer to make fish the login shell. Never silently: changing someone's login
-# shell without asking is the kind of thing that ends a session badly.
+# Make fish the login shell, or not, as WANT_LOGIN_SHELL says. Never without
+# asking: changing someone's login shell unasked is the kind of thing that ends
+# a session badly. The confirmation screen asks before the stages run, so
+# nothing stops here for an answer. On a first install its row starts ticked
+# and --yes takes that, 1 (a stored answer under --fresh wins). On an update or
+# --choose the row starts unticked and only a tick on that run makes it 1;
+# --yes, or a run that showed no row, leaves it 0: a stored yes is no reason to
+# undo a switch to another shell made since (install.sh decides this).
 _terminal_default_shell() {
   local fish_path
   fish_path="$(command -v fish 2>/dev/null || true)"
@@ -136,9 +148,8 @@ _terminal_default_shell() {
   local current="${SHELL:-}"
   [[ "$current" == "$fish_path" ]] && { ok "fish is already your login shell"; return 0; }
 
-  if [[ "$DRY_RUN" == "1" ]]; then dim "would offer to set fish as the login shell"; return 0; fi
-
-  if confirm "make fish your login shell? (currently ${current:-unknown})" y; then
+  if [[ "${WANT_LOGIN_SHELL:-1}" == 1 ]]; then
+    if [[ "$DRY_RUN" == "1" ]]; then dim "would set fish as the login shell"; return 0; fi
     grep -qxF "$fish_path" /etc/shells 2>/dev/null \
       || printf '%s\n' "$fish_path" | sudo tee -a /etc/shells >/dev/null
 
@@ -150,9 +161,12 @@ _terminal_default_shell() {
     # already holds a warm sudo timestamp, so this route asks for nothing.
     local user="${USER:-$(id -un)}"
     step "setting the login shell (no password needed, sudo is already warm)"
+    # Bare chsh asks for the password on the terminal; under the progress view
+    # the stage is not in the terminal's foreground, and the read would stop it
+    # for good, so there it is left to the hint below.
     if run_ok sudo chsh -s "$fish_path" "$user"; then
       ok "login shell set to fish (takes effect next login)"
-    elif run_ok chsh -s "$fish_path"; then
+    elif [[ "${VITRUM_PROGRESS:-0}" != 1 ]] && run_ok chsh -s "$fish_path"; then
       ok "login shell set to fish (takes effect next login)"
     else
       warn "could not change the login shell"

@@ -21,9 +21,9 @@ test_uninstall_removes_and_restores() {
 }
 test_uninstall_dry_run_changes_nothing() {
   _installed_world
-  before="$(find "$HOME" -type f | sort | xargs cat | shasum)"
+  before="$(find "$HOME" -type f | sort | xargs cat | cksum)"
   ( cd "$VITRUM_DIR" && ./uninstall.sh --dry-run --yes ) >/dev/null 2>&1
-  assert_eq "$(find "$HOME" -type f | sort | xargs cat | shasum)" "$before"
+  assert_eq "$(find "$HOME" -type f | sort | xargs cat | cksum)" "$before"
 }
 test_uninstall_purge_removes_settings() {
   _installed_world
@@ -71,4 +71,78 @@ test_uninstall_takes_the_keyring_lines_out_of_pam() {
   printf 'auth include system-local-login\n# vitrum: open the keyring with the login password\n-auth      optional     pam_gnome_keyring.so\nsession include system-local-login\n' > "$VITRUM_SYSROOT/etc/pam.d/login"
   ( cd "$VITRUM_DIR" && ./uninstall.sh --yes ) >/dev/null 2>&1
   assert_eq "$(cat "$VITRUM_SYSROOT/etc/pam.d/login")" "$(printf 'auth include system-local-login\nsession include system-local-login')"
+}
+
+# install.json is no setting: after an uninstall the next install.sh is a
+# first install (the language, the tour). The choices stay for its defaults.
+test_uninstall_forgets_the_install() {
+  _installed_world
+  printf '{"version": "0.4.0"}\n' > "$XDG_DATA_HOME/vitrum/install.json"
+  printf '{"version": 2}\n' > "$XDG_DATA_HOME/vitrum/components.json"
+  ( cd "$VITRUM_DIR" && ./uninstall.sh --yes ) >/dev/null 2>&1
+  [[ ! -e "$XDG_DATA_HOME/vitrum/install.json" ]] || { echo "install.json left"; return 1; }
+  [[ -e "$XDG_DATA_HOME/vitrum/components.json" ]] || { echo "the choices went without --purge"; return 1; }
+}
+
+# _runit_world [running] — the installed world on Void: gdm was the login
+# screen, the install linked dbus and elogind and, under a running runit,
+# queued SDDM in place of gdm for the next boot.
+_runit_world() {
+  _installed_world
+  stub xbps-install; stub sv; stub sleep
+  export VITRUM_ROOTFS="$VITRUM_SYSROOT"
+  local r="$VITRUM_ROOTFS" d
+  mkdir -p "$r/etc"; printf 'ID=void\n' > "$r/etc/os-release"
+  for d in sddm gdm dbus elogind; do mkdir -p "$r/etc/sv/$d"; done
+  mkdir -p "$r/etc/runit/runsvdir/default"; ln -s default "$r/etc/runit/runsvdir/current"
+  for d in gdm dbus elogind; do ln -s "/etc/sv/$d" "$r/etc/runit/runsvdir/default/$d"; done
+  if [[ "${1:-}" == running ]]; then
+    mkdir -p "$r/run/runit/runsvdir" "$r/var"
+    ln -s ../etc/runit/runsvdir/current "$r/var/service"
+    cat > "$r/etc/rc.local" <<'RC'
+#!/bin/sh
+# vitrum begin: service changes for the next boot (written by the vitrum installer; it removes itself)
+rm -f /etc/runit/runsvdir/current/gdm
+ln -sfn /etc/sv/sddm /etc/runit/runsvdir/current/sddm
+sed -i '/^# vitrum begin: service changes/,/^# vitrum end: service changes/d' /etc/rc.local
+# vitrum end: service changes for the next boot
+RC
+  else
+    rm "$r/etc/runit/runsvdir/default/gdm"; ln -s /etc/sv/sddm "$r/etc/runit/runsvdir/default/sddm"
+  fi
+  echo gdm > "$XDG_DATA_HOME/vitrum/previous-dm"
+}
+
+# Uninstalled before the reboot: the queued switch to SDDM is taken back, gdm
+# (still running the session) stays linked, and the system's own services
+# are left alone, as on every init.
+test_uninstall_runit_cancels_the_queued_login_screen() {
+  _runit_world running
+  local out r="$VITRUM_ROOTFS"
+  out="$( cd "$VITRUM_DIR" && ./uninstall.sh --yes 2>&1 )" || { echo "$out" | tail -20; return 1; }
+  assert_contains "$out" "login screen: back to gdm from the next boot" || return 1
+  ! grep -q "ln -sfn /etc/sv/sddm" "$r/etc/rc.local" || { cat "$r/etc/rc.local"; return 1; }
+  ! grep -q "rm -f /etc/runit/runsvdir/current/gdm" "$r/etc/rc.local" || { cat "$r/etc/rc.local"; return 1; }
+  [[ -L "$r/var/service/gdm" && -L "$r/var/service/dbus" && -L "$r/var/service/elogind" ]]
+}
+
+# runit not running (a chroot): the links change at once, so no "next boot".
+test_uninstall_runit_not_running_relinks_at_once() {
+  _runit_world
+  local out d="$VITRUM_ROOTFS/etc/runit/runsvdir/default"
+  out="$( cd "$VITRUM_DIR" && ./uninstall.sh --yes 2>&1 )" || { echo "$out" | tail -20; return 1; }
+  assert_contains "$out" "login screen: back to gdm" || return 1
+  [[ "$out" != *"from the next boot"* ]] || { echo "$out"; return 1; }
+  [[ -L "$d/gdm" && ! -e "$d/sddm" && -L "$d/dbus" && -L "$d/elogind" ]]
+}
+
+# The earlier login screen's service is gone: nothing is queued, so the step
+# does not promise a switch at the next boot, and the backend says why.
+test_uninstall_runit_without_the_service_promises_no_next_boot() {
+  _runit_world running
+  rm -rf "$VITRUM_ROOTFS/etc/sv/gdm"
+  local out
+  out="$( cd "$VITRUM_DIR" && ./uninstall.sh --yes 2>&1 )" || { echo "$out" | tail -20; return 1; }
+  [[ "$out" != *"from the next boot"* ]] || { echo "$out"; return 1; }
+  assert_contains "$out" "no runit service gdm"
 }

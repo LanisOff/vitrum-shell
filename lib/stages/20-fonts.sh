@@ -6,6 +6,9 @@
 # emoji (samuelngs/apple-emoji-ttf) and the Bibata cursor are not packaged on
 # Gentoo, so they are fetched with pinned checksums on every distribution
 # (lib/assets.tsv) — one path, no surprises. Noto stays as the emoji fallback.
+# Where the distribution lacks a package vitrum needs (JetBrains Mono and
+# adw-gtk3 on Void, the JetBrainsMono Nerd Font on Fedora and Void), the
+# upstream release that lib/assets.tsv pins for it is fetched here too.
 
 stage_fonts() {
   stage "Fonts"
@@ -14,6 +17,13 @@ stage_fonts() {
   fetch_asset material-symbols
   fetch_asset apple-emoji
   fetch_asset bibata
+
+  local a gaps=()
+  mapfile -t gaps < <(assets_wanted | grep -vxE 'material-symbols|apple-emoji|bibata')
+  if [[ ${#gaps[@]} -gt 0 ]]; then
+    step "from upstream, as $PKG_BACKEND does not package them: ${gaps[*]}"
+    for a in "${gaps[@]}"; do fetch_asset "$a"; done
+  fi
 
   _fonts_configure
 

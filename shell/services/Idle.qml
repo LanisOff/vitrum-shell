@@ -65,9 +65,24 @@ Singleton {
     Timer { id: giveUp; interval: 3000; onTriggered: root.letGo = true }
 
     // logind and elogind both speak org.freedesktop.login1 on the system bus.
+    // Without either (Void with seatd only) gdbus monitor gives up at once, and
+    // started again every few seconds it would do so for ever: so first ask
+    // the bus whether the name is there, and if not, ask again in a minute
+    // (elogind may be started later). The monitor runs only once it is.
+    Process {
+        id: probe
+        running: true
+        command: ["sh", "-c", "gdbus call --system --dest org.freedesktop.DBus --object-path /org/freedesktop/DBus "
+                  + "--method org.freedesktop.DBus.NameHasOwner org.freedesktop.login1 2>/dev/null | grep -q true && echo yes || echo no"]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                if (text.trim() === "yes") monitor.running = true;
+                else { retry.interval = 60000; retry.restart(); }
+            }
+        }
+    }
     Process {
         id: monitor
-        running: true
         command: ["gdbus", "monitor", "--system", "--dest", "org.freedesktop.login1"]
         stdout: SplitParser {
             onRead: line => {
@@ -81,7 +96,7 @@ Singleton {
                 } else if (line.indexOf(".Session.Lock ()") >= 0) root.lockRequested("loginctl");
             }
         }
-        onExited: retry.restart()
+        onExited: { retry.interval = 5000; retry.restart(); }
     }
-    Timer { id: retry; interval: 5000; onTriggered: monitor.running = true }
+    Timer { id: retry; interval: 5000; onTriggered: probe.running = true }
 }

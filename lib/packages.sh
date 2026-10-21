@@ -7,24 +7,16 @@ _pkg_col() {
   case "$PKG_BACKEND" in
     portage) echo 2 ;;
     pacman)  echo 3 ;;
-    *) die "packages.sh: unknown PKG_BACKEND '$PKG_BACKEND'" ;;
+    dnf)     echo 8 ;;
+    xbps)    echo 9 ;;
+    *) die "packages.sh: unknown PKG_BACKEND '%s'" "$PKG_BACKEND" ;;
   esac
 }
 
 # The groups of lib/packages.tsv this run needs, one per line. Shared by the
-# packages stage and the start-of-run check (lib/prereqs.sh).
-_package_needs() {
-  local needs=(required)
-  if lspci 2>/dev/null | grep -qiE '(VGA|3D).*NVIDIA'; then needs+=(nvidia); fi
-  [[ "${WANT_SDDM:-1}" == 1 ]] && needs+=(sddm)
-  [[ "${WANT_PLYMOUTH:-0}" == 1 ]] && needs+=(plymouth)
-  [[ "${WANT_LIVE_WALLPAPER:-1}" == 1 ]] && needs+=(live-wallpaper)
-  [[ "${WANT_TMUX:-0}" == 1 ]] && needs+=(tmux)
-  [[ "${WANT_NVIM:-0}" == 1 ]] && needs+=(nvim)
-  [[ "${WANT_EXTRAS:-1}" == 1 ]] && needs+=(extras)
-  [[ "${WANT_PHONE:-0}" == 1 ]] && needs+=(phone)
-  printf '%s\n' "${needs[@]}"
-}
+# packages stage and the start-of-run check (lib/prereqs.sh); the registry in
+# lib/components.sh knows which part wants which group.
+_package_needs() { components_needs; }
 
 # pkg_unavailable <pkg>... — those the package databases do not offer, one per
 # line (without any @-suffix). Needs pkg_available from the backend.
@@ -33,12 +25,18 @@ pkg_unavailable() {
   for p in "$@"; do pkg_available "${p%@*}" || printf '%s\n' "${p%@*}"; done
 }
 
-# pkg_unavailable_message <name>... — what to tell the user about them.
+# pkg_unavailable_message <name>... — what to tell the user about them, in the
+# language of the stage messages.
 pkg_unavailable_message() {
   if [[ "$PKG_BACKEND" == portage ]]; then
-    printf 'not available: %s — enable the overlays vitrum uses and sync them: sudo eselect repository enable guru gentoo-zh hyproverlay && for r in guru gentoo-zh hyproverlay; do sudo emaint sync -r $r; done' "$*"
+    # shellcheck disable=SC2016  # $r belongs to the command the user copies
+    L 'not available: %s — enable the overlays vitrum uses and sync them: sudo eselect repository enable guru gentoo-zh hyproverlay && for r in guru gentoo-zh hyproverlay; do sudo emaint sync -r $r; done' "$*"
+  elif [[ "$PKG_BACKEND" == dnf ]]; then
+    L 'not available in your repositories: %s — refresh them (sudo dnf makecache) and check that the COPR and RPM Fusion repositories vitrum enabled are reachable' "$*"
+  elif [[ "$PKG_BACKEND" == xbps ]]; then
+    L 'not available in your repositories: %s — sync them (sudo xbps-install -S) and check your mirror' "$*"
   else
-    printf 'not available in your repositories: %s — refresh the package databases and check your mirrors' "$*"
+    L 'not available in your repositories: %s — refresh the package databases and check your mirrors' "$*"
   fi
 }
 
@@ -46,12 +44,40 @@ pkg_unavailable_message() {
 # line. A row this distribution does not package is skipped with a note on stderr.
 packages_for() {
   local col; col="$(_pkg_col)"
-  awk -F'\t' -v col="$col" -v needs=" $* " '
+  # "." is not needed here: silent. "-" is not packaged: noted, unless
+  # lib/assets.tsv fetches it from upstream instead (its last column).
+  local stand_ins
+  stand_ins=" $(awk -F'\t' '!/^#/ && NF && $6 != "" && $6 != "-" { printf "%s ", $6 }' "${VITRUM_ASSETS_TABLE:-$VITRUM_DIR/lib/assets.tsv}" 2>/dev/null) "
+  awk -F'\t' -v col="$col" -v needs=" $* " -v stand="$stand_ins" '
     /^#/ || !NF { next }
     index(needs, " " $4 " ") {
-      if ($col == "-") { print "note: " $1 " is not packaged here, skipped" > "/dev/stderr"; next }
+      if ($col == ".") next
+      if ($col == "-") {
+        if (!index(stand, " " $1 " ")) print "note: " $1 " is not packaged here, skipped" > "/dev/stderr"
+        next
+      }
       print $col
     }' "$_PKG_TABLE"
+}
+
+# packages_named <logical>... — those rows' names for the active backend, one
+# per line, whatever their need; a row this distribution does not package is
+# left out.
+packages_named() {
+  local col; col="$(_pkg_col)"
+  awk -F'\t' -v col="$col" -v names=" $* " '
+    /^#/ || !NF { next }
+    index(names, " " $1 " ") && $col != "-" && $col != "." { print $col }' "$_PKG_TABLE"
+}
+
+# packages_unpackaged <need>... — the logical names of the selected rows this
+# distribution does not package ("-" in its column), one per line. Some of
+# them lib/assets.tsv fetches from upstream instead.
+packages_unpackaged() {
+  local col; col="$(_pkg_col)"
+  awk -F'\t' -v col="$col" -v needs=" $* " '
+    /^#/ || !NF { next }
+    index(needs, " " $4 " ") && $col == "-" { print $1 }' "$_PKG_TABLE"
 }
 
 # Heavy C++ builds that come in as dependencies; with no swap they are OOM-killed at full -j.
@@ -83,7 +109,7 @@ packages_portage_column() {
   local which="$1" d
   {
     awk -F'\t' -v w="$which" '
-      /^#/ || !NF || $2 == "-" { next }
+      /^#/ || !NF || $2 == "-" || $2 == "." { next }
       w == "keywords" && $5 != "-" { print $2 " " $5 }
       w == "use"      && $6 != "-" { print $2 " " $6 }
       w == "env"      && $7 == "half" { print $2 " vitrum-half-jobs.conf" }' "$_PKG_TABLE"
