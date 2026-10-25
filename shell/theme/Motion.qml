@@ -32,4 +32,8 @@ Singleton {
     /// The one sweep across a tint that turns on: ~1 s, damped.
     readonly property int sweep: M.scaled(M.SWEEP_MS, speed, reduce)
     readonly property var glide: M.GLIDE
+    /// A meter (0..1) moves to a new value only for a step this big; a smaller
+    /// one is set at once. Live figures change a little with every sample, and
+    /// any animation starting wakes every window of the shell for a frame.
+    readonly property real meterStep: 0.04
 }

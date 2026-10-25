@@ -52,11 +52,16 @@ Singleton {
     property bool sleeping: false
     property bool letGo: false
     // logind or elogind: sleep is delayed (up to its InhibitDelayMaxSec) while this runs.
+    // It holds on by reading the shell's end of stdin, not `sleep infinity`: a
+    // shell that is killed (a restart, an update, a crash) never stops its
+    // children, and one left behind went on delaying every sleep. The pipe
+    // closes with the shell, whatever ends it.
     Process {
         id: inhibitor
         running: root.holdSleep && !root.letGo
+        stdinEnabled: true
         command: ["sh", "-c", "i=$(command -v elogind-inhibit || command -v systemd-inhibit) || exit 0; " +
-                  "exec \"$i\" --what=sleep --mode=delay --who=vitrum --why='Locking the screen first' sleep infinity"]
+                  "exec \"$i\" --what=sleep --mode=delay --who=vitrum --why='Locking the screen first' cat"]
     }
     /// The lock is up on every screen: sleep may go on.
     function lockShown() { if (sleeping) release.restart(); }
@@ -81,9 +86,14 @@ Singleton {
             }
         }
     }
+    // gdbus writes only when login1 speaks, so after a killed shell it would
+    // wait for ever: it is stopped once stdin closes (the background job gets
+    // stdin on fd 3, since sh gives background jobs /dev/null).
     Process {
         id: monitor
-        command: ["gdbus", "monitor", "--system", "--dest", "org.freedesktop.login1"]
+        stdinEnabled: true
+        command: ["sh", "-c", "exec 3<&0; gdbus monitor --system --dest org.freedesktop.login1 & g=$!; "
+                  + "{ cat >/dev/null <&3; kill $g 2>/dev/null; } & wait $g"]
         stdout: SplitParser {
             onRead: line => {
                 if (line.indexOf("PrepareForSleep (true") >= 0) {

@@ -167,16 +167,19 @@ Item {
         width: root.graph ? Math.min(implicitWidth, root.width * 0.45) : root.width
         spacing: Tokens.gap * 0.4
         readonly property int big: Math.max(20, Math.min(34, (root.height - head.height) * 0.24))
+        // The rates are bound inside, not put in the model: a model that changes
+        // every second built both rows again every second.
         Repeater {
-            model: [{ i: "download", t: "Download", v: root.shownDown, c: Colors.accent },
-                    { i: "upload", t: "Upload", v: root.shownUp, c: Colors.ink(120) }]
+            model: [{ i: "download", t: "Download" }, { i: "upload", t: "Upload" }]
             delegate: Row {
                 required property var modelData
+                readonly property bool isDown: modelData.i === "download"
+                readonly property real v: isDown ? root.shownDown : root.shownUp
                 spacing: Tokens.gap * 0.6
-                Icon { name: modelData.i; color: modelData.c; size: Tokens.iconSize + 2; anchors.verticalCenter: parent.verticalCenter }
+                Icon { name: modelData.i; color: isDown ? Colors.accent : Colors.ink(120); size: Tokens.iconSize + 2; anchors.verticalCenter: parent.verticalCenter }
                 Metric {
                     anchors.verticalCenter: parent.verticalCenter
-                    value: root.rate(modelData.v)[0]; unit: root.rate(modelData.v)[1]
+                    value: root.rate(v)[0]; unit: root.rate(v)[1]
                     label: modelData.t
                     size: rates.big
                 }

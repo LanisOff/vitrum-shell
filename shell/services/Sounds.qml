@@ -65,9 +65,13 @@ Singleton {
     // One event per USB device (not per interface); a hub with things on it is
     // a burst, heard once.
     property string _deviceEvent: ""
+    // Stopped when the shell's stdin closes, as in Idle: it is silent between
+    // plugs, so a killed shell would leave it behind.
     Process {
         running: root.inShell && Settings.get("sounds.device", false)
-        command: ["udevadm", "monitor", "--udev", "--subsystem-match=usb/usb_device"]
+        stdinEnabled: true
+        command: ["sh", "-c", "exec 3<&0; udevadm monitor --udev --subsystem-match=usb/usb_device & u=$!; "
+                  + "{ cat >/dev/null <&3; kill $u 2>/dev/null; } & wait $u"]
         stdout: SplitParser {
             onRead: line => {
                 const m = /^UDEV\s+\[[^\]]*\]\s+(add|remove)\s/.exec(line);

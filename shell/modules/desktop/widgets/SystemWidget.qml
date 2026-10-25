@@ -25,25 +25,33 @@ Item {
     readonly property bool bars: options.style === "bars"
     // A meter turns red near the top; the temperature turns orange when warm first.
     function tone(v) { return v > 0.85 ? Colors.danger : Colors.accent; }
-    readonly property var gauges: {
-        const g = [];
-        if (options.cpu !== false)
-            g.push({ label: "CPU", value: SysInfo.cpuUsage, num: String(Math.round(SysInfo.cpuUsage * 100)), unit: "%", tint: tone(SysInfo.cpuUsage) });
-        if (options.memory !== false)
-            g.push({ label: "Memory", value: SysInfo.memoryUsage, num: String(Math.round(SysInfo.memoryUsage * 100)), unit: "%", tint: tone(SysInfo.memoryUsage),
-                     detail: SysInfo.memoryUsedGB.toFixed(1) + " GB" });
-        if (SysInfo.gpuAvailable)
-            g.push({ label: "GPU", value: SysInfo.gpuUsage, num: String(Math.round(SysInfo.gpuUsage * 100)), unit: "%", tint: tone(SysInfo.gpuUsage) });
-        if (options.temperature !== false) {
-            const t = SysInfo.cpuTemp;
-            g.push({ label: "Temperature", short: "Temp", value: Math.min(1, t / 100), num: t > 0 ? String(Math.round(t)) : "—", unit: t > 0 ? "°" : "",
-                     tint: t >= 85 ? Colors.danger : t >= 70 ? Colors.meaning(0.07) : Colors.accent });
-        }
-        return g;
+    // Which meters show: the Repeaters' model. It changes with the options only,
+    // not with every sample — a new model builds every meter again, and each
+    // new one plays its light (an animation wakes every window of the shell).
+    readonly property var keys: {
+        const k = [];
+        if (options.cpu !== false) k.push("cpu");
+        if (options.memory !== false) k.push("memory");
+        if (SysInfo.gpuAvailable) k.push("gpu");
+        if (options.temperature !== false) k.push("temperature");
+        return k;
     }
-    readonly property int count: gauges.length
+    // A meter's figures; bound from the delegate, so a sample updates it in place.
+    function gauge(key) {
+        if (key === "cpu")
+            return { label: "CPU", value: SysInfo.cpuUsage, num: String(Math.round(SysInfo.cpuUsage * 100)), unit: "%", tint: tone(SysInfo.cpuUsage) };
+        if (key === "memory")
+            return { label: "Memory", value: SysInfo.memoryUsage, num: String(Math.round(SysInfo.memoryUsage * 100)), unit: "%", tint: tone(SysInfo.memoryUsage),
+                     detail: SysInfo.memoryUsedGB.toFixed(1) + " GB" };
+        if (key === "gpu")
+            return { label: "GPU", value: SysInfo.gpuUsage, num: String(Math.round(SysInfo.gpuUsage * 100)), unit: "%", tint: tone(SysInfo.gpuUsage) };
+        const t = SysInfo.cpuTemp;
+        return { label: "Temperature", short: "Temp", value: Math.min(1, t / 100), num: t > 0 ? String(Math.round(t)) : "—", unit: t > 0 ? "°" : "",
+                 tint: t >= 85 ? Colors.danger : t >= 70 ? Colors.meaning(0.07) : Colors.accent };
+    }
+    readonly property int count: keys.length
     // At S the processor, or whatever comes first when it is switched off.
-    readonly property var lead: count > 0 ? gauges[0] : null
+    readonly property var lead: count > 0 ? gauge(keys[0]) : null
 
     WidgetHeader {
         id: head
@@ -121,9 +129,11 @@ Item {
             rowSpacing: area.gap
             readonly property real cellW: (area.width - (columns - 1) * area.gap) / columns
             Repeater {
-                model: root.bars ? [] : root.gauges
+                model: root.bars ? [] : root.keys
                 delegate: Column {
+                    id: cell
                     required property var modelData
+                    readonly property var g: root.gauge(modelData)
                     width: ringGrid.cellW
                     spacing: 4
                     Meter {
@@ -132,14 +142,14 @@ Item {
                         kind: "circular"
                         width: Math.max(32, area.ringFit.d); height: width
                         thickness: Math.max(4, width * 0.1)
-                        value: modelData.value
-                        color: modelData.tint
-                        trailing: modelData.num + modelData.unit
+                        value: cell.g.value
+                        color: cell.g.tint
+                        trailing: cell.g.num + cell.g.unit
                     }
                     Label {
                         anchors.horizontalCenter: parent.horizontalCenter
                         width: Math.min(implicitWidth, parent.width)
-                        text: parent.width < 90 && modelData.short ? modelData.short : modelData.label
+                        text: parent.width < 90 && cell.g.short ? cell.g.short : cell.g.label
                         role: "dim"; size: Tokens.textSmall
                         horizontalAlignment: Text.AlignHCenter
                     }
@@ -159,17 +169,18 @@ Item {
             flow: Grid.TopToBottom
             rows: area.barRows
             Repeater {
-                model: root.bars ? root.gauges : []
+                model: root.bars ? root.keys : []
                 delegate: Meter {
                     required property var modelData
+                    readonly property var g: root.gauge(modelData)
                     group: "widgets"
                     width: (barGrid.width - (area.barCols - 1) * barGrid.columnSpacing) / area.barCols
                     kind: "linear"
                     thickness: area.barThick
-                    value: modelData.value
-                    color: modelData.tint
-                    label: modelData.label
-                    trailing: modelData.detail && width > 200 ? modelData.detail + " · " + modelData.num + modelData.unit : modelData.num + modelData.unit
+                    value: g.value
+                    color: g.tint
+                    label: g.label
+                    trailing: g.detail && width > 200 ? g.detail + " · " + g.num + g.unit : g.num + g.unit
                 }
             }
         }

@@ -33,7 +33,16 @@ Item {
         y: head.visible ? head.height + 6 : 0
         width: root.width; height: root.thickness
         readonly property real r: Math.min(Tokens.radiusMeter, height / 2)
-        QtObject { id: anim; property real v: root.shown; Behavior on v { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } } }
+        // As in Ring: only while this bar shows, and only for a real step.
+        QtObject {
+            id: anim
+            property real v: root.shown
+            Behavior on v {
+                id: move
+                enabled: Motion.enabled && root.kind === "linear" && root.visible && Math.abs(move.targetValue - anim.v) >= Motion.meterStep
+                SpringAnim { token: Motion.smooth }
+            }
+        }
         Rectangle {
             anchors.fill: parent
             radius: parent.r

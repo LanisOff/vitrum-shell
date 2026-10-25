@@ -17,7 +17,13 @@ Item {
     implicitWidth: 64; implicitHeight: 64
 
     property real shown: Math.max(0, Math.min(1, value))
-    Behavior on shown { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
+    // Shown and a real step only (Motion.meterStep): the sample-to-sample
+    // flicker of a live figure is set at once.
+    Behavior on shown {
+        id: move
+        enabled: Motion.enabled && root.visible && Math.abs(move.targetValue - root.shown) >= Motion.meterStep
+        SpringAnim { token: Motion.smooth }
+    }
 
     readonly property real _cx: width / 2
     readonly property real _cy: height / 2
