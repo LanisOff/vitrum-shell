@@ -28,11 +28,11 @@ Column {
         Row {
             spacing: Tokens.gap
             width: root.width - 2 * Tokens.padding
-            Rectangle {
-                width: Tokens.islandHeight; height: width; radius: width / 2
-                color: Colors.alpha(use.tint, 0.22)
+            // A plain line icon in its colour, where the tonal circle was.
+            Item {
+                width: Tokens.islandHeight; height: width
                 anchors.verticalCenter: parent.verticalCenter
-                Icon { anchors.centerIn: parent; name: use.icon; color: use.tint; filled: true }
+                Icon { anchors.centerIn: parent; name: use.icon; color: use.tint }
             }
             Column {
                 anchors.verticalCenter: parent.verticalCenter
@@ -40,7 +40,7 @@ Column {
                 Label { text: use.title; font.weight: Font.DemiBold }
                 Label { width: parent.width; text: use.apps.join(", "); role: "dim"; elide: Text.ElideRight }
             }
-            Capsule { id: stop; visible: use.action.length > 0; label: use.action; anchors.verticalCenter: parent.verticalCenter; onClicked: use.act() }
+            GlassButton { id: stop; visible: use.action.length > 0; label: use.action; anchors.verticalCenter: parent.verticalCenter; onClicked: use.act() }
         }
     }
 

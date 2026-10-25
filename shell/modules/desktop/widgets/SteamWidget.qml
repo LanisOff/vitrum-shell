@@ -99,22 +99,31 @@ Item {
                     Item {
                         id: plate
                         width: parent.width; height: shelf.coverH
-                        scale: gm.pressed ? 0.95 : gm.containsMouse ? 1.04 : 1
+                        scale: gm.pressed ? 0.97 : gm.containsMouse ? 1.04 : 1
                         Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
 
-                        // Under the cover while it loads, or instead of one.
-                        Rectangle {
+                        // Under the cover while it loads, or instead of one: clear
+                        // glass; in a gallery card each sample tinted in its own hue.
+                        Item {
                             id: ph
                             anchors.fill: parent
-                            radius: Tokens.radiusInner
                             visible: !game.hasCover
-                            readonly property color tone: root.preview ? Colors.ink(game.modelData.hue || 0) : Colors.alpha(Colors.text, 0.5)
-                            gradient: Gradient {
-                                GradientStop { position: 0; color: Colors.alpha(ph.tone, root.preview ? 0.55 : 0.12) }
-                                GradientStop { position: 1; color: Colors.alpha(ph.tone, root.preview ? 0.25 : 0.06) }
+                            Rectangle {
+                                anchors.fill: parent
+                                radius: Tokens.radiusInner
+                                color: Colors.dark ? Qt.rgba(1, 1, 1, 0.05) : Colors.alpha(Colors.text, 0.05)
+                                border.width: Tokens.hairline
+                                border.color: Colors.dark ? Qt.rgba(1, 1, 1, 0.08) : Colors.alpha(Colors.text, 0.08)
                             }
-                            border.width: Tokens.hairline
-                            border.color: Colors.alpha(Colors.text, 0.08)
+                            ShellTint {
+                                anchors.fill: parent
+                                visible: root.preview
+                                radius: Tokens.radiusInner
+                                group: "widgets"
+                                tint: Colors.ink(game.modelData.hue || 0)
+                                // A still sample: no sweep when the card is made.
+                                animate: false
+                            }
                             Label {
                                 visible: !root.named
                                 anchors.centerIn: parent

@@ -1,7 +1,9 @@
 import QtQuick
 import qs.theme
 
-// A UI icon by name (shell/data/icons.json).
+// A UI icon by name (shell/data/icons.json): a Phosphor Light line icon, or
+// Phosphor Fill when `filled` (the player's solid icons, and users' own
+// widgets), or a Nerd Font glyph in the mono font preset.
 Text {
     id: root
     property string name: "help"
@@ -10,9 +12,8 @@ Text {
     readonly property var _g: Icons.glyph(name)
 
     text: _g.text
-    font.family: _g.font === "nerd" ? Tokens.fontNerd : Tokens.fontIcons
+    font.family: _g.font === "nerd" ? Tokens.fontNerd : filled ? Tokens.fontIconsFill : Tokens.fontIcons
     font.pixelSize: size
-    font.variableAxes: _g.font === "nerd" ? ({}) : { "FILL": filled ? 1 : 0, "wght": 400, "opsz": Math.max(20, Math.min(48, size)) }
     color: Colors.text
     horizontalAlignment: Text.AlignHCenter
     verticalAlignment: Text.AlignVCenter

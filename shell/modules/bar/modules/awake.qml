@@ -8,6 +8,5 @@ StatusIcon {
     shown: Awake.active
     icon: "coffee"
     tint: Colors.accent
-    filled: Awake.manual
     label: Awake.mode === "timed" ? Math.ceil(Awake.remaining / 60) + "m" : ""
 }

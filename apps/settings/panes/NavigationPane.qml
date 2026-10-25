@@ -26,10 +26,10 @@ Page {
     Section {
         title: "Hot corners"
         SettingToggle { key: "corners.enabled"; label: "Hot corners"; hint: "Rest the pointer in a corner. They never fire over a fullscreen window." }
-        SettingChoice { key: "corners.topLeft"; label: "Top left"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
-        SettingChoice { key: "corners.topRight"; label: "Top right"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
-        SettingChoice { key: "corners.bottomLeft"; label: "Bottom left"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
-        SettingChoice { key: "corners.bottomRight"; label: "Bottom right"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
-        SettingSlider { key: "corners.delay"; label: "Wait before acting"; from: 0; to: 600; step: 50; unit: " ms"; divider: false }
+        SettingChoice { key: "corners.topLeft"; needs: "corners.enabled"; label: "Top left"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
+        SettingChoice { key: "corners.topRight"; needs: "corners.enabled"; label: "Top right"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
+        SettingChoice { key: "corners.bottomLeft"; needs: "corners.enabled"; label: "Bottom left"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
+        SettingChoice { key: "corners.bottomRight"; needs: "corners.enabled"; label: "Bottom right"; names: ({ none: "Nothing", overview: "Overview", desktop: "Show the desktop", notifications: "Notifications", launcher: "Launcher", control: "Control Centre" }) }
+        SettingSlider { key: "corners.delay"; needs: "corners.enabled"; label: "Wait before acting"; from: 0; to: 600; step: 50; unit: " ms"; divider: false }
     }
 }

@@ -51,11 +51,12 @@ Item {
         anchors.centerIn: parent
         anchors.verticalCenterOffset: head.height / 2
         spacing: Tokens.gap * 0.5
-        Rectangle {
+        // A plain line check, no circle behind it.
+        Icon {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Math.round(Math.min(root.width, root.height - head.height) * 0.36); height: width; radius: width / 2
-            color: Colors.alpha(Colors.accent, Colors.dark ? 0.22 : 0.16)
-            Icon { anchors.centerIn: parent; name: "check"; size: Math.round(parent.width * 0.58); color: Colors.accent }
+            name: "check"
+            size: Math.round(Math.min(root.width, root.height - head.height) * 0.32)
+            color: Colors.accent
         }
         Label { anchors.horizontalCenter: parent.horizontalCenter; text: "Up to date"; font.weight: Font.Medium }
     }

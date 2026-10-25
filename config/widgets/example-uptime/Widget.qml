@@ -7,6 +7,9 @@ import qs.components
 // Copy this folder, rename it, edit; the editor's Custom tab lists it, and
 // saving this file reloads it on the desktop. The four properties below are
 // what every widget gets; options come from manifest.json, defaults filled in.
+// The parts are the shell's own (qs.components): WidgetHeader and Metric here,
+// and Meter, Ring, Sparkline, Tile, GlassButton, GlassSwitch and Slider for
+// more. Their on states carry the tint by themselves; text stays Colors.text.
 Item {
     id: root
     property var options: ({})

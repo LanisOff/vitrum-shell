@@ -81,3 +81,49 @@ eq(l.lockBackground("/w/forest.jpg", "/c/poster.png"), "/w/forest.jpg", "image")
 eq(l.lockBackground("/w/rain.MP4", "/c/poster.png"), "/c/poster.png", "video → poster");
 eq(l.lockBackground("/w/rain.webm", ""), "", "video without a poster → nothing");
 eq(l.lockBackground("", "/c/poster.png"), "", "no wallpaper");
+
+// chrome(amb, leave): the quiet screen recedes, the unlock takes it out
+eq(l.QUIET_OPACITY, 0.35, "quiet opacity");
+eq(l.chrome(0, 0), 1, "at rest, all of it");
+eq(Math.round(l.chrome(1, 0) * 100) / 100, 0.35, "quiet: recedes to 0.35");
+eq(l.chrome(1, 1), 0, "unlocking: gone");
+eq(l.chrome(0, 1), 0, "unlocking from rest: gone");
+eq(l.chrome(5, -1), l.chrome(1, 0), "clamped");
+
+// rise(enter, order, last): staggered, and every block in place at the end
+eq(l.rise(0, 0, 8), 0, "nothing before the start");
+eq(l.rise(1, 0, 8), 1, "the first block in place");
+eq(l.rise(1, 8, 8), 1, "the last block in place too (none stuck short of it)");
+eq(l.rise(0.2, 8, 8), 0, "the last one waits its turn");
+eq(l.rise(0.3, 1, 8) > l.rise(0.3, 2, 8), true, "one after another");
+let mono = true, prev = -1;
+for (let e = 0; e <= 1.0001; e += 0.01) { const v = l.rise(e, 3, 8); if (v < prev - 1e-9 || v > 1) mono = false; prev = v; }
+eq(mono, true, "never overshoots, never goes back");
+
+// faceCandidates(home, user)
+eq(l.faceCandidates("/home/lanis", "lanis").join(" "), "/home/lanis/.face /home/lanis/.face.icon /var/lib/AccountsService/icons/lanis", "the picture: ~/.face, ~/.face.icon, AccountsService");
+eq(l.faceCandidates("", "").length, 0, "nothing to look at");
+
+// capsLockOn(text): any keyboard's LED lit
+eq(l.capsLockOn("0\n0\n"), false, "all dark");
+eq(l.capsLockOn("0\n1\n"), true, "one keyboard lit");
+eq(l.capsLockOn("255"), true, "max brightness");
+eq(l.capsLockOn(""), false, "no LEDs at all");
+eq(l.capsLockOn("cat: no such file"), false, "an error is not on");
+
+// networkLabel / networkIcon
+eq(l.networkLabel("wired", "enp12s0", true), "Ethernet", "a cable says Ethernet, not the interface");
+eq(l.networkLabel("wifi", "Home", true), "Home", "Wi-Fi: the network");
+eq(l.networkLabel("wifi", "", true), "Wi-Fi", "Wi-Fi without a name");
+eq(l.networkLabel("none", "", false), "Offline", "offline");
+eq(l.networkIcon("wired", 1, true), "ethernet", "cable icon");
+eq(l.networkIcon("wifi", 0.9, true), "wifi-high", "strong Wi-Fi");
+eq(l.networkIcon("wifi", 0.2, true), "wifi-low", "weak Wi-Fi");
+eq(l.networkIcon("none", 0, false), "network-off", "offline icon");
+
+// powerLabel(action, armed)
+eq(l.powerLabel("suspend", false), "Sleep", "sleep");
+eq(l.powerLabel("reboot", false), "Restart", "restart");
+eq(l.powerLabel("reboot", true), "Again to restart", "armed restart");
+eq(l.powerLabel("poweroff", true), "Again to power off", "armed power off");
+eq(l.powerLabel("suspend", true), "Sleep", "sleep is never armed");

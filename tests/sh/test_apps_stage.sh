@@ -34,3 +34,9 @@ test_apps_remove_niri_tahoe_leftovers() {
   [[ ! -e "$HOME/.local/bin/niri-tahoe-settings" && ! -e "$XDG_DATA_HOME/applications/niri-tahoe-about.desktop" && ! -e "$XDG_DATA_HOME/applications/finder.desktop" ]]
   [[ ! -e "$XDG_CONFIG_HOME/quickshell/niri-tahoe-settings" ]]
 }
+
+test_apps_version_is_the_release_not_a_commit() {
+  _load
+  _apps_version
+  assert_eq "$(cat "$XDG_DATA_HOME/vitrum/version")" "$(head -n1 "$VITRUM_DIR/VERSION" | tr -d '[:space:]')"
+}

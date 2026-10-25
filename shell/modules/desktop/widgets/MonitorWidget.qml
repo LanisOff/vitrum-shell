@@ -13,7 +13,7 @@ import qs.components
  *   L   as M, taller: the value big under the name, the upload under it
  *   XL  as L, with what uses the processor most at the right
  * options: cpu, memory, network (which graphs show). The network graph is
- * two lines: down in the accent, up in a second ink.
+ * two lines: down turning from the accent to accent2, up in a second ink.
  * In a gallery card nothing is sampled: a made-up three minutes stands in.
  */
 Item {
@@ -183,12 +183,11 @@ Item {
                 Item {
                     id: plot
                     anchors { left: parent.left; leftMargin: rows.blockW + Tokens.gap; right: parent.right; top: parent.top; bottom: parent.bottom }
-                    Rectangle { width: parent.width; height: 1; anchors.bottom: parent.bottom; color: Colors.alpha(Colors.text, 0.08) }
+                    Rectangle { width: parent.width; height: Tokens.hairline; anchors.bottom: parent.bottom; color: Colors.alpha(Colors.text, 0.08) }
                     Sparkline {
                         anchors.fill: parent
                         values: row.net ? root.downS : modelData.key === "cpu" ? root.cpuS : root.memS
                         max: row.net ? root.netTop : root.scaleTop(values, modelData.key === "mem" ? 0.25 : 0.2)
-                        color: Colors.accent
                     }
                     Sparkline {
                         visible: row.net
@@ -216,6 +215,7 @@ Item {
             // How much of one core each takes: a whole core fills the bar.
             delegate: Meter {
                 required property var modelData
+                group: "widgets"
                 width: parent.width
                 kind: "linear"
                 thickness: 4

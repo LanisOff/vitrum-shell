@@ -90,6 +90,8 @@ confirm_short() {
     phone)            T "Phone" ;;
     tmux)             printf 'tmux' ;;
     games)            T "Game mode" ;;
+    steam_theme)      T "Steam theme" ;;
+    vesktop_theme)    T "Vesktop theme" ;;
     utilities)        T "Mic filter, VPN, sensors" ;;
     cli_tools)        printf 'eza, bat, fzf, zoxide, delta' ;;
     file_manager)     printf 'Dolphin' ;;

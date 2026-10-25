@@ -98,6 +98,7 @@ Item {
             size: Math.max(22, Math.min(root.small ? parent.height * 0.42 : parent.height * 0.36, 52))
         }
         Meter {
+            group: "widgets"
             visible: root.template === "progress"
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom; bottomMargin: 4 }
             value: root.out && root.out.progress !== null ? root.out.progress : 0

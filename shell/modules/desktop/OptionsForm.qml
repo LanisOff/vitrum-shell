@@ -4,9 +4,11 @@ import qs.components
 
 /*
  * A widget's options, as a form built from its schema (lib/widgets.js):
- * bool → a switch, choice and color → chips, number → a stepper, text and
- * folder → a field (saved on Enter or leaving it), list → chips with × and a
- * field to add. Options marked hidden (a note's text) are not shown.
+ * bool → a switch, choice and color → choices (the chosen one tinted),
+ * number → a stepper, text and
+ * folder → a field (saved on Enter or leaving it), list → chips with × (a
+ * click on one's text renames it in place) and a field to add. Options
+ * marked hidden (a note's text) are not shown.
  * `changed` hands back the whole options object, one value changed.
  */
 Column {
@@ -46,7 +48,7 @@ Column {
                     Label { width: parent.width; text: field.opt.label; font.weight: Font.Medium; elide: Text.ElideRight }
                     Label { width: parent.width; visible: !!field.opt.hint; text: field.opt.hint || ""; role: "dim"; size: Tokens.textSmall; wrapMode: Text.WordWrap; elide: Text.ElideNone }
                 }
-                Toggle {
+                GlassSwitch {
                     id: sw
                     visible: field.opt.type === "bool"
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
@@ -76,30 +78,13 @@ Column {
             spacing: 6
             Repeater {
                 model: flow.opt.choices || []
-                delegate: Rectangle {
+                delegate: GlassChoice {
                     required property var modelData
-                    readonly property bool on: modelData.value === flow.value
-                    readonly property bool swatch: flow.opt.type === "color"
-                    height: Tokens.islandHeight * 1.0
-                    width: chipRow.implicitWidth + Tokens.padding * 1.3
-                    radius: Tokens.radiusInner
-                    color: on ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22) : chipMouse.containsMouse ? Colors.alpha(Colors.text, 0.1) : "transparent"
-                    border.width: on ? 0 : Tokens.hairline; border.color: Colors.alpha(Colors.text, 0.25)
-                    Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-                    Row {
-                        id: chipRow
-                        anchors.centerIn: parent
-                        spacing: 6
-                        Icon { visible: on && !swatch; name: "check"; size: Tokens.textSmall + 4; anchors.verticalCenter: parent.verticalCenter }
-                        Rectangle {
-                            visible: swatch
-                            width: Tokens.textSmall + 4; height: width; radius: width / 2
-                            anchors.verticalCenter: parent.verticalCenter
-                            color: modelData.value === "accent" ? Colors.accent : Colors.ink(Number(modelData.value))
-                        }
-                        Label { text: modelData.label; size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
-                    }
-                    MouseArea { id: chipMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: form.put(flow.opt.key, modelData.value) }
+                    label: modelData.label
+                    chosen: modelData.value === flow.value
+                    swatch: flow.opt.type !== "color" ? "transparent"
+                          : modelData.value === "accent" ? Colors.accent : Colors.ink(Number(modelData.value))
+                    onClicked: form.put(flow.opt.key, modelData.value)
                 }
             }
         }
@@ -116,9 +101,9 @@ Column {
                 const lo = opt.min !== undefined ? opt.min : -Infinity, hi = opt.max !== undefined ? opt.max : Infinity;
                 form.put(opt.key, Math.max(lo, Math.min(hi, Math.round(v / step) * step)));
             }
-            RoundButton { icon: "remove"; enabled: st.opt.min === undefined || st.value > st.opt.min; onClicked: st.to(st.value - st.step) }
+            StepButton { icon: "remove"; enabled: st.opt.min === undefined || st.value > st.opt.min; onClicked: st.to(st.value - st.step) }
             Label { width: Tokens.islandHeight * 1.6; horizontalAlignment: Text.AlignHCenter; anchors.verticalCenter: parent.verticalCenter; text: String(st.value); numeric: true; font.weight: Font.Medium }
-            RoundButton { icon: "add"; enabled: st.opt.max === undefined || st.value < st.opt.max; onClicked: st.to(st.value + st.step) }
+            StepButton { icon: "add"; enabled: st.opt.max === undefined || st.value < st.opt.max; onClicked: st.to(st.value + st.step) }
         }
     }
     Component {
@@ -141,20 +126,45 @@ Column {
             spacing: 6
             Repeater {
                 model: lf.items
-                delegate: Rectangle {
+                // A chip: a click on its text renames it in place (the same
+                // position, so a widget can tell a rename from a new entry).
+                delegate: Surface {
+                    id: chip
                     required property var modelData
                     required property int index
-                    height: Tokens.islandHeight; radius: Tokens.radiusInner
-                    width: Math.min(lf.width, lr.implicitWidth + Tokens.padding * 1.2)
-                    color: Colors.alpha(Colors.accent, 0.16)
+                    property bool renaming: false
+                    height: Tokens.islandHeight; radius: Tokens.radiusButton
+                    width: renaming ? Math.min(lf.width, Tokens.islandHeight * 6) : Math.min(lf.width, lr.implicitWidth + Tokens.padding * 1.2)
+                    level: 2
                     Row {
                         id: lr
+                        // Hidden by opacity, not visibility: its width must stay measured.
+                        opacity: chip.renaming ? 0 : 1
+                        enabled: !chip.renaming
                         anchors.centerIn: parent
                         spacing: 4
-                        Label { text: String(modelData); size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
+                        Label { text: String(modelData); size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter
+                                MouseArea { anchors.fill: parent; cursorShape: Qt.IBeamCursor; onClicked: chip.renaming = true } }
                         Icon { name: "close"; size: Tokens.textSmall + 3; anchors.verticalCenter: parent.verticalCenter
                                MouseArea { anchors.fill: parent; anchors.margins: -5; cursorShape: Qt.PointingHandCursor
                                            onClicked: { const l = lf.items.slice(); l.splice(index, 1); form.put(lf.opt.key, l); } } }
+                    }
+                    Loader {
+                        anchors.fill: parent
+                        active: chip.renaming
+                        sourceComponent: Field {
+                            text: String(chip.modelData)
+                            Component.onCompleted: focusIn()
+                            // Enter or leaving the field saves it (once); blank or taken: no change.
+                            onCommitted: (v, id, base) => {
+                                if (!chip.renaming) return;
+                                chip.renaming = false;
+                                const cur = Array.isArray(base[lf.opt.key]) ? base[lf.opt.key] : lf.items, t = v.trim();
+                                if (!t || t === String(chip.modelData) || cur.indexOf(t) >= 0) return;
+                                const l = cur.slice(); l[chip.index] = t;
+                                form.putFor(id, base, lf.opt.key, l);
+                            }
+                        }
                     }
                 }
             }
@@ -167,7 +177,7 @@ Column {
         }
     }
 
-    // A Material text field: a tonal well, an accent rim while typing.
+    // A text field: a faint well in the glass, an accent rim while typing.
     component Field: Rectangle {
         id: fld
         property alias text: input.text
@@ -177,8 +187,9 @@ Column {
         property string forId: ""
         property var forValues: ({})
         signal committed(string value, string id, var base)
+        function focusIn() { input.forceActiveFocus(); input.selectAll(); }
         height: Tokens.islandHeight * 1.1
-        radius: Tokens.radiusInner
+        radius: Tokens.radiusButton
         color: Colors.alpha(Colors.text, 0.07)
         border.width: input.activeFocus ? 2 : 0; border.color: Colors.accent
         TextInput {
@@ -197,14 +208,8 @@ Column {
             Label { visible: !input.text && !input.activeFocus; text: fld.placeholder; role: "dim"; anchors.verticalCenter: parent.verticalCenter }
         }
     }
-    component RoundButton: Rectangle {
-        id: rb
-        property string icon: ""
-        signal clicked()
-        width: Tokens.islandHeight; height: width; radius: width / 2
-        opacity: enabled ? 1 : 0.4
-        color: rbMouse.containsMouse ? Colors.alpha(Colors.text, 0.14) : Colors.alpha(Colors.text, 0.07)
-        Icon { anchors.centerIn: parent; name: rb.icon }
-        MouseArea { id: rbMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: rb.clicked() }
+    // The stepper's − and +: square glass buttons, dimmed at the ends.
+    component StepButton: GlassButton {
+        width: Tokens.islandHeight; height: width
     }
 }

@@ -59,24 +59,41 @@ Item {
     // Over a game (Materials.plain) the plain plate instead: two blur passes
     // and a mask over the game's frames.
     readonly property bool blurredArt: hasArt && !Materials.plain("panels", Screen.name)
+    // In a desktop widget the card sits inside the frame's padding: the
+    // blurred cover reaches out to the frame's edge and takes its corners,
+    // instead of a feathered box floating inside it.
+    readonly property real bleed: bare ? Tokens.padding : 0
+    /// How far up the cover reaches: a widget sets it to cover its header too.
+    property real bleedTop: bleed
+    readonly property real backRadius: bare ? Tokens.radiusPanel * 1.25 : Tokens.radiusInner * 1.5
     Item {
         id: back
         anchors.fill: parent
+        anchors.margins: -root.bleed
+        anchors.topMargin: -root.bleedTop
         visible: false
         Image { id: backArt; anchors.fill: parent; source: Media.artUrl; fillMode: Image.PreserveAspectCrop; sourceSize.width: 256; asynchronous: true }
     }
     // Soft mask: a rounded box inset by the feather, blurred out to the card's edge.
+    // Its layer stays on: the wash's MultiEffect holds on to the texture it
+    // was given, and a layer turned off and on again (a cover loading for a
+    // moment) leaves it masking with a dead one, the blurred cover gone.
     Item {
         id: softMask
         anchors.fill: parent
+        anchors.margins: -root.bleed
+        anchors.topMargin: -root.bleedTop
         visible: false
-        layer.enabled: root.blurredArt
-        Rectangle { id: maskCore; anchors.fill: parent; anchors.margins: root.feather * 0.6; radius: Tokens.radiusInner * 1.5; visible: false }
-        MultiEffect { anchors.fill: maskCore; source: maskCore; blurEnabled: true; blur: 1.0; blurMax: Math.round(root.feather) }
+        layer.enabled: true
+        Rectangle { id: maskCore; anchors.fill: parent; anchors.margins: root.bare ? 0 : root.feather * 0.6; radius: root.backRadius; visible: false }
+        MultiEffect { anchors.fill: maskCore; source: maskCore; blurEnabled: true; blur: 1.0; blurMax: root.bare ? 2 : Math.round(root.feather) }
     }
+    // Bare (a desktop widget) too: only the plain plate is the widget's glass.
     Item {
         anchors.fill: parent
-        visible: !root.bare && opacity > 0
+        anchors.margins: -root.bleed
+        anchors.topMargin: -root.bleedTop
+        visible: opacity > 0
         // The blurred cover comes in once it has loaded, not as a pop.
         opacity: root.blurredArt ? 1 : 0
         Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
@@ -183,30 +200,45 @@ Item {
             Label { anchors.right: parent.right; text: LockLib.formatDuration(Media.length); role: "dim"; size: Tokens.textSmall; numeric: true }
         }
 
-        // Synced lyrics: the line being sung in the middle (one line in a small widget).
+        // Synced lyrics: the line being sung in the middle (one line in a small
+        // widget). A long line wraps to up to three rows rather than being cut;
+        // the view keeps room for that, and the line being sung stays centred.
         ListView {
             id: lyrics
             readonly property real lineH: Tokens.textLarge * 1.9
+            readonly property real rowH: Tokens.textLarge * 1.3
+            // The tallest line: three rows of the large size.
+            readonly property real tallH: lineH + 2 * rowH
             readonly property int lines: root.fill ? (root.height > Tokens.islandHeight * 8 ? 3 : 1) : 3
             readonly property bool room: !root.fill || root.height > Tokens.islandHeight * 6
+            readonly property real currentH: currentItem ? currentItem.height : lineH
             visible: root.showLyrics && room && Lyrics.state === "synced" && Settings.get("media.lyrics", true)
             width: body.width
-            height: visible ? lineH * lines : 0
+            height: visible ? (lines === 3 ? lineH * 2 + tallH : tallH) : 0
             clip: true
             interactive: false
             model: Lyrics.lines
             currentIndex: Math.max(0, Lyrics.index)
             highlightRangeMode: ListView.StrictlyEnforceRange
-            preferredHighlightBegin: lines === 3 ? lineH : 0
-            preferredHighlightEnd: lines === 3 ? lineH * 2 : lineH
+            preferredHighlightBegin: (height - currentH) / 2
+            preferredHighlightEnd: (height + currentH) / 2
             highlightMoveDuration: Motion.enabled ? Motion.emphasized : 0
             delegate: Label {
                 required property var modelData
                 required property int index
                 readonly property bool now: index === Lyrics.index
-                width: lyrics.width; height: lyrics.lineH
+                // Only the line being sung and its neighbours: the room kept for
+                // a three-row line would otherwise show slivers of the lines
+                // beyond them, cut by the view's edge.
+                readonly property bool near: Math.abs(index - Math.max(0, Lyrics.index)) <= (lyrics.lines === 3 ? 1 : 0)
+                opacity: near ? 1 : 0
+                Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
+                width: lyrics.width
+                height: Math.max(lyrics.lineH, contentHeight + lyrics.lineH - lyrics.rowH)
                 verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
                 text: modelData.text
+                wrapMode: Text.WordWrap
+                maximumLineCount: 3
                 elide: Text.ElideRight
                 size: now ? Tokens.textLarge : Tokens.textSize
                 font.weight: now ? Font.DemiBold : Font.Normal

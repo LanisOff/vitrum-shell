@@ -1,0 +1,1864 @@
+/* vitrum for Steam: the parts Steam names only by hashed classes.
+
+   This is a template. @{Signature/Key} stands for the class Steam's webpack
+   bundles (steamui/*.js) map the readable Key to, in the CSS module that also
+   has Signature; vitrum-theme looks them up in the Steam on disk and writes
+   steam.css. A selector whose class this Steam does not have is left out, and
+   a rule left with no selector is dropped, so a Steam update can lose a rule
+   but never break the page. The hashes change with Steam updates, the keys
+   rarely: these are the fragile parts, re-resolved on every vitrum-theme run.
+
+   The signature only picks the module: a key Steam uses in one CSS module
+   (OuterFrame, LibraryHome…). Where a component exists in several variants
+   (the gamepad dialog family, the menus), the signature is one they share, so
+   all the variants are styled alike.
+
+   Variables: colors.css (palette) and base.css (the glass recipes, the
+   motion). The rules are grouped by recipe — clear, bar, panel, tile, off,
+   lit — and then by surface. */
+
+/* ===================================================== clear the frame === */
+
+/* Steam paints its own greys and blue gradients under everything; clear them
+   so the window's solid bg (base.css) shows, and the glass layers sit on it. */
+@{OuterFrame/OuterFrame},
+@{OuterFrame/ContentFrame},
+@{OuterFrame/LocalContentContainer},
+@{OuterFrame/Library},
+@{OuterFrame/BrowserWrapper},
+@{OuterFrame/TitleBar},
+@{OuterFrame/SuperNavBar},
+@{OuterFrame/URLBarReplacement},
+@{RootMenuButton/RootMenuBar},
+@{LeftListMinWidth/Container},
+@{LeftListMinWidth/MainPanel},
+@{LeftListMinWidth/AppDetailsTransitionGroup},
+@{LeftListMinWidth/AppDetailsMain},
+@{LeftListMinWidth/TopGradient},
+@{LibraryHome/LibraryHome},
+@{LibraryHome/Container},
+@{LibraryHome/InnerContainer},
+@{GameListHomeAndSearch/GameListHomeAndSearch},
+@{GameListHomeAndSearch/Container},
+@{ViewFiltersBar/MenuHeader},
+@{AdvancedSearchPane/Container},
+@{AdvancedSearchPane/SearchInput},
+@{AdvancedSearchPane/AdvancedSearchContainer},
+@{SectionHeaderContent/Container},
+@{CollapseIconParent/Container},
+@{BackdropGlass/Backdrop},
+@{BackdropGlass/BackdropGlass},
+@{BackdropGlass/Container},
+@{AppDetailsOverviewPanel/ScrollContainer},
+@{AppDetailsOverviewPanel/Container},
+@{AppDetailsOverviewPanel/InnerContainer},
+@{HeaderBackgroundImage/TopGradient},
+@{EventRowCarousel/EventSummaryContainer},
+@{DownloadsPage/DownloadsPage},
+@{DownloadsPage/Section},
+@{DownloadsPage/TopBar},
+@{GraphAndStats/DownloadGraphStatsWrapper},
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog},
+@{PagedSettingsDialog_PageListItem/PagedSettingDialog_ContentColumn},
+@{ContextMenuMouseOverlay/contextMenuContents},
+@{MenuWrapper/MenuPopup} {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: transparent !important;
+}
+
+/* The window's own frame: Steam draws it black with a light grey outline. */
+@{OuterFrame/Wrapper},
+@{OuterFrame/ForceOpaqueBackground} {
+  background: transparent !important;
+  border-color: rgba(255, 255, 255, .08) !important;
+}
+
+/* Steam's drop shadows and the strip under the sticky play bar. */
+@{OuterFrame/URLBarReplacement},
+@{GameListHomeAndSearch/GameListHomeAndSearch},
+@{StatusAndStats/StickyHeaderShadow} {
+  box-shadow: none !important;
+}
+
+@{StatusAndStats/StickyHeaderShadow} {
+  background: none !important;
+}
+
+/* The divider between the games list and the page: a hairline. */
+@{LeftListMinWidth/LibraryWindowDivider} {
+  background: var(--vt-hairline) !important;
+  width: 1px !important;
+  transition: background-color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{LeftListMinWidth/LibraryWindowDivider}@{LeftListMinWidth/Sizable}:hover {
+  background: rgba(var(--vt-accent-rgb), .45) !important;
+}
+
+/* ============================================================ the bars === */
+
+/* The title bar with the menus and the Store / Library / Community tabs. */
+@{OuterFrame/TopBar} {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+}
+
+@{BottomBarContainer/BottomBar} {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 1px 0 var(--vt-hairline) !important;
+  border: 0 !important;
+}
+
+/* ====================================================== the title bar === */
+
+@{RootMenuButton/RootMenuButton} {
+  color: var(--vt-text-dim) !important;
+  border-radius: 8px !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{RootMenuButton/RootMenuButton}:hover,
+@{MenuWrapper/MenuOpen} @{RootMenuButton/RootMenuButton},
+@{RootMenuButton/RootMenuButton}@{MenuWrapper/MenuOpen} {
+  color: var(--vt-text) !important;
+  background: var(--vt-off-hover) !important;
+}
+
+/* Store / Library / Community / the profile: Steam's big upper-case words
+   become vitrum's tabs. Every tab is the same plate — 28 px high, radius 9,
+   12 px each side, centred in the row (Steam gives the first and the last
+   ones uneven padding and puts the text at the top of a 32 px box, which
+   left the plate crooked). Hover lifts a faint plate of the same shape; the
+   open one is lit glass. All of it is colour and shadow, so moving the
+   selection cross-fades between the two tabs (damped), and the light runs
+   across the new one once. */
+@{SuperNavMenu/SuperNav} {
+  align-items: center !important;
+  gap: 2px;
+}
+
+@{SuperNavMenu/SuperNavMenu},
+@{SuperNavMenu/SuperNavMenu}:first-child,
+@{SuperNavMenu/SuperNavMenu}:last-child {
+  display: flex !important;
+  align-items: center !important;
+  box-sizing: border-box !important;
+  height: 28px !important;
+  padding: 0 12px !important;
+  margin: 0 1px !important;
+  overflow: visible !important;
+  border-radius: var(--vt-radius-button) !important;
+  background-color: rgba(255, 255, 255, 0) !important;
+  background-image: none;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0), inset 0 1px 0 rgba(255, 255, 255, 0),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), 0), inset 0 12px 14px -10px rgba(255, 255, 255, 0) !important;
+  transition: background-color 280ms var(--vt-ease), box-shadow 280ms var(--vt-ease),
+              transform var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{SuperNavMenu/SuperNavMenu}:hover:not(@{SuperNavMenu/Disabled}):not(@{SuperNavMenu/Selected}),
+@{SuperNavMenu/SuperNavMenu}@{MenuWrapper/MenuOpen}:not(@{SuperNavMenu/Selected}) {
+  background-color: var(--vt-off-hover) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 1px 0 rgba(255, 255, 255, .08),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), 0), inset 0 12px 14px -10px rgba(255, 255, 255, .03) !important;
+  transform: translateY(-1px);
+}
+
+@{SuperNavMenu/SuperNavMenu}@{SuperNavMenu/Selected} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-sweep) !important;
+  background-size: 300% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .28), inset 0 1px 0 rgba(255, 255, 255, .5),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), .55), inset 0 12px 14px -10px rgba(255, 255, 255, .12) !important;
+  transform: none;
+  animation: var(--vt-a-sweep-one);
+}
+
+@{SuperNavMenu/SuperNavMenu}@{SuperNavMenu/Selected}:hover {
+  background-color: var(--vt-lit-fill-hover) !important;
+}
+
+@{SuperNavMenu/SuperNavMenu} @{SuperNavMenu/MenuButton} {
+  display: block !important;
+  margin: 0 !important;
+  padding: 0 !important;
+  line-height: 20px !important;
+  color: var(--vt-text-dim) !important;
+  text-shadow: none !important;
+  text-transform: none !important;
+  font-size: 15px !important;
+  font-weight: 600 !important;
+  letter-spacing: 0 !important;
+  white-space: nowrap !important;
+  transition: color 280ms var(--vt-ease) !important;
+}
+
+@{SuperNavMenu/SuperNavMenu}:hover @{SuperNavMenu/MenuButton},
+@{SuperNavMenu/SuperNavMenu}@{SuperNavMenu/Selected} @{SuperNavMenu/MenuButton} {
+  color: var(--vt-text) !important;
+}
+
+/* Steam's underline under the open tab: the lit glass says it now. */
+@{SuperNavMenu/SuperNavMenu} @{SuperNavMenu/MenuButton}::after,
+@{SuperNavMenu/SuperNavMenu}::after {
+  display: none !important;
+}
+
+/* The buttons on the right of the title bar (announcements, notifications,
+   the account). */
+@{AnnouncementsButton/Button},
+@{AnnouncementsButton/AccountMenu},
+@{AnnouncementsButton/WalletBalance} {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{AnnouncementsButton/Button}:hover,
+@{AnnouncementsButton/AccountMenu}:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+@{AnnouncementsButton/WalletBalance} {
+  background: rgba(255, 255, 255, .06) !important;
+  box-shadow: none !important;
+  border-radius: 6px !important;
+  color: var(--vt-text-dim) !important;
+}
+
+/* The account button already is glass; the balance sits inside it. */
+@{AnnouncementsButton/AccountMenu} @{AnnouncementsButton/WalletBalance} {
+  background: transparent !important;
+}
+
+@{AnnouncementsButton/Button} svg,
+@{AnnouncementsButton/AccountMenu} svg {
+  color: var(--vt-text-dim) !important;
+}
+
+@{AnnouncementsButton/NotificationsButton}@{AnnouncementsButton/HasNew},
+@{AnnouncementsButton/AnnouncementsButton}@{AnnouncementsButton/Active} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+}
+
+@{AnnouncementsButton/NotificationsButton}@{AnnouncementsButton/HasNew} svg,
+@{AnnouncementsButton/AnnouncementsButton}@{AnnouncementsButton/Active} svg {
+  color: var(--vt-accent) !important;
+}
+
+@{OuterFrame/WindowControls} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* The URL bar of Steam's built-in browser pages (Store, Community). */
+@{OuterFrame/URLBar} {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+  border: 0 !important;
+}
+
+@{OuterFrame/URLBar} @{OuterFrame/URLBarText} {
+  background: var(--vt-well) !important;
+  border-radius: var(--vt-radius-button) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text-dim) !important;
+  border: 0 !important;
+}
+
+@{OuterFrame/URLBar} @{OuterFrame/URL} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{OuterFrame/ReloadButton} {
+  border-radius: 8px !important;
+  color: var(--vt-text-dim) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{OuterFrame/ReloadButton}:hover {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* ============================================ the library's games list === */
+
+@{LeftListMinWidth/LeftListSizableContainer} {
+  background: var(--vt-panel) !important;
+  box-shadow: none !important;
+}
+
+/* Home and the collections button. */
+@{GameListHomeAndSearch/HomeBox} {
+  border-radius: var(--vt-radius-button) !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+@{CollectionBar/Bar} {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{CollectionBar/Bar}:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+/* Steam's large faint logo behind "Home". */
+@{CollectionBar/Bar} @{CollectionBar/Icon} {
+  opacity: .25;
+}
+
+@{CollectionBar/CollectionIconBox} {
+  background: var(--vt-text-dim) !important;
+  border-radius: 2px !important;
+  opacity: .7;
+}
+
+/* The view picker ("Games and Software"), its filters, and the search. */
+@{ViewFiltersBar/SearchBar} {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{ViewFiltersBar/SearchBar}:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+@{ViewFiltersBar/SearchBar} > svg {
+  background: transparent !important;
+  border: 0 !important;
+  color: var(--vt-text-dim) !important;
+}
+
+@{ViewFiltersBar/ViewName} {
+  color: var(--vt-text) !important;
+}
+
+@{ViewFiltersBar/Arrow} {
+  color: var(--vt-text-dim) !important;
+  fill: currentColor !important;
+}
+
+@{ViewFiltersBar/CheckboxWithImage} {
+  border-radius: 6px !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{ViewFiltersBar/CheckboxWithImage}:hover {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* A filter that is on: lit, its icon in the accent. */
+@{ViewFiltersBar/CheckboxWithImage}@{ViewFiltersBar/Active} {
+  background-color: var(--vt-lit-fill) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), inset 0 1px 0 rgba(255, 255, 255, .4) !important;
+  color: var(--vt-accent) !important;
+}
+
+@{ViewFiltersBar/CheckboxWithImage} svg {
+  color: inherit !important;
+  fill: currentColor;
+}
+
+@{AdvancedSearchPane/SearchInput} input {
+  padding-left: 12px !important;
+}
+
+@{AdvancedSearchPane/AdvancedSearchButton} {
+  border-radius: 8px !important;
+  color: var(--vt-text-dim) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{AdvancedSearchPane/AdvancedSearchButton}:hover,
+@{AdvancedSearchPane/AdvancedSearchButton}@{AdvancedSearchPane/Active} {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* A collection's header in the list ("UNCATEGORIZED (2/116)"). */
+@{SectionHeaderContent/Container},
+@{CollapseIconParent/Container} {
+  background: transparent !important;
+  background-image: none !important;
+  border: 0 !important;
+  box-shadow: none !important;
+  border-radius: 8px !important;
+}
+
+@{SectionHeaderContent/SectionName} {
+  color: var(--vt-text-dim) !important;
+  font-weight: 600 !important;
+  letter-spacing: .06em !important;
+}
+
+@{SectionHeaderContent/SectionCount} {
+  color: rgba(var(--vt-text-dim-rgb), .6) !important;
+}
+
+@{SectionHeaderContent/SectionRule} {
+  background: var(--vt-hairline) !important;
+  height: 1px !important;
+}
+
+/* A game in the list. Steam marks the entry with left and right borders and
+   a shadow; the glass replaces them. */
+@{GameListEntryContainer/Container} {
+  border-radius: 8px !important;
+  border: 0 !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0), inset 0 1px 0 rgba(255, 255, 255, 0),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), 0) !important;
+  margin: 0 6px !important;
+  width: calc(100% - 12px) !important;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease),
+              color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{GameListEntryContainer/Container}:hover,
+@{GameListEntryContainer/Container}@{GameListEntryContainer/HoverOverlay},
+@{GameListEntryContainer/Container}@{GameListEntryContainer/HasContextMenuOpen} {
+  background-color: var(--vt-off-hover) !important;
+}
+
+/* Steam also paints the row's inner box on hover (".Selected .Container
+   :hover" in Steam's blue); the row's own glass says it. */
+@{GameListEntryContainer/Container} :hover,
+@{GameListEntryContainer/Container} @{GameListEntryContainer/GameListEntryContainer} {
+  background-color: transparent !important;
+}
+
+/* Keyboard and gamepad focus on a row: the accent's rim, not Steam's blue. */
+@{GameListEntryContainer/Container}.gpfocus,
+@{GameListEntryContainer/Container}:focus-visible {
+  outline: none !important;
+  box-shadow: inset 0 0 0 1px rgba(var(--vt-accent-rgb), .65), inset 0 1px 0 rgba(255, 255, 255, .10),
+              0 0 0 3px rgba(var(--vt-glow-rgb), .14) !important;
+}
+
+@{GameListEntryContainer/Container} @{GameListEntryContainer/GameListEntryName},
+@{GameListEntryContainer/Container} span {
+  color: var(--vt-text) !important;
+  transition: color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{GameListEntryContainer/Container}@{GameListEntryContainer/Uninstalled} span,
+@{GameListEntryContainer/Container}@{GameListEntryContainer/Uninstalled} @{GameListEntryContainer/GameListEntryName} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* Running, updating: the accent as ink. */
+@{GameListEntryContainer/Container}@{GameListEntryContainer/Running} span,
+@{GameListEntryContainer/Container}@{GameListEntryContainer/Updating} span {
+  color: var(--vt-accent) !important;
+}
+
+@{GameListEntryContainer/GameIcon} {
+  border-radius: 5px !important;
+}
+
+/* ===================================================== the lit glass === */
+
+/* Everything that is "on" or "here": the selected game, Home while home,
+   the open tab, the open settings page. The fill fades in (its colour
+   transitions) and the light runs across it once as it comes on. */
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container},
+@{GameListEntryContainer/Selected} @{GameListEntryContainer/Container},
+@{CollectionBar/Bar}@{CollectionBar/Selected},
+@{TopBarTabs/TopBarTab}@{TopBarTabs/Selected},
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListItem}@{PagedSettingsDialog_PageListItem/Active},
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/PlayButton},
+@{PlayButtonContainer/PlayButton}@{PlayButtonContainer/ButtonChild},
+
+@{ScrollToTopButton/ScrollToTopButton} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-sweep), var(--vt-lit-frost) !important;
+  background-size: 300% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+  animation: var(--vt-a-sweep);
+}
+
+@{CollectionBar/Bar}@{CollectionBar/Selected}:hover,
+@{TopBarTabs/TopBarTab}@{TopBarTabs/Selected}:hover,
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/PlayButton}:hover,
+@{ScrollToTopButton/ScrollToTopButton}:hover {
+  background-color: var(--vt-lit-fill-hover) !important;
+}
+
+/* A selected game stays lit under the pointer, in focus and with its menu
+   open — a touch brighter, never Steam's blue (Steam's own rule for that
+   state is ".Selected.Container:hover", "…HoverOverlay" and ".Selected
+   .Container :hover"; these outrank it). */
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container}:hover,
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container}@{GameListEntryContainer/HoverOverlay},
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container}@{GameListEntryContainer/HasContextMenuOpen},
+@{GameListEntryContainer/Selected} @{GameListEntryContainer/Container}:hover,
+@{GameListEntryContainer/Selected} @{GameListEntryContainer/Container}@{GameListEntryContainer/HoverOverlay} {
+  background-color: var(--vt-lit-fill-hover) !important;
+  box-shadow: var(--vt-rim-lit-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container}.gpfocus,
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container}:focus-visible {
+  box-shadow: inset 0 0 0 1px rgba(var(--vt-accent-rgb), .7), inset 0 1px 0 rgba(255, 255, 255, .5),
+              0 6px 20px -6px rgba(var(--vt-glow-rgb), .7) !important;
+}
+
+/* The icon of what is lit: the accent. */
+@{CollectionBar/Bar}@{CollectionBar/Selected} @{CollectionBar/Icon},
+@{PlayButtonContainer/PlayButton} svg {
+  color: var(--vt-accent) !important;
+  fill: currentColor;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListItem}@{PagedSettingsDialog_PageListItem/Active} @{PagedSettingsDialog_PageListItem/PageListItem_Icon} {
+  color: var(--vt-accent) !important;
+}
+
+/* Steam fills the play triangle green in its own rules. */
+@{PlayButtonContainer/PlayButton} svg :is(path, polygon, rect) {
+  fill: var(--vt-accent) !important;
+}
+
+@{CollectionBar/Bar}@{CollectionBar/Selected} @{CollectionBar/Icon} {
+  opacity: .35;
+}
+
+@{GameListEntryContainer/Selected} @{GameListEntryContainer/GameListEntryName},
+@{GameListEntryContainer/Selected}@{GameListEntryContainer/Container} span,
+@{CollectionBar/Bar}@{CollectionBar/Selected} @{CollectionBar/Label} {
+  color: var(--vt-text) !important;
+}
+
+/* ===================================================== the library home === */
+
+/* Pages arrive: fade and rise. Shelves follow one after another. */
+@{LibraryHome/LibraryHome},
+@{LeftListMinWidth/AppDetailsMain} > *,
+@{DownloadsPage/DownloadsPage},
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageContent} > * {
+  animation: var(--vt-a-rise);
+}
+
+@{Showcase/ShowcaseOuter} {
+  animation: var(--vt-a-rise);
+}
+
+@{Showcase/ShowcaseOuter}:nth-child(2) { animation-delay: 50ms; }
+@{Showcase/ShowcaseOuter}:nth-child(3) { animation-delay: 100ms; }
+@{Showcase/ShowcaseOuter}:nth-child(4) { animation-delay: 150ms; }
+@{Showcase/ShowcaseOuter}:nth-child(n+5) { animation-delay: 200ms; }
+
+/* What's New: a glass panel instead of Steam's blue gradient. */
+@{LibraryHome/UpdatesContainer} {
+  background: var(--vt-panel) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-panel) !important;
+  box-shadow: var(--vt-rim-panel) !important;
+  margin: 12px 14px 0 !important;
+  overflow: hidden;
+  animation: var(--vt-a-rise);
+}
+
+@{LibraryHome/Name},
+@{EventRowCarousel/WhatsNewHeaderText} {
+  color: var(--vt-text) !important;
+  font-weight: 600 !important;
+}
+
+@{EventRowCarousel/EventTime} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{EventRowCarousel/SettingsButton},
+@{EventRowCarousel/ScrollLeft},
+@{EventRowCarousel/ScrollRight},
+@{Showcase/PageLeft},
+@{Showcase/PageRight} {
+  color: var(--vt-text-dim) !important;
+  border-radius: 8px !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{EventRowCarousel/SettingsButton}:hover,
+@{Showcase/PageLeft}:hover:not(@{Showcase/Disabled}),
+@{Showcase/PageRight}:hover:not(@{Showcase/Disabled}) {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* An update's card: a tile that lifts toward the pointer. */
+@{EventRowCarousel/PartnerEventRowCapsule_Container} {
+  border-radius: var(--vt-radius-tile) !important;
+  transition: transform var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{EventRowCarousel/PartnerEventRowCapsule_MainImageContainer} {
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+  overflow: hidden;
+}
+
+@{EventRowCarousel/PartnerEventRowCapsule_Container}@{EventRowCarousel/HoversEnabled}:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--vt-shadow-lift) !important;
+}
+
+@{EventRowCarousel/EventSummaryContainer} {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+@{EventRowCarousel/EventSummaryType} {
+  color: var(--vt-accent) !important;
+}
+
+@{EventRowCarousel/PartnerEventRowCapsule_TextTitle} {
+  color: var(--vt-text) !important;
+}
+
+@{EventRowCarousel/GameIconAndName} {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: 6px !important;
+  overflow: hidden;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{EventRowCarousel/GameIconAndName}:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+@{EventRowCarousel/GameName} span,
+@{EventRowCarousel/GameName} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* "Add shelf". */
+@{Showcase/AddShowcase} {
+  color: var(--vt-text-dim) !important;
+  border-radius: var(--vt-radius-button) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{Showcase/AddShowcase}:hover,
+@{Showcase/AddShowcase}@{Showcase/ButtonHovered} {
+  color: var(--vt-text) !important;
+  background: var(--vt-off-hover) !important;
+}
+
+@{Showcase/RuleLeft},
+@{Showcase/RuleRight},
+@{Showcase/Rule},
+@{Showcase/OptionsRule} {
+  background: var(--vt-hairline) !important;
+  height: 1px !important;
+}
+
+/* A shelf: a glass panel with the panel radius. */
+@{Showcase/Showcase} {
+  background: var(--vt-panel) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-panel) !important;
+  box-shadow: var(--vt-rim-panel) !important;
+  border-color: transparent !important;
+}
+
+@{Showcase/ShowcaseHeader} {
+  color: var(--vt-text) !important;
+}
+
+/* The shelf's name ("All Games ⌄") is a dropdown: text, not a box, until
+   the pointer is on it. */
+@{Showcase/CollectionDropDown} .DialogDropDown {
+  background: transparent !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0), inset 0 1px 0 rgba(255, 255, 255, 0),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), 0) !important;
+  font-weight: 600 !important;
+}
+
+@{Showcase/CollectionDropDown} .DialogDropDown:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+@{Showcase/CountDisplay},
+@{Showcase/Count} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{Showcase/SortingDropDown} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{Showcase/SortingDropDown} * {
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+@{Showcase/DragHandle},
+@{Showcase/DeleteButton} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* ================================================== the game tiles === */
+
+/* A game's capsule (library home, shelves, recent games, downloads): radius
+   12, a quiet shadow; under the pointer it rises 2 px and the accent glows
+   under it, instead of Steam's 3D tilt. */
+@{LibraryItemBoxShine/LibraryItemBox} {
+  border-radius: var(--vt-radius-tile) !important;
+  border: 0 !important;
+  box-shadow: 0 0 0 1px rgba(255, 255, 255, .06), 0 8px 18px -10px rgba(0, 0, 0, .6),
+              0 8px 24px -10px rgba(var(--vt-glow-rgb), 0) !important;
+  filter: none !important;
+  transition: transform var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease),
+              filter var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{LibraryItemBoxShine/HoversEnabled} @{LibraryItemBoxShine/LibraryItemBox}:hover:not(@{LibraryItemBoxShine/Landscape}),
+@{LibraryItemBoxShine/HoversEnabled} @{LibraryItemBoxShine/LibraryItemBox}@{LibraryItemBoxShine/ShowAsHovered}:not(@{LibraryItemBoxShine/Landscape}),
+@{LibraryItemBoxShine/HoversEnabled} @{LibraryItemBoxShine/LibraryItemBox}:hover@{LibraryItemBoxShine/Landscape},
+@{LibraryItemBoxShine/HoversEnabled} @{LibraryItemBoxShine/LibraryItemBox}@{LibraryItemBoxShine/ShowAsHovered}@{LibraryItemBoxShine/Landscape} {
+  transform: translateY(-2px) !important;
+  box-shadow: var(--vt-shadow-lift) !important;
+  filter: brightness(1.04) !important;
+}
+
+/* A tile with keyboard or gamepad focus: lifted, with the accent's rim
+   (Steam rings it white and runs its own shine). */
+@{LibraryItemBoxShine/LibraryItemBox}.gpfocus,
+@{LibraryItemBoxShine/LibraryItemBox}:focus-visible {
+  outline: none !important;
+  transform: translateY(-2px) !important;
+  box-shadow: 0 0 0 2px rgba(var(--vt-accent-rgb), .7), 0 12px 26px -12px rgba(0, 0, 0, .7),
+              0 8px 24px -10px rgba(var(--vt-glow-rgb), .55) !important;
+}
+
+@{LibraryItemBoxShine/LibraryItemBox}.gpfocus::after {
+  display: none !important;
+}
+
+@{LibraryItemBoxShine/LibraryItemBox}:active {
+  transform: translateY(0) scale(.99) !important;
+  transition-duration: var(--vt-dur-fast) !important;
+}
+
+/* Inner art follows the radius; Steam's own shine and the zoom on the art
+   go (the lift and glow say "here"). */
+@{LibraryItemBoxShine/LibraryItemBox} @{LibraryItemBoxShine/PortraitImage},
+@{LibraryItemBoxShine/LibraryItemBox} img {
+  border-radius: inherit;
+  transform: none !important;
+}
+
+@{LibraryItemBoxShine/LibraryItemBoxShine} {
+  display: none !important;
+}
+
+@{LibraryItemBoxShine/HoversEnabled} {
+  perspective: none !important;
+}
+
+/* The bar under a recent game (playtime, the play button). */
+@{LibraryItemBoxShine/RecentGameFooter},
+@{LibraryItemBoxShine/FooterBlurImageContainer} {
+  border-radius: 0 0 var(--vt-radius-tile) var(--vt-radius-tile) !important;
+}
+
+@{LibraryItemBoxShine/LibraryItemActionButton} {
+  border-radius: var(--vt-radius-button) !important;
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-accent) !important;
+}
+
+@{LibraryItemBoxShine/LibraryItemActionButton} svg {
+  color: var(--vt-accent) !important;
+  fill: currentColor !important;
+}
+
+@{LibraryItemBoxShine/UninstalledBar},
+@{LibraryItemBoxShine/UninstalledProgressBar} {
+  background: rgba(var(--vt-accent-rgb), .75) !important;
+}
+
+/* The card that opens over a hovered game. */
+@{AppPortraitHover/AppPortraitHover} {
+  background: var(--vt-menu) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-panel), var(--vt-shadow-menu) !important;
+  overflow: hidden;
+  animation: var(--vt-a-menu);
+  transform-origin: top left;
+}
+
+@{AppPortraitHover/CapsuleBackgroundContainer} {
+  opacity: .18;
+}
+
+@{AppPortraitHover/AppTitle} {
+  color: var(--vt-text) !important;
+  font-weight: 600 !important;
+}
+
+@{AppPortraitHover/ScreenshotCrossfade} {
+  border-radius: 8px !important;
+  overflow: hidden;
+  margin: 0 8px !important;
+  width: calc(100% - 16px) !important;
+}
+
+@{AppPortraitHover/PlaytimeDetails} {
+  background: transparent !important;
+}
+
+@{AppPortraitHover/Header} {
+  color: var(--vt-text-dim) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* The drop target that appears while a game is dragged. */
+@{CollectionLabel/Collection}@{CollectionLabel/NewCollection} {
+  background: var(--vt-menu) !important;
+  border-radius: var(--vt-radius-button) !important;
+  box-shadow: var(--vt-rim-panel), var(--vt-shadow-menu) !important;
+  border-color: rgba(var(--vt-accent-rgb), .45) !important;
+}
+
+/* The library's filter pane. */
+@{AdvancedSearchPane/AdvancedSearchPane} {
+  background: var(--vt-menu) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-panel), var(--vt-shadow-menu) !important;
+  animation: var(--vt-a-menu);
+  transform-origin: top left;
+}
+
+/* "Scroll to top": Steam paints the button's inner box blue. */
+@{ScrollToTopButton/ScrollToTopButton} {
+  border-radius: var(--vt-radius-button) var(--vt-radius-button) 0 0 !important;
+}
+
+@{ScrollToTopButton/ScrollToTopButton} > div {
+  background: transparent !important;
+  box-shadow: none !important;
+  color: var(--vt-text) !important;
+  border-radius: inherit !important;
+}
+
+/* Steam's alert strips (updates, betas): a glass bar with an accent rim. */
+@{Alert/Alert} {
+  background: var(--vt-panel-strong) !important;
+  box-shadow: inset 0 1px 0 rgba(var(--vt-accent-rgb), .55), inset 0 0 0 1px rgba(255, 255, 255, .06) !important;
+  border-radius: 0 !important;
+  color: var(--vt-text) !important;
+}
+
+@{Alert/Alert}@{Alert/Error} {
+  box-shadow: inset 0 1px 0 rgba(var(--vt-danger-rgb), .65), inset 0 0 0 1px rgba(255, 255, 255, .06) !important;
+}
+
+@{Alert/AlertButton} {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{Alert/AlertButton}:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+@{Alert/PrimaryMessage},
+@{Alert/PatchNotesLink} {
+  color: var(--vt-text) !important;
+}
+
+@{Alert/SecondaryMessage} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* ===================================================== a game's page === */
+
+/* Steam lays a saturated, blurred copy of the hero art behind the whole
+   page; the window stays solid. */
+@{HeaderBackgroundImage/ImgBlurBackdrop} {
+  display: none !important;
+}
+
+/* The hero art meets the page with a fade into the window's bg. */
+@{HeaderBackgroundImage/ImgContainer} {
+  -webkit-mask-image: linear-gradient(180deg, #000 70%, rgba(0, 0, 0, .25) 100%);
+}
+
+/* The play bar under the hero art: glass, a panel's radius when it sits in
+   the page, flat when it sticks to the top. */
+@{StatusAndStats/PlayBar} {
+  background: var(--vt-panel) !important;
+  box-shadow: var(--vt-rim-panel) !important;
+  backdrop-filter: none !important;
+  border: 0 !important;
+}
+
+@{StatusAndStats/InPage} @{StatusAndStats/PlayBar} {
+  border-radius: var(--vt-radius-tile) !important;
+  margin: 0 14px !important;
+  width: calc(100% - 28px) !important;
+}
+
+@{StatusAndStats/StickyHeader} @{StatusAndStats/PlayBar} {
+  background: var(--vt-panel-strong) !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+}
+
+/* Play / Install / Update: the primary piece, lit glass (the lit block
+   above); the arrow beside it joins the same piece. */
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/PlayButton} {
+  border-radius: var(--vt-radius-button) !important;
+  border: 0 !important;
+  text-shadow: none !important;
+}
+
+@{PlayButtonContainer/PlayButton}:has(+ @{PlayButtonContainer/StreamingSelector}) {
+  border-radius: var(--vt-radius-button) 0 0 var(--vt-radius-button) !important;
+}
+
+@{PlayButtonContainer/StreamingSelector} {
+  background: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: inset 1px 0 0 rgba(0, 0, 0, .25), inset 0 0 0 1px rgba(255, 255, 255, .22), inset 0 1px 0 rgba(255, 255, 255, .45) !important;
+  border-radius: 0 var(--vt-radius-button) var(--vt-radius-button) 0 !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{PlayButtonContainer/StreamingSelector}:hover {
+  background-color: var(--vt-lit-fill-hover) !important;
+}
+
+@{PlayButtonContainer/ButtonText} {
+  color: var(--vt-text) !important;
+  text-transform: none !important;
+  letter-spacing: .01em !important;
+  font-weight: 600 !important;
+}
+
+/* Stop: the danger tint instead of the light. */
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/ShutdownAppButton},
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/ForceShutdownButton} {
+  background: rgba(var(--vt-danger-rgb), .16) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-danger) !important;
+}
+
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/Disabled},
+@{PlayButtonContainer/PlayButtonContainer} @{PlayButtonContainer/NoAction} {
+  background: var(--vt-off) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-off) !important;
+  animation: none;
+}
+
+@{StatusAndStats/PlayBarLabel} {
+  color: var(--vt-text-dim) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+@{StatusAndStats/PlayBarDetailLabel},
+@{StatusAndStats/PlayBarGameName} {
+  color: var(--vt-text) !important;
+}
+
+/* The round buttons on the right of the play bar. */
+@{StatusAndStats/MenuButtonContainer} {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+@{StatusAndStats/MenuButton},
+@{StatusAndStats/GameInfoButton},
+@{StatusAndStats/ControllerConfigButton} {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{StatusAndStats/MenuButton}:hover,
+@{StatusAndStats/GameInfoButton}:hover,
+@{StatusAndStats/MenuButton}@{StatusAndStats/MenuActive} {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+@{StatusAndStats/MenuButton}@{StatusAndStats/Favorited},
+@{StatusAndStats/FavoriteButton}@{StatusAndStats/Favorited},
+@{StatusAndStats/MenuButton}@{StatusAndStats/favorited} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-sweep), var(--vt-lit-frost) !important;
+  background-size: 300% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-accent) !important;
+  animation: var(--vt-a-sweep);
+}
+
+@{StatusAndStats/DownloadProgressBar},
+@{StatusAndStats/DetailsProgressBar} {
+  border-radius: 3px !important;
+  background: rgba(var(--vt-accent-rgb), .75) !important;
+}
+
+@{StatusAndStats/DetailsProgressContainer} {
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, .08) !important;
+}
+
+/* The tabs under the art (Store Page, DLC, Community Hub…): a tile (the
+   section rule below) with glass buttons in it. */
+@{LinksSectionBody/LinksSectionBody} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+@{LinksSectionBody/Link},
+@{LinksSectionBody/Anchor},
+@{LinksSectionBody/NavButton} {
+  border-radius: var(--vt-radius-button) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{LinksSectionBody/Anchor}:hover,
+@{LinksSectionBody/NavButton}:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+@{LinksSectionBody/Text},
+@{LinksSectionBody/Label} {
+  color: var(--vt-text-dim) !important;
+  transition: color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{LinksSectionBody/Anchor}:hover @{LinksSectionBody/Text} {
+  color: var(--vt-text) !important;
+}
+
+/* The page's sections (Friends who play, Achievements, Notes…): glass tiles. */
+@{AppDetailsSectionContainer/AppDetailsSectionContainer} {
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+@{AppDetailsSectionContainer/Highlight} {
+  background: rgba(255, 255, 255, .04) !important;
+  background-image: none !important;
+  border-radius: 8px !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05) !important;
+}
+
+@{AppDetailsSectionContainer/Body} {
+  border-radius: 8px !important;
+}
+
+
+@{SectionHeader/LabelText} {
+  color: var(--vt-text-dim) !important;
+  letter-spacing: .06em !important;
+}
+
+/* The description card at the top of the activity (the box art, the
+   developer, the features). */
+@{DescriptionStatsCtn/Container} {
+  background: var(--vt-tile) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+@{DescriptionStatsCtn/GameDescription},
+@{DescriptionStatsCtn/Label} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{DescriptionStatsCtn/ZoomInButton} {
+  background: var(--vt-menu) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: 6px !important;
+}
+
+@{DescriptionStatsCtn/BoxArt} {
+  border-radius: 8px !important;
+  overflow: hidden;
+}
+
+/* The activity feed. */
+@{AppActivityDay/AppActivityDate} {
+  color: var(--vt-text-dim) !important;
+  letter-spacing: .06em !important;
+}
+
+@{AppActivityDay/PartnerEventTextOnly},
+@{AppActivityDay/PartnerEventMediumImage_Container},
+@{AppActivityDay/PartnerEventLargeImage_Container},
+@{AppActivityDay/Event} {
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+  border: 0 !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease),
+              transform var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{AppActivityDay/PartnerEventTextOnly}:hover,
+@{AppActivityDay/PartnerEventMediumImage_Container}:hover,
+@{AppActivityDay/PartnerEventLargeImage_Container}:hover {
+  background: var(--vt-tile-hover) !important;
+  transform: translateY(-2px);
+  box-shadow: var(--vt-rim-hover), 0 10px 24px -14px rgba(var(--vt-glow-rgb), .45) !important;
+}
+
+@{AppActivityDay/PartnerEventType},
+@{AppActivityDay/Rule} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{AppActivityDay/Rule} {
+  background: var(--vt-hairline) !important;
+  background-image: none !important;
+}
+
+/* The "say something" box and its buttons. */
+@{PostTextEntryArea/PostTextEntryArea} {
+  background: var(--vt-well) !important;
+  border-radius: var(--vt-radius-button) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  transition: box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{PostTextEntryArea/PostTextEntryArea}:focus-within {
+  box-shadow: var(--vt-rim-focus) !important;
+}
+
+@{PostTextEntryArea/PostButton},
+@{PostTextEntryArea/EmoticonButton} {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: var(--vt-radius-button) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{PostTextEntryArea/PostButton}:hover,
+@{PostTextEntryArea/EmoticonButton}:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+/* =================================================== the downloads page === */
+
+/* The graph and its numbers: one glass panel along the top. */
+@{DownloadsPage/TopSection} {
+  background: var(--vt-panel) !important;
+  border-radius: var(--vt-radius-panel) !important;
+  box-shadow: var(--vt-rim-panel) !important;
+  margin: 12px 14px 0 !important;
+  overflow: hidden;
+}
+
+@{GraphAndStats/HeroAndLogo},
+@{GraphAndStats/GraphAndStats},
+@{GraphAndStats/DownloadGraphWrapper},
+@{GraphAndStats/HeroGradient},
+@{GraphAndStats/Gradient} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+@{DownloadsPage/Section}@{DownloadsPage/Empty} {
+  background: transparent !important;
+}
+
+/* Steam draws the graph in SVG: download bars in the accent, the disk line
+   in accent2. */
+@{GraphAndStats/GraphBarDownload} {
+  fill: rgba(var(--vt-accent-rgb), .55) !important;
+}
+
+@{GraphAndStats/GraphBarUpload} {
+  fill: rgba(var(--vt-accent2-rgb), .45) !important;
+}
+
+@{GraphAndStats/GraphLine} {
+  stroke: var(--vt-accent2) !important;
+}
+
+@{GraphAndStats/LegendBox}@{GraphAndStats/Disk} {
+  background: var(--vt-accent2) !important;
+}
+
+@{GraphAndStats/LegendBox}@{GraphAndStats/Network} svg,
+@{GraphAndStats/LegendBox}@{GraphAndStats/Network} {
+  color: var(--vt-accent) !important;
+  fill: var(--vt-accent) !important;
+}
+
+@{GraphAndStats/LegendText} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{GraphAndStats/Figure} {
+  color: var(--vt-text) !important;
+}
+
+@{DownloadsPage/SectionTitle},
+@{DownloadsPage/Title} {
+  color: var(--vt-text) !important;
+}
+
+@{DownloadsPage/Count},
+@{DownloadsPage/Text},
+@{DownloadsPage/Label} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{DownloadsPage/Rule} {
+  background: var(--vt-hairline) !important;
+  height: 1px !important;
+}
+
+/* A download: a glass tile. */
+@{DownloadsPage/SectionItem} {
+  background: var(--vt-tile) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{DownloadsPage/SectionItem}:hover {
+  background: var(--vt-tile-hover) !important;
+}
+
+@{DownloadsPage/ProgressBar},
+@{DownloadsPage/ActiveItemProgressBar} {
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, .08) !important;
+}
+
+@{DownloadsPage/ProgressBar} > div,
+@{DownloadsPage/ActiveItemProgressBar} > div {
+  border-radius: 3px !important;
+  background: rgba(var(--vt-accent-rgb), .8) !important;
+}
+
+/* ======================================================= the bottom bar === */
+
+@{BottomBarContainer/AddGameButton},
+@{BottomBarContainer/FriendsButton},
+@{BottomBarContainer/DownloadStatusContent} {
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text-dim) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{BottomBarContainer/AddGameButton}:hover,
+@{BottomBarContainer/FriendsButton}:hover,
+@{BottomBarContainer/DownloadStatusContent}:hover {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+@{BottomBarContainer/Text},
+@{BottomBarContainer/Queue},
+@{BottomBarContainer/StatusLine} {
+  color: inherit !important;
+}
+
+@{BottomBarContainer/Icon} {
+  color: inherit !important;
+  opacity: .85;
+}
+
+@{BottomBarContainer/IconBevel} {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+@{BottomBarContainer/ProgressBarWrapper} {
+  border-radius: 3px !important;
+  background: rgba(255, 255, 255, .08) !important;
+}
+
+@{BottomBarContainer/ProgressBar} {
+  border-radius: 3px !important;
+  background: rgba(var(--vt-accent-rgb), .8) !important;
+}
+
+/* ======================================================= the settings === */
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListColumn} {
+  background: var(--vt-panel) !important;
+  box-shadow: inset -1px 0 0 var(--vt-hairline) !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageContent} {
+  background: transparent !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PageListSeparator} {
+  background: var(--vt-hairline) !important;
+  height: 1px !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListItem} {
+  border-radius: var(--vt-radius-tile) !important;
+  margin: 1px 8px !important;
+  color: var(--vt-text-dim) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0), inset 0 1px 0 rgba(255, 255, 255, 0),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), 0) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListItem}:hover:not(@{PagedSettingsDialog_PageListItem/Active}) {
+  background-color: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListItem}:hover:not(@{PagedSettingsDialog_PageListItem/Active}) @{PagedSettingsDialog_PageListItem/PageListItem_Icon} {
+  color: var(--vt-text) !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_PageListItem}@{PagedSettingsDialog_PageListItem/Active} {
+  color: var(--vt-text) !important;
+}
+
+@{PagedSettingsDialog_PageListItem/PagedSettingsDialog_Title} {
+  color: var(--vt-text) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+/* A settings row: Steam's gamepad dialog "Field". Rows that Steam paints as
+   a box become glass tiles; plain rows get a hairline under them. */
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/Background},
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/Classic} {
+  background: var(--vt-tile) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/WithBottomSeparatorStandard}::after,
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/WithBottomSeparator}::after,
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/WithBottomSeparatorThick}::after,
+@{WithBottomSeparatorStandard/StandaloneFieldSeparator} {
+  background: var(--vt-hairline) !important;
+}
+
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/HighlightOnFocus}.gpfocus,
+@{WithBottomSeparatorStandard/Field}@{WithBottomSeparatorStandard/Clickable}:hover {
+  background: var(--vt-tile-hover) !important;
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+@{WithBottomSeparatorStandard/FieldLabel} {
+  color: var(--vt-text) !important;
+}
+
+@{WithBottomSeparatorStandard/FieldDescription},
+@{WithBottomSeparatorStandard/FieldLabelValue},
+@{WithBottomSeparatorStandard/LabelFieldValue} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{SettingsDialogFatButton/EntryLabel} {
+  color: var(--vt-text) !important;
+}
+
+@{SettingsDialogFatButton/EntryValue} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* The big buttons on the Account page. */
+@{CurrentUserProfileBackgroundImage/FatButton} {
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{CurrentUserProfileBackgroundImage/FatButton}:hover {
+  background: var(--vt-tile-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+  transform: translateY(-2px);
+}
+
+@{CurrentUserProfileBackgroundImage/Details} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* ============================================== switches and sliders === */
+
+/* The switch: a 38×22 glass track with radius 8 and a 16 px bead with
+   radius 6; on, the track takes the accent's glow. */
+@{ToggleRail/Toggle} {
+  border-radius: 8px !important;
+}
+
+@{ToggleRail/Toggle} @{ToggleRail/ToggleRail} {
+  border-radius: 8px !important;
+  background: rgba(255, 255, 255, .07) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 1px 0 rgba(255, 255, 255, 0) !important;
+  transition: background-color 400ms var(--vt-ease), box-shadow 400ms var(--vt-ease) !important;
+}
+
+@{ToggleRail/Toggle} @{ToggleRail/ToggleRail}::before {
+  display: none !important;
+}
+
+@{ToggleRail/Toggle}@{ToggleRail/On} @{ToggleRail/ToggleRail} {
+  background: rgba(var(--vt-glow-rgb), .32) !important;
+  box-shadow: var(--vt-rim-switch) !important;
+}
+
+@{ToggleRail/Toggle} @{ToggleRail/ToggleSwitch} {
+  border-radius: 6px !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .9), rgba(255, 255, 255, .45)) !important;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .35) !important;
+  transition: transform 400ms var(--vt-ease), left 400ms var(--vt-ease) !important;
+}
+
+@{ToggleRail/Toggle}@{ToggleRail/Disabled} {
+  opacity: .45;
+}
+
+/* The slider: a glass groove, the filled part lit. */
+@{SliderTrack/SliderTrack} {
+  border-radius: 11px !important;
+  background: rgba(255, 255, 255, .05) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .08) !important;
+  --left-track-color: rgba(255, 255, 255, .22) !important;
+}
+
+@{SliderTrack/SliderTrack}::before {
+  border-radius: 11px !important;
+  background: linear-gradient(180deg, rgba(255, 255, 255, .24), rgba(255, 255, 255, .12)) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), 0 3px 12px -6px rgba(var(--vt-glow-rgb), .6) !important;
+}
+
+@{SliderTrack/SliderHandle} {
+  border-radius: 6px !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .6)) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4) !important;
+  transition: transform var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{SliderTrack/SliderNotchTick} {
+  background: rgba(255, 255, 255, .2) !important;
+}
+
+/* =============================================== menus and popovers === */
+
+/* Menus open in windows of their own. The window is opaque (a transparent
+   one shows black), so its root is the window's bg and the menu is an opaque
+   rounded plate filling it: surfaceHighest, a hairline rim and a top light,
+   radius 12. The same plate serves a menu drawn inside a window (then with a
+   float shadow). The items scale up from 0.98 and fade in. */
+@{ContextMenuMouseOverlay/ContextMenuPopup} {
+  background: var(--vt-bg) !important;
+}
+
+@{ContextMenuMouseOverlay/ContextMenuPopup} body {
+  background: transparent !important;
+}
+
+@{ContextMenuMouseOverlay/contextMenu} {
+  background: var(--vt-menu-solid) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 1px 0 rgba(255, 255, 255, .10),
+              var(--vt-shadow-menu) !important;
+  border: 0 !important;
+  overflow: hidden;
+}
+
+@{ContextMenuMouseOverlay/contextMenuContents} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+  padding: 5px !important;
+  animation: var(--vt-a-menu);
+  transform-origin: top center;
+}
+
+@{ContextMenuMouseOverlay/contextMenuItem},
+@{MenuWrapper/MenuItem},
+@{DialogDropDownMenu/DialogDropDownMenu_Item} {
+  border-radius: var(--vt-radius-button) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+}
+
+@{ContextMenuMouseOverlay/contextMenuItem}:hover,
+@{ContextMenuMouseOverlay/contextMenuItem}@{ContextMenuMouseOverlay/active},
+@{MenuWrapper/MenuItem}:hover,
+@{DialogDropDownMenu/DialogDropDownMenu_Item}:hover {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), inset 0 1px 0 rgba(255, 255, 255, .35) !important;
+  color: var(--vt-text) !important;
+}
+
+@{ContextMenuMouseOverlay/MenuSectionHeader} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{ContextMenuMouseOverlay/ContextMenuSeparator},
+@{ContextMenuMouseOverlay/ContextMenuHRSeparator},
+@{MenuWrapper/Separator},
+@{DialogDropDownMenu/DialogDropDownMenu_Separator} {
+  background: var(--vt-hairline) !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+/* A dropdown's list (Games and Software, Sort by, a shelf's collection):
+   Steam puts it in a menu window too; the plate above, items as plates. */
+@{DialogDropDownMenu/DialogDropDownMenu} {
+  background: transparent !important;
+  border: 0 !important;
+  box-shadow: none !important;
+}
+
+@{DialogDropDownMenu/DialogDropDownMenu_Item} {
+  color: var(--vt-text) !important;
+  background: transparent;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease), box-shadow var(--vt-dur-fast) var(--vt-ease) !important;
+}
+
+/* The item that is on (a ticked status, the current choice): lit glass, its
+   tick in the accent. */
+@{ContextMenuMouseOverlay/contextMenuItem}:has(@{RootMenuButton/StatusEntry} @{RootMenuButton/Icon} svg),
+@{ContextMenuMouseOverlay/contextMenuItem}.menuChecked,
+@{DialogDropDownMenu/DialogDropDownMenu_Item}.active {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+}
+
+@{RootMenuButton/StatusEntry} @{RootMenuButton/Icon} svg,
+@{RootMenuButton/StatusEntry} @{RootMenuButton/Icon} svg * {
+  color: var(--vt-accent) !important;
+  fill: var(--vt-accent) !important;
+}
+
+/* Tooltips: a small opaque plate (Steam draws them light grey with dark
+   text), fading in from 0.98. */
+@{TextToolTip/TextToolTip},
+@{TextToolTip/ToolTipCustom},
+@{HelperTooltip/HelperTooltip} {
+  background: var(--vt-menu-solid) !important;
+  color: var(--vt-text) !important;
+  border-radius: var(--vt-radius-button) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 1px 0 rgba(255, 255, 255, .10),
+              var(--vt-shadow-menu) !important;
+  border: 0 !important;
+  animation: var(--vt-a-menu);
+}
+
+@{TextToolTip/ToolTipTitle} {
+  color: var(--vt-text) !important;
+  font-weight: 600 !important;
+}
+
+@{TextToolTip/ToolTipInsetContent} {
+  background: var(--vt-well) !important;
+  border-radius: 6px !important;
+  color: var(--vt-text-dim) !important;
+}
+
+/* The notifications menu. */
+@{AnnouncementsButton/NotificationsMenu} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border: 0 !important;
+}
+
+@{AnnouncementsButton/AllNotificationsTitle} {
+  color: var(--vt-text) !important;
+  font-weight: 600 !important;
+}
+
+@{AnnouncementsButton/AllNotificationsButton} {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{AnnouncementsButton/AllNotificationsButton}:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+/* A notification (in the menu, on the notifications page and as a toast):
+   a glass tile; an unread one is lit. The template family exists in a few
+   variants; StandardTemplateDesktop is a key they all share. */
+@{StandardTemplateDesktop/PinnedTemplateDesktop},
+@{StandardTemplateDesktop/StandardTemplateDesktop},
+@{StandardTemplateDesktop/DesktopToastTemplate} {
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{StandardTemplateDesktop/PinnedTemplateDesktop}:hover,
+@{StandardTemplateDesktop/StandardTemplateDesktop}:hover {
+  background: var(--vt-tile-hover) !important;
+}
+
+@{StandardTemplateDesktop/StandardTemplateDesktop}@{StandardTemplateDesktop/Unread} {
+  background-color: rgba(255, 255, 255, .08) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .14), inset 0 1px 0 rgba(255, 255, 255, .2),
+              0 4px 16px -8px rgba(var(--vt-glow-rgb), .45) !important;
+}
+
+/* A toast ("… is playing", a download, a message) is a small window of its
+   own, the size of the card (niri puts it bottom-right and clips it to the
+   card's radius: vitrum-theme's look.kdl). Steam paints a blue-grey gradient
+   behind the card; the card is vitrum's opaque glass plate. */
+@{DesktopToastBackground/DesktopToastPopup},
+@{DesktopToastBackground/DesktopToastBackground},
+@{DesktopToastBackground/Middle} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+@{StandardTemplateDesktop/DesktopToastTemplate} {
+  background: var(--vt-menu-solid) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 1px 0 rgba(255, 255, 255, .10) !important;
+  animation: var(--vt-a-menu);
+}
+
+/* A friend's state in a toast: the accent pair, as in the friends list. */
+@{StandardTemplateDesktop/IngameTitle} {
+  color: var(--vt-accent2) !important;
+}
+
+@{StandardTemplateDesktop/OnlineTitle} {
+  color: var(--vt-accent) !important;
+}
+
+@{StandardTemplateDesktop/FriendInGameAppColor} {
+  color: rgba(var(--vt-accent2-rgb), .8) !important;
+}
+
+@{StandardTemplateDesktop/AvatarStatus} {
+  background: var(--vt-text-dim) !important;
+  box-shadow: none !important;
+}
+
+@{StandardTemplateDesktop/DesktopToastTemplate}:has(@{StandardTemplateDesktop/IngameTitle}) @{StandardTemplateDesktop/AvatarStatus} {
+  background: var(--vt-accent2) !important;
+}
+
+@{StandardTemplateDesktop/DesktopToastTemplate}:has(@{StandardTemplateDesktop/OnlineTitle}) @{StandardTemplateDesktop/AvatarStatus} {
+  background: var(--vt-accent) !important;
+}
+
+@{StandardTemplateDesktop/Title},
+@{StandardTemplateDesktop/Header} {
+  color: var(--vt-text) !important;
+}
+
+@{StandardTemplateDesktop/StandardNotificationDescription},
+@{StandardTemplateDesktop/StandardNotificationSubText},
+@{StandardTemplateDesktop/Timestamp} {
+  color: var(--vt-text-dim) !important;
+}
+
+@{AnnouncementsButton/AccountName} {
+  color: var(--vt-accent) !important;
+}
+
+@{AnnouncementsButton/EmptyNotificationsBody} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* The account menu's popup. */
+@{AnnouncementsButton/AccountMenuPopup} {
+  background: transparent !important;
+}
+
+/* ============================================= people (everywhere) === */
+
+/* A person's name and status, wherever Steam shows one (friends list, chat,
+   friends who play): the status colours take the accent pair — online in
+   the accent, in game in accent2, away and offline dim. Steam marks the
+   state with plain classes on an ancestor. */
+.online @{statusAndName/playerName},
+@{statusAndName/playerName}.online {
+  color: var(--vt-accent) !important;
+}
+
+.online @{statusAndName/richPresenceLabel} {
+  color: rgba(var(--vt-accent-rgb), .7) !important;
+}
+
+.ingame @{statusAndName/playerName},
+@{statusAndName/playerName}.ingame {
+  color: var(--vt-accent2) !important;
+}
+
+.ingame @{statusAndName/richPresenceLabel},
+.ingame @{statusAndName/gameName} {
+  color: rgba(var(--vt-accent2-rgb), .75) !important;
+}
+
+.offline @{statusAndName/playerName},
+.awayOrSnooze @{statusAndName/playerName} {
+  color: var(--vt-text-dim) !important;
+}
+
+.offline @{statusAndName/richPresenceLabel},
+.awayOrSnooze @{statusAndName/richPresenceLabel},
+.offline @{statusAndName/gameName},
+.awayOrSnooze @{statusAndName/gameName} {
+  color: rgba(var(--vt-text-dim-rgb), .7) !important;
+}
+
+@{SnoozeZ/SnoozeZ} {
+  color: inherit !important;
+}
+
+/* Steam's inset shadow at the top of a list. */
+@{FriendListInsetShadowTop/FriendListInsetShadowTop},
+@{FriendListInsetShadowTop/FriendListInsetShadowBottom} {
+  background: none !important;
+}
+
+/* ============================================================ chats === */
+
+@{ChatTab/ChatTab} {
+  background: transparent !important;
+  border-radius: var(--vt-radius-button) var(--vt-radius-button) 0 0 !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{ChatTab/ChatTab}:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+@{ChatTab/ChatTab}@{ChatTab/Active} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-sweep), var(--vt-lit-frost) !important;
+  background-size: 300% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .22), inset 0 1px 0 rgba(255, 255, 255, .45) !important;
+  animation: var(--vt-a-sweep);
+}
+
+@{chatEntryControls/chatEntryControls},
+@{chatEntryControls/chatEntryActionsGroup} {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+@{chatEntryControls/chatTextarea} {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-well) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+  transition: box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+@{chatEntryControls/chatTextarea}:focus {
+  box-shadow: var(--vt-rim-focus) !important;
+}
+
+@{chatEntryControls/chatSubmitButton} {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  border-radius: var(--vt-radius-button) !important;
+  margin-left: 4px !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{chatEntryControls/chatSubmitButton}:hover:not(@{chatEntryControls/disabled}) {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+@{chatEntryControls/chatSubmitButton}:not(@{chatEntryControls/disabled}):not(@{chatEntryControls/EmbedButton}):not(@{chatEntryControls/EmoticonPickerButton}) {
+  background-color: var(--vt-lit-fill) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-accent) !important;
+}
+
+@{SpeakerName_Default/SpeakerName_Default} {
+  color: var(--vt-text) !important;
+}
+
+@{SpeakerName_Default/SpeakerName_Online} {
+  color: var(--vt-accent) !important;
+}
+
+@{SpeakerName_Default/SpeakerName_InGame} {
+  color: var(--vt-accent2) !important;
+}
+
+/* ================================================ a game's properties === */
+
+/* The properties window is a paged settings dialog (the settings rules
+   above); these are its own pieces. */
+@{AppProperties/BlueHighlight} {
+  color: var(--vt-accent) !important;
+}
+
+@{AppProperties/SectionTopLine} {
+  border-top-color: var(--vt-hairline) !important;
+}
+
+@{AppProperties/BetaLabel},
+@{AppProperties/DefaultOptionText} {
+  color: var(--vt-text-dim) !important;
+}

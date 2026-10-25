@@ -1,0 +1,580 @@
+/* vitrum for Steam: the parts named by Steam's stable class names and by
+   Millennium's window hooks (html.MillenniumWindow_*). These survive Steam
+   updates; steam.css (from steam.vcss) does the parts Steam only names by
+   hashes. Colours come from colors.css (vitrum-theme writes it).
+
+   The language (vitrum's glass, "lit glass" for on):
+   - the window: opaque, the palette's bg with a very faint light from the
+     top; no wallpaper behind it and no see-through window;
+   - on it, translucent glass layers at fixed alphas: panels and sidebars
+     (surface), dialogs (surfaceHigh), menus (surfaceHighest), each with a
+     hairline rim and a top light;
+   - off: clear glass, white 5 %, a 1 px rim at 8 %, a faint top light;
+   - on: the glass lit from inside — brighter and frostier, a white rim and
+     top light, the accent only as a soft glow under it and in the icon;
+     the text stays the text colour. It fades in and a light runs across it
+     once;
+   - radii: tiles 12, buttons 9, panels 20, switch 8 / knob 6; no capsules;
+   - motion: damped (cubic-bezier(.2, .8, .2, 1)), 150–400 ms, no overshoot,
+     nothing that runs on its own; none at all with reduced motion. */
+
+:root {
+  /* The window: solid bg, a faint light from the top. */
+  --vt-window: linear-gradient(180deg, rgba(255, 255, 255, .025), rgba(255, 255, 255, 0) 38%),
+               radial-gradient(120% 70% at 0% 0%, rgba(var(--vt-glow-rgb), .05), rgba(var(--vt-glow-rgb), 0) 60%),
+               var(--vt-bg);
+
+  /* The glass layers over the window's bg, at fixed alphas. */
+  --vt-bar: rgba(var(--vt-surface-rgb), .5);
+  --vt-panel-soft: rgba(var(--vt-surface-rgb), .45);
+  --vt-panel: rgba(var(--vt-surface-rgb), .72);
+  --vt-panel-raised: rgba(var(--vt-surface-high-rgb), .75);
+  /* Dialogs and menus float over other glass: denser, so they stay readable. */
+  --vt-panel-strong: rgba(var(--vt-surface-high-rgb), .92);
+  --vt-menu: rgba(var(--vt-surface-highest-rgb), .97);
+  /* A menu's plate: opaque, so nothing behind it shows through. */
+  --vt-menu-solid: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 40%),
+                   var(--vt-surface-highest);
+  --vt-tile: rgba(255, 255, 255, .04);
+  --vt-tile-hover: rgba(255, 255, 255, .07);
+  --vt-well: rgba(0, 0, 0, .18);
+  --vt-hairline: rgba(255, 255, 255, .07);
+
+  /* Rims. Each has three shadows (rim, top light, glow) so that every state
+     change interpolates instead of jumping. */
+  --vt-rim-panel: inset 0 0 0 1px rgba(255, 255, 255, .09), inset 0 1px 0 rgba(255, 255, 255, .08),
+                  0 0 0 0 rgba(var(--vt-glow-rgb), 0);
+  --vt-rim-tile: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .06),
+                 0 0 0 0 rgba(var(--vt-glow-rgb), 0);
+  --vt-rim-off: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .05),
+                0 4px 16px -6px rgba(var(--vt-glow-rgb), 0);
+  --vt-rim-hover: inset 0 0 0 1px rgba(255, 255, 255, .13), inset 0 1px 0 rgba(255, 255, 255, .09),
+                  0 4px 16px -6px rgba(var(--vt-glow-rgb), 0);
+  --vt-rim-lit: inset 0 0 0 1px rgba(255, 255, 255, .28), inset 0 1px 0 rgba(255, 255, 255, .5),
+                0 4px 16px -6px rgba(var(--vt-glow-rgb), .55);
+  /* Lit glass under the pointer: a touch brighter rim and glow. */
+  --vt-rim-lit-hover: inset 0 0 0 1px rgba(255, 255, 255, .34), inset 0 1px 0 rgba(255, 255, 255, .6),
+                      0 6px 20px -6px rgba(var(--vt-glow-rgb), .7);
+  --vt-rim-switch: inset 0 0 0 1px rgba(255, 255, 255, .30), inset 0 1px 0 rgba(255, 255, 255, .50);
+  --vt-rim-focus: inset 0 0 0 1px rgba(var(--vt-accent-rgb), .65), inset 0 1px 0 rgba(255, 255, 255, .10),
+                  0 0 0 3px rgba(var(--vt-glow-rgb), .14);
+  --vt-rim-danger: inset 0 0 0 1px rgba(var(--vt-danger-rgb), .45), inset 0 1px 0 rgba(255, 255, 255, .12),
+                   0 4px 16px -6px rgba(var(--vt-danger-rgb), .35);
+  --vt-shadow-float: 0 18px 50px -12px rgba(0, 0, 0, .55);
+  --vt-shadow-menu: 0 12px 32px -10px rgba(0, 0, 0, .6);
+  /* A tile lifted by the pointer: a shadow under it and the accent's glow. */
+  --vt-shadow-lift: 0 0 0 1px rgba(255, 255, 255, .12), 0 12px 26px -12px rgba(0, 0, 0, .7),
+                    0 8px 24px -10px rgba(var(--vt-glow-rgb), .5);
+
+  /* Glass fills. */
+  --vt-off: rgba(255, 255, 255, .05);
+  --vt-off-hover: rgba(255, 255, 255, .09);
+  --vt-off-press: rgba(255, 255, 255, .12);
+  /* Lit glass: a frosted fill (colour, so it fades) under a top frost. */
+  --vt-lit-fill: rgba(255, 255, 255, .14);
+  --vt-lit-fill-hover: rgba(255, 255, 255, .19);
+  --vt-lit-frost: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .02));
+  /* The light that runs across lit glass once, as it comes on. */
+  --vt-sweep: linear-gradient(105deg, rgba(255, 255, 255, 0) 40%, rgba(255, 255, 255, .26) 50%, rgba(255, 255, 255, 0) 60%);
+  /* The old one-layer recipe, for the places that cannot carry the sweep. */
+  --vt-lit: linear-gradient(180deg, rgba(255, 255, 255, .20), rgba(255, 255, 255, .10));
+  --vt-lit-hover: linear-gradient(180deg, rgba(255, 255, 255, .26), rgba(255, 255, 255, .14));
+
+  /* Motion. */
+  --vt-ease: cubic-bezier(.2, .8, .2, 1);
+  --vt-dur-fast: 160ms;
+  --vt-dur: 220ms;
+  --vt-dur-slow: 360ms;
+  --vt-glass-transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease),
+                         color var(--vt-dur) var(--vt-ease), opacity var(--vt-dur) var(--vt-ease),
+                         transform var(--vt-dur) var(--vt-ease);
+  /* The theme's animations, by name, so reduced motion can switch off ours
+     and leave Steam's own (spinners, progress) alone. */
+  --vt-a-rise: vt-rise var(--vt-dur-slow) var(--vt-ease) backwards;
+  --vt-a-pop: vt-pop var(--vt-dur-slow) var(--vt-ease) backwards;
+  --vt-a-fade: vt-fade var(--vt-dur) var(--vt-ease) backwards;
+  --vt-a-menu: vt-menu 180ms var(--vt-ease) backwards;
+  --vt-a-sweep: vt-sweep 400ms var(--vt-ease) 1;
+  --vt-a-sweep-one: vt-sweep-one 400ms var(--vt-ease) 1;
+}
+
+/* ---------------------------------------------------------- motion --- */
+
+/* A page, a shelf or a panel arriving. "backwards" only: once it ends the
+   element has no transform left (a transform would trap Steam's sticky and
+   fixed children). */
+@keyframes vt-rise {
+  from { opacity: 0; transform: translateY(8px); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* A dialog arriving. */
+@keyframes vt-pop {
+  from { opacity: 0; transform: translateY(10px) scale(.985); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* The shade behind a dialog. */
+@keyframes vt-fade {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+/* A menu: from 0.98, fading in, from where it opens. */
+@keyframes vt-menu {
+  from { opacity: 0; transform: scale(.98); }
+  to   { opacity: 1; transform: none; }
+}
+
+/* Lit glass coming on: one diagonal light across it (the first background
+   layer is --vt-sweep at 300 % width; at rest it sits past the right edge).
+   vt-sweep is for two layers (sweep, frost), vt-sweep-one for the sweep
+   alone. */
+@keyframes vt-sweep {
+  from { background-position: 100% 0, 0 0; }
+  to   { background-position: 0% 0, 0 0; }
+}
+
+@keyframes vt-sweep-one {
+  from { background-position: 100% 0; }
+  to   { background-position: 0% 0; }
+}
+
+/* ---------------------------------------------------------------- type --- */
+
+body,
+body :is(div, span, a, p, label, button, input, textarea, select, option, li, ul, ol, b, strong, em, i, small,
+         section, header, footer, nav, form, table, h1, h2, h3, h4, h5, h6, td, th) {
+  font-family: var(--vt-font) !important;
+}
+
+body {
+  color: var(--vt-text);
+}
+
+::selection {
+  background: rgba(var(--vt-accent-rgb), .35);
+  color: var(--vt-text);
+}
+
+/* ------------------------------------------------------- the window --- */
+
+/* Steam's windows are opaque, and the theme does not pretend otherwise: the
+   window is a solid vitrum bg, and the glass layers sit on it. */
+html.MillenniumWindow_MainSteamWindow,
+html.MillenniumWindow_Settings,
+html.MillenniumWindow_FriendsList,
+html.MillenniumWindow_FriendChatWindow,
+html.MillenniumWindow_GameProperties,
+html.ModalDialogPopup,
+html.friendsui-container {
+  background: var(--vt-window) !important;
+}
+
+:is(html.MillenniumWindow_MainSteamWindow, html.MillenniumWindow_Settings, html.MillenniumWindow_FriendsList,
+    html.MillenniumWindow_FriendChatWindow, html.MillenniumWindow_GameProperties, html.ModalDialogPopup,
+    html.friendsui-container) body,
+body.ModalDialogPopup {
+  background: transparent !important;
+}
+
+/* Steam's focus highlight along the top of a window (a blue gradient): the
+   window's own top light says it already. */
+.title-area-highlight,
+.singleWindowFocusBar {
+  background: none !important;
+}
+
+.title-area,
+.TitleBar {
+  background: transparent !important;
+}
+
+.title-area-icon {
+  color: var(--vt-text-dim) !important;
+  border-radius: 8px !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease) !important;
+}
+
+.title-area-icon:hover {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+.title-area-icon.closeButton:hover {
+  background: rgba(var(--vt-danger-rgb), .22) !important;
+}
+
+.window_resize_grip {
+  opacity: .35;
+}
+
+/* --------------------------------------------------------- scrollbars --- */
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, .14) !important;
+  border-radius: 6px !important;
+  border: 3px solid transparent !important;
+  background-clip: padding-box !important;
+  min-height: 40px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, .26) !important;
+}
+
+::-webkit-scrollbar-thumb:active {
+  background-color: rgba(var(--vt-accent-rgb), .55) !important;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner,
+::-webkit-scrollbar-button {
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-button {
+  display: none;
+}
+
+/* ------------------------------------------------------------ buttons --- */
+
+.DialogButton,
+button.DialogButton:enabled,
+.TextButton.DialogButton {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+  border: 0 !important;
+  text-shadow: none !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+.DialogButton:hover,
+button.DialogButton:enabled:hover,
+.DialogButton.gpfocus,
+.DialogButton:focus-visible {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+.DialogButton:active,
+button.DialogButton:enabled:active {
+  background: var(--vt-off-press) !important;
+  color: var(--vt-text) !important;
+  transform: scale(.98);
+  transition-duration: var(--vt-dur-fast) !important;
+}
+
+/* The primary button is lit glass, with its light running across once. */
+.DialogButton.Primary,
+button.DialogButton.Primary:enabled {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-sweep), var(--vt-lit-frost) !important;
+  background-size: 300% 100%, 100% 100% !important;
+  background-repeat: no-repeat !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+  animation: var(--vt-a-sweep);
+}
+
+.DialogButton.Primary:hover,
+button.DialogButton.Primary:enabled:hover,
+.DialogButton.Primary.gpfocus,
+.DialogButton.Primary:active {
+  background-color: var(--vt-lit-fill-hover) !important;
+  box-shadow: var(--vt-rim-lit-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+.DialogButton.Destructive,
+button.DialogButton.Destructive:enabled {
+  background: rgba(var(--vt-danger-rgb), .16) !important;
+  box-shadow: var(--vt-rim-danger) !important;
+}
+
+.DialogButton:disabled,
+.DialogButton.Disabled {
+  opacity: .45;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  transform: none !important;
+}
+
+/* A text-only button (Show all…, links in panels). */
+.TextButton:not(.DialogButton) {
+  color: var(--vt-text-dim) !important;
+  border-color: transparent !important;
+  transition: color var(--vt-dur) var(--vt-ease) !important;
+}
+
+.TextButton:not(.DialogButton):hover {
+  color: var(--vt-text) !important;
+}
+
+/* ------------------------------------------------------------- fields --- */
+
+.DialogInput,
+.DialogTextInputBase,
+.DialogInput_Wrapper input,
+input.DialogInput,
+textarea.DialogTextInputBase {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-well) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: box-shadow var(--vt-dur) var(--vt-ease), background-color var(--vt-dur) var(--vt-ease) !important;
+}
+
+.DialogInput:hover,
+.DialogTextInputBase:hover {
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+.DialogInput:focus,
+.DialogTextInputBase:focus,
+.DialogTextInputBase:focus-within {
+  background: rgba(0, 0, 0, .24) !important;
+  box-shadow: var(--vt-rim-focus) !important;
+  outline: none !important;
+}
+
+.DialogInputPlaceholder,
+.DialogInput::placeholder,
+.DialogTextInputBase::placeholder {
+  color: var(--vt-text-dim) !important;
+}
+
+/* A dropdown: one piece of glass (Steam draws the value and the arrow as two
+   boxes). */
+.DialogDropDown {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+.DialogDropDown:hover,
+.DialogDropDown.gpfocus,
+.DialogDropDown:focus-visible {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+.DialogDropDown.Active,
+.DialogDropDown:active {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+}
+
+.DialogDropDown_CurrentDisplay,
+.DialogDropDown_Arrow {
+  background: transparent !important;
+  border: 0 !important;
+  color: inherit !important;
+}
+
+.DialogDropDown_Arrow {
+  color: var(--vt-text-dim) !important;
+}
+
+.DialogDropDown_Arrow svg {
+  fill: currentColor !important;
+}
+
+/* The dropdown's list (Steam puts it in a menu popup: see context menus). */
+.DropDownControlButtonContents,
+.dropdown_DialogDropDownMenu_Item {
+  border-radius: 8px !important;
+}
+
+.DialogCheckbox {
+  border-radius: 5px !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+/* A ticked box: Steam shows the tick (an svg) inside; lit glass around it. */
+.DialogCheckbox:has(svg),
+.Active > .DialogCheckbox,
+.DialogCheckbox.Active {
+  background: rgba(var(--vt-glow-rgb), .32) !important;
+  box-shadow: var(--vt-rim-switch) !important;
+}
+
+.DialogCheckbox svg {
+  color: var(--vt-text) !important;
+}
+
+/* A slider in a dialog. */
+.DialogSlider_Grabber {
+  border-radius: 6px !important;
+  background: linear-gradient(160deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .6)) !important;
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .4) !important;
+  border: 0 !important;
+}
+
+/* ------------------------------------------------- labels and dialogs --- */
+
+.DialogHeader,
+.DialogLabel,
+.DialogLabelStrong,
+.DialogBodyText,
+.DialogSubHeader {
+  color: var(--vt-text) !important;
+  text-shadow: none !important;
+}
+
+.DialogLabelExplainer,
+.DialogHeaderSubtitle,
+.DialogControlsSectionHeader,
+.DialogFieldDescription {
+  color: var(--vt-text-dim) !important;
+}
+
+.DialogHBar {
+  background: var(--vt-hairline) !important;
+}
+
+/* A dialog drawn inside a window: the shade behind it fades, the glass
+   rises in. */
+.ModalPosition_Dismiss,
+.FullModalOverlay {
+  background: rgba(var(--vt-bg-rgb), .5) !important;
+  animation: var(--vt-a-fade);
+}
+
+.ModalPosition_Content > .DialogContent,
+.ModalPosition_Content > div > .DialogContent {
+  background: var(--vt-panel-strong) !important;
+  border-radius: var(--vt-radius-panel) !important;
+  box-shadow: var(--vt-rim-panel), var(--vt-shadow-float) !important;
+  border: 0 !important;
+}
+
+.ModalPosition_Content {
+  border-radius: var(--vt-radius-panel) !important;
+  animation: var(--vt-a-pop);
+}
+
+/* A dialog in its own window: the window is the dialog; one glass layer
+   over the window's bg, no float shadow and no pop (the window opens as a
+   whole). */
+html.ModalDialogPopup .ModalPosition_Content,
+body.ModalDialogPopup .ModalPosition_Content {
+  box-shadow: none !important;
+  border-radius: 0 !important;
+  animation: none;
+}
+
+html.ModalDialogPopup .DialogContent,
+body.ModalDialogPopup .DialogContent {
+  background: var(--vt-panel) !important;
+  box-shadow: none !important;
+  border-radius: 0 !important;
+}
+
+/* Its contents rise in instead. */
+html.ModalDialogPopup .DialogContent > *,
+body.ModalDialogPopup .DialogContent > * {
+  animation: var(--vt-a-rise);
+}
+
+/* ------------------------------------------------------- context menus --- */
+
+/* Steam's menus open in windows of their own (html.MillenniumWindow_ContextMenu,
+   or a window that only has Steam's ContextMenuPopup class: steam.vcss). Those
+   windows are opaque — a transparent one shows black — so the window is the
+   window's bg, and the menu inside it is an opaque rounded plate that fills
+   it. The menu's own background never goes transparent: that is what keeps
+   it readable in a window Millennium names differently. */
+html.MillenniumWindow_ContextMenu {
+  background: var(--vt-bg) !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+html.MillenniumWindow_ContextMenu body {
+  background: transparent !important;
+}
+
+.contextMenu,
+.DesktopUI .contextMenu,
+.ForceDesktop .contextMenu {
+  background: var(--vt-menu-solid) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-panel), var(--vt-shadow-menu) !important;
+  border: 0 !important;
+  padding: 5px !important;
+}
+
+.contextMenuItem {
+  border-radius: var(--vt-radius-button) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease), box-shadow var(--vt-dur-fast) var(--vt-ease),
+              color var(--vt-dur-fast) var(--vt-ease) !important;
+}
+
+.contextMenuItem:hover,
+.contextMenuItem.active,
+.contextMenuItem.gpfocus {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), inset 0 1px 0 rgba(255, 255, 255, .35) !important;
+  color: var(--vt-text) !important;
+}
+
+.contextMenuItem.disabled,
+.contextMenuItem.disabled:hover {
+  background: none !important;
+  box-shadow: none !important;
+  color: var(--vt-text-dim) !important;
+}
+
+.contextMenuItem.menuChecked,
+.contextMenuCheckMark {
+  color: var(--vt-accent) !important;
+}
+
+.contextMenuItem svg {
+  color: inherit;
+}
+
+/* ------------------------------------------------------------- focus --- */
+
+/* Steam's focus ring for keyboard and gamepad: a calm accent rim. */
+.gpfocus:not(.DialogButton):not(.contextMenuItem) {
+  outline-color: rgba(var(--vt-accent-rgb), .6) !important;
+}
+
+/* ---------------------------------------------------- reduced motion --- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vt-dur-fast: 0ms;
+    --vt-dur: 0ms;
+    --vt-dur-slow: 0ms;
+    --vt-glass-transition: none;
+    --vt-a-rise: none;
+    --vt-a-pop: none;
+    --vt-a-fade: none;
+    --vt-a-menu: none;
+    --vt-a-sweep: none;
+    --vt-a-sweep-one: none;
+  }
+}

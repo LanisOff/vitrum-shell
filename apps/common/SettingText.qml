@@ -11,12 +11,17 @@ SettingRow {
     property bool numeric: false
     property string placeholder: ""
     property real fieldWidth: Tokens.islandHeight * 8
+    /// Optional: text → the value to save, or undefined to refuse it (the
+    /// field shows the saved value again), e.g. a time that is not one.
+    property var normalize: null
     label: Ui.label(key)
-    Rectangle {
+    // A glass field, as Field.
+    Surface {
         anchors.verticalCenter: parent.verticalCenter
-        width: row.fieldWidth; height: Tokens.islandHeight * 1.1; radius: Tokens.radiusInner
-        color: Colors.alpha(Colors.text, 0.06)
-        border.width: field.activeFocus ? 2 : 0; border.color: Colors.accent
+        width: row.fieldWidth; height: Tokens.islandHeight * 1.1; radius: Tokens.radiusButton
+        group: "panels"; level: 1
+        border.width: field.activeFocus ? 2 : Tokens.hairline
+        border.color: field.activeFocus ? Colors.accent : Materials.border(group)
         TextInput {
             id: field
             anchors { fill: parent; leftMargin: Tokens.gap; rightMargin: Tokens.gap }
@@ -26,9 +31,10 @@ SettingRow {
             clip: true
             text: String(Settings.get(row.key, ""))
             function save() {
-                const v = row.numeric ? Number(text) : text;
-                if (row.numeric && !isFinite(v)) { text = String(Settings.get(row.key, "")); return; }
-                if (v !== Settings.get(row.key, "")) Settings.set(row.key, v);
+                const v = row.normalize ? row.normalize(text) : row.numeric ? Number(text) : text;
+                if (v !== undefined && !(row.numeric && !isFinite(v)) && v !== Settings.get(row.key, "")) Settings.set(row.key, v);
+                // Back to the saved value (refused, or tidied by normalize), still bound to it.
+                text = Qt.binding(() => String(Settings.get(row.key, "")));
             }
             onAccepted: save()
             onActiveFocusChanged: if (!activeFocus) save()

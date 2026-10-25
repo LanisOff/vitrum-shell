@@ -40,7 +40,8 @@ Item {
     // Bare on the wallpaper: white with a shadow. In a card or on a plate: the theme's ink.
     readonly property bool onWallpaper: !digital && !preview
 
-    readonly property bool h12: options.hours === "12"
+    // "auto" (and widgets saved before it existed) follow clock.h24 from Date & time.
+    readonly property bool h12: options.hours === "12" || (options.hours !== "24" && !Settings.get("clock.h24", true))
     readonly property bool secs: options.seconds === true
     readonly property bool showDate: options.date !== false
     readonly property string hh: Qt.formatTime(now, h12 ? "h" : "HH")

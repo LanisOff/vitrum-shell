@@ -6,3 +6,5 @@ eq(t.formatBytes(1536), "1.5 KiB", "bytes");
 eq(t.formatPercent(0.427), "43%", "percent");
 eq(JSON.stringify(t.clockParts(new Date(2026, 9, 1, 9, 5, 7), true)), JSON.stringify({ hh: "09", mm: "05", ss: "07", ampm: "" }), "24h");
 eq(t.clockParts(new Date(2026, 9, 1, 21, 5, 7), false).ampm, "PM", "12h");
+eq(t.clockParts(new Date(2026, 9, 1, 16, 3, 0), false).hh, "4", "12h: no leading zero");
+eq(t.clockParts(new Date(2026, 9, 1, 0, 3, 0), false).hh, "12", "12h: midnight is 12");

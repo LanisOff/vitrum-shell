@@ -7,8 +7,9 @@ import qs.services
 import "../lib/icons.js" as IconsLib
 
 /*
- * UI icons by name (shell/data/icons.json): Material Symbols Rounded, or Nerd
- * Font glyphs in the mono font preset, falling back to Material Symbols.
+ * UI icons by name (shell/data/icons.json): Phosphor (Light, or Fill for a
+ * filled Icon), or Nerd Font glyphs in the mono font preset, falling back to
+ * Phosphor.
  */
 Singleton {
     id: root

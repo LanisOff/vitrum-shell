@@ -45,15 +45,37 @@ Scope {
         WlrLayershell.namespace: "vitrum-corner"
         WlrLayershell.layer: WlrLayer.Top
         property bool armed: true
+        // What a corner opens (the launcher, Control Centre) covers it, and
+        // that reads as the pointer leaving: re-armed then, it fired again the
+        // moment the launcher closed with the pointer still resting in it. So
+        // a leave right after firing, with something open, is a cover; once it
+        // closes, an enter straight away is the resting pointer, a later one a
+        // new visit.
+        property bool covered: false
+        property real firedAt: 0
+        property real uncoveredAt: 0
+        Connections {
+            target: UiState
+            function onAnyOpenChanged() {
+                if (UiState.anyOpen || !c.covered) return;
+                c.covered = false; c.armed = true; c.uncoveredAt = Date.now();
+            }
+        }
         MouseArea {
             anchors.fill: parent
             hoverEnabled: true
             onContainsMouseChanged: {
-                if (containsMouse && c.armed) dwell.restart();
-                else if (!containsMouse) { dwell.stop(); c.armed = true; }
+                if (containsMouse) {
+                    if (Date.now() - c.uncoveredAt < 400) c.armed = false;
+                    if (c.armed) dwell.restart();
+                } else {
+                    dwell.stop();
+                    if (!c.armed && UiState.anyOpen && Date.now() - c.firedAt < 500) c.covered = true;
+                    else c.armed = true;
+                }
             }
         }
-        Timer { id: dwell; interval: root.delay; onTriggered: { c.armed = false; root.act(c.action); } }
+        Timer { id: dwell; interval: root.delay; onTriggered: { c.armed = false; c.firedAt = Date.now(); root.act(c.action); } }
     }
 
     Corner { key: "topLeft"; atTop: true; atLeft: true }

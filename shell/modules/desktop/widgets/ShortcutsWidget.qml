@@ -61,10 +61,10 @@ Item {
                 required property var modelData
                 width: grid.cellW; height: grid.cellH
                 Rectangle {
-                    // A tonal lift under the hovered one.
+                    // A faint lift under the hovered one.
                     anchors.centerIn: parent
                     width: Math.min(parent.width, parent.height) * 0.94; height: root.small ? width : parent.height * 0.96
-                    radius: Tokens.radiusInner * 1.5
+                    radius: Tokens.radiusTile
                     color: Colors.alpha(Colors.text, mouse.containsMouse ? 0.08 : 0)
                     Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
                 }
@@ -74,9 +74,12 @@ Item {
                     IconImage {
                         anchors.horizontalCenter: parent.horizontalCenter
                         implicitSize: grid.icon
-                        source: Quickshell.iconPath(cell.modelData.icon, "application-x-executable")
-                        scale: mouse.pressed ? 0.9 : mouse.containsMouse ? 1.08 : 1
-                        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                        source: Apps.iconSource(cell.modelData.icon)
+                        // No icon in the theme: a line glyph, not the missing texture.
+                        Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
+                        // Damped: a slight lift under the pointer, a sink when pressed.
+                        scale: mouse.pressed ? 0.97 : mouse.containsMouse ? 1.02 : 1
+                        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
                     }
                     Label {
                         visible: !root.small

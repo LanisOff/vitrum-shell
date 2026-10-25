@@ -39,7 +39,8 @@ PanelWindow {
         item: gate.mapped ? searchBox : dot; radius: gate.mapped ? searchBox.radius : 0
         Region { item: gate.mapped && caption.visible ? caption : dot; radius: gate.mapped ? caption.radius : 0 }
     }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
 
     property var all: []                 // every file in the folder
     property string query: ""
@@ -122,7 +123,7 @@ PanelWindow {
             y: parent.height * 0.12
             width: Tokens.islandHeight * 16
             height: Tokens.islandHeight * 1.5
-            radius: height / 2
+            radius: Tokens.radiusLauncher
             Row {
                 anchors { fill: parent; leftMargin: Tokens.padding; rightMargin: Tokens.gap }
                 spacing: Tokens.gap
@@ -146,14 +147,14 @@ PanelWindow {
                         e.accepted = true;
                     }
                 }
-                Rectangle {
+                GlassButton {
                     id: target
                     anchors.verticalCenter: parent.verticalCenter
-                    height: Tokens.islandHeight * 1.1; radius: height / 2; width: tl.implicitWidth + Tokens.padding * 1.4
-                    color: Colors.alpha(Colors.accent, 0.22)
+                    group: "overlay"; level: 2
+                    height: Tokens.islandHeight * 1.1
                     visible: Quickshell.screens.length > 1
-                    Label { id: tl; anchors.centerIn: parent; text: root.everyScreen ? "Every screen" : root.modelData.name; size: Tokens.textSmall + 1 }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.everyScreen = !root.everyScreen }
+                    label: root.everyScreen ? "Every screen" : root.modelData.name
+                    onClicked: root.everyScreen = !root.everyScreen
                 }
             }
         }
@@ -210,7 +211,7 @@ PanelWindow {
                     Rectangle {
                         visible: Lib.isVideo(card.modelData) || card.applied
                         anchors { left: parent.left; top: parent.top; margins: Tokens.gap }
-                        height: Tokens.islandHeight; radius: height / 2; width: badge.implicitWidth + Tokens.padding
+                        height: Tokens.islandHeight; radius: Tokens.radiusButton; width: badge.implicitWidth + Tokens.padding
                         color: Colors.alpha("#000000", 0.55)
                         Label { id: badge; anchors.centerIn: parent; text: (card.applied ? "Current" : "") + (card.applied && Lib.isVideo(card.modelData) ? " · " : "") + (Lib.isVideo(card.modelData) ? "Live" : ""); color: "white"; size: Tokens.textSmall }
                     }
@@ -223,7 +224,7 @@ PanelWindow {
             }
         }
 
-        // Name and position, in a capsule so they read over any picture.
+        // Name and position, on glass so they read over any picture.
         Surface {
             id: caption
             group: "overlay"
@@ -232,7 +233,7 @@ PanelWindow {
             visible: root.files.length > 0
             width: capCol.implicitWidth + Tokens.padding * 2.4
             height: capCol.implicitHeight + Tokens.padding
-            radius: height / 2
+            radius: Tokens.radiusTile
             Column {
                 id: capCol
                 anchors.centerIn: parent

@@ -101,6 +101,10 @@ Singleton {
     function dismissPopup(id) {
         popups = popups.filter(n => n.id !== id);
     }
+    /// An app's toast timed out: its popups leave together, critical ones stay.
+    function dismissApp(app) {
+        popups = popups.filter(n => n.appName !== app || n.urgency === 2);
+    }
 
     /// id → the live Notification, while its sender keeps it open.
     property var _live: ({})

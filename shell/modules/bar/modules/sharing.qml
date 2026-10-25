@@ -17,7 +17,7 @@ BarModule {
         id: row
         anchors.verticalCenter: parent.verticalCenter
         spacing: Tokens.gap / 2
-        Icon { name: "screen-share"; color: "#bf5af2"; filled: true; anchors.verticalCenter: parent.verticalCenter }
+        Icon { name: "screen-share"; color: "#bf5af2"; anchors.verticalCenter: parent.verticalCenter }
         Label { text: TextLib.elide(root.app, 18); anchors.verticalCenter: parent.verticalCenter }
     }
 }

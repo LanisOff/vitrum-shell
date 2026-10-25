@@ -22,8 +22,8 @@ Column {
             }
             Label { width: parent.width; text: VitrumUpdate.url.replace(/^https?:\/\//, ""); role: "dim"; size: Tokens.textSmall; elide: Text.ElideMiddle }
         }
-        Capsule { id: up; icon: "vitrum-update"; label: "Update"; active: true; anchors.verticalCenter: parent.verticalCenter
-                  onClicked: { UiState.closePanel(); VitrumUpdate.update(); } }
+        GlassButton { id: up; icon: "vitrum-update"; label: "Update"; primary: true; anchors.verticalCenter: parent.verticalCenter
+                      onClicked: { UiState.closePanel(); VitrumUpdate.update(); } }
     }
     Flickable {
         width: root.width

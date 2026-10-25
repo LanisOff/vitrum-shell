@@ -9,7 +9,7 @@ import "../../lib/overview.js" as Lib
 
 /*
  * Over niri's overview: a rail of this output's workspaces on the left (index,
- * name, window count; click to go there) and, on the focused output, a filter
+ * name, window count; click to go there; the current one tinted) and, on the focused output, a filter
  * field — type to find a window by title or app, Enter to go to it.
  *
  * The overlay holds the keyboard while the overview is open, so typing goes to
@@ -48,7 +48,8 @@ PanelWindow {
         item: root.open ? railBox : dot; radius: root.open ? railBox.radius : 0
         Region { item: root.open && root.focused_ ? search : dot; radius: root.open && root.focused_ ? search.radius : 0 }
     }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
 
     readonly property var names: {
         const m = {};
@@ -93,16 +94,17 @@ PanelWindow {
                     required property var modelData
                     width: Math.max(Tokens.islandHeight * 3.2, rowContent.implicitWidth + Tokens.padding * 1.5)
                     height: Tokens.islandHeight * 1.2
-                    radius: height / 2
-                    color: modelData.active ? Colors.accent : wsMouse.containsMouse ? Colors.alpha(Colors.text, 0.1) : "transparent"
+                    radius: Tokens.radiusTile
+                    color: !modelData.active && wsMouse.containsMouse ? Colors.alpha(Colors.text, 0.1) : "transparent"
                     Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+                    ShellTint { anchors.fill: parent; radius: parent.radius; group: "overlay"; active: modelData.active; hovered: wsMouse.containsMouse }
                     Row {
                         id: rowContent
                         anchors.centerIn: parent
                         spacing: Tokens.gap
-                        Label { text: modelData.label; numeric: true; font.weight: Font.DemiBold; role: modelData.active ? "onAccent" : "text"; anchors.verticalCenter: parent.verticalCenter }
+                        Label { text: modelData.label; numeric: true; font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter }
                         Label { text: modelData.count ? modelData.count + (modelData.count === 1 ? " window" : " windows") : "empty"
-                                size: Tokens.textSmall; role: modelData.active ? "onAccent" : "dim"; opacity: 0.85; anchors.verticalCenter: parent.verticalCenter }
+                                size: Tokens.textSmall; role: "dim"; opacity: 0.85; anchors.verticalCenter: parent.verticalCenter }
                     }
                     MouseArea { id: wsMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Niri.focusWorkspace(modelData.idx) }
                 }
@@ -119,8 +121,10 @@ PanelWindow {
         Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
         width: Tokens.islandHeight * 16
         height: searchCol.implicitHeight + 2 * Tokens.padding * 0.75
-        radius: root.matches.length ? Tokens.radiusPanel : height / 2
+        // A field's corners alone, a panel's once it holds matches.
+        radius: root.matches.length ? Tokens.radiusPanel : Tokens.radiusTile
         Behavior on height { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
+        Behavior on radius { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
         anchors.horizontalCenter: parent.horizontalCenter
         y: Tokens.islandHeight + Tokens.gap * 3
         clip: true
@@ -167,12 +171,14 @@ PanelWindow {
                     readonly property var ws: Niri.workspaces[modelData.workspaceId]
                     width: searchCol.width; height: Tokens.islandHeight * 1.3
                     radius: Tokens.radiusInner
-                    color: index === root.current ? Colors.alpha(Colors.accent, 0.22) : hitMouse.containsMouse ? Colors.alpha(Colors.text, 0.06) : "transparent"
+                    color: index !== root.current && hitMouse.containsMouse ? Colors.alpha(Colors.text, 0.06) : "transparent"
+                    ShellTint { anchors.fill: parent; radius: parent.radius; group: "overlay"; active: index === root.current; hovered: hitMouse.containsMouse }
                     Row {
                         anchors.fill: parent; anchors.leftMargin: Tokens.gap; anchors.rightMargin: Tokens.gap
                         spacing: Tokens.gap
                         IconImage { implicitSize: Tokens.iconSize * 1.3; anchors.verticalCenter: parent.verticalCenter
-                                    source: Quickshell.iconPath(app ? app.icon : modelData.appId, "application-x-executable") }
+                                    source: Apps.iconSource(app ? app.icon : modelData.appId)
+                                    Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim } }
                         Label { width: parent.width - Tokens.iconSize * 1.3 - where.implicitWidth - 2 * Tokens.gap; text: modelData.title || modelData.appId
                                 anchors.verticalCenter: parent.verticalCenter; font.weight: index === root.current ? Font.DemiBold : Font.Normal }
                         Label { id: where; text: (app ? app.name : modelData.appId) + (ws ? " · " + ws.idx : ""); role: "dim"; size: Tokens.textSmall; anchors.verticalCenter: parent.verticalCenter }

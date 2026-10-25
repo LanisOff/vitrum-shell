@@ -7,7 +7,7 @@
 //   aliases  old ids that still open it
 
 var panes = [
-    { group: "Personal", id: "appearance", name: "Appearance", icon: "palette", keys: ["scheme", "palette", "density", "toolkits"], words: "theme dark light colours colors accent density scheme gtk kde" },
+    { group: "Personal", id: "appearance", name: "Appearance", icon: "palette", keys: ["scheme", "palette", "density", "toolkits", "look", "vesktop"], words: "theme dark light colours colors accent density scheme gtk kde tint dichroic hue second colour second color vesktop discord vencord vesktop theme" },
     { group: "Personal", id: "wallpaper", name: "Wallpaper", icon: "image", keys: ["wallpaper"], words: "background picture day night video live parallax" },
     { group: "Personal", id: "materials", name: "Materials", icon: "materials", keys: ["materials"], words: "glass blur frosted transparency" },
     { group: "Personal", id: "type", name: "Fonts & icons", icon: "typography", keys: ["fonts", "icons", "cursor"], words: "font fonts typography text size scale icons cursor" },
@@ -29,7 +29,7 @@ var panes = [
     { group: "System", id: "keyboard", name: "Keyboard & shortcuts", icon: "keyboard", keys: ["keyboard", "keybinds"], words: "layout keys shortcuts bindings" },
     { group: "System", id: "input", name: "Mouse & touchpad", icon: "mouse", keys: ["input"], words: "mouse touchpad pointer sensitivity speed acceleration scroll natural tap trackpad" },
     { group: "System", id: "lock", name: "Lock & idle", icon: "lock", keys: ["lock"], words: "lock screen lock after idle dim after screen off sleep picture face" },
-    { group: "System", id: "power", name: "Power & performance", icon: "power", keys: ["awake", "games", "alerts"], words: "battery profile performance game mangohud awake temperature alerts" },
+    { group: "System", id: "power", name: "Power & performance", icon: "power", keys: ["awake", "games", "steam", "alerts"], words: "battery profile performance game mangohud awake temperature alerts steam millennium steam theme skin" },
     { group: "System", id: "time", name: "Date & time", icon: "calendar", keys: ["clock", "weather", "timers"], words: "clock date time zone weather pomodoro calendar" },
     { group: "System", id: "advanced", name: "Advanced", icon: "settings", keys: ["updates"], words: "advanced debug reset json update version vitrum" }
 ];

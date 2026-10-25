@@ -4,7 +4,7 @@ import qs.theme
 import qs.components
 import "root:/lib/settingsui.js" as Ui
 
-// A list of strings: chips with ×, and a field to add one.
+// A list of strings: glass chips with ×, and a glass field to add one.
 Column {
     id: list
     property string key: ""
@@ -22,12 +22,12 @@ Column {
         spacing: Tokens.gap / 2
         Repeater {
             model: list.items
-            delegate: Rectangle {
+            delegate: Surface {
                 required property var modelData
                 required property int index
-                height: Tokens.islandHeight * 1.05; radius: height / 2
+                height: Tokens.islandHeight * 1.05; radius: Tokens.radiusButton
                 width: chipRow.implicitWidth + Tokens.padding
-                color: Colors.alpha(Colors.accent, 0.18)
+                group: "panels"; level: 1
                 Row {
                     id: chipRow
                     anchors.centerIn: parent
@@ -39,10 +39,12 @@ Column {
                 }
             }
         }
-        Rectangle {
-            height: Tokens.islandHeight * 1.05; radius: height / 2
+        Surface {
+            height: Tokens.islandHeight * 1.05; radius: Tokens.radiusButton
             width: Tokens.islandHeight * 5
-            color: Colors.alpha(Colors.text, 0.06)
+            group: "panels"; level: 1
+            border.width: add.activeFocus ? 2 : Tokens.hairline
+            border.color: add.activeFocus ? Colors.accent : Materials.border(group)
             TextInput {
                 id: add
                 anchors { fill: parent; leftMargin: Tokens.gap; rightMargin: Tokens.gap }

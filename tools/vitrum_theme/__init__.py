@@ -6,7 +6,7 @@ Writes:
   ~/.config/vitrum/niri/generated/effects.kdl         materials: layer rules per vitrum-<group>, window rules
   ~/.config/vitrum/niri/generated/animations.kdl      the shell's spring tokens, for niri
   ~/.config/vitrum/niri/generated/binds.kdl           the keymap: KEYBINDS.md with the keys changed in Settings
-  ~/.config/vitrum/niri/generated/input.kdl           mouse and touchpad
+  ~/.config/vitrum/niri/generated/input.kdl           mouse and touchpad, keyboard layouts
 
 Only files whose content changed are written, so niri only reloads when it must.
 The settings logic mirrors shell/lib/settings.js: wrong types and unknown enum
@@ -14,6 +14,7 @@ values fall back to the default with a warning.
 """
 from __future__ import annotations
 
+import colorsys
 import json
 import re
 import math
@@ -30,8 +31,9 @@ CACHE = Path(os.environ.get("XDG_CACHE_HOME", HOME / ".cache")) / "vitrum"
 GROUPS = ["bar", "panels", "notifications", "launcher", "lock", "osd", "dock", "dialogs", "widgets", "overlay"]
 VIDEO_EXT = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".gif"}
 
-# Spring tokens (damping ratio, stiffness) — the same pairs the shell uses (Motion.qml).
-SPRINGS = {"snappy": (1.0, 900), "smooth": (1.0, 600), "bouncy": (0.75, 520)}
+# Spring tokens (damping ratio, stiffness) — the same pairs the shell uses
+# (shell/lib/motion.js SPRINGS). All critically damped: nothing bounces.
+SPRINGS = {"snappy": (1.0, 900), "smooth": (1.0, 600)}
 
 GLASS_PRESETS = {
     #           refraction edge  corner depth glow  edge-light sat   dim   boost
@@ -205,6 +207,32 @@ def guard(palette: dict) -> dict:
     return out
 
 
+def dichroic_shift(settings: dict) -> float:
+    """look.dichroic.shift in degrees (−100 by default, clamped to ±180)."""
+    look = settings.get("look")
+    d = look.get("dichroic") if isinstance(look, dict) else None
+    v = d.get("shift", -100) if isinstance(d, dict) else -100
+    if isinstance(v, bool) or not isinstance(v, (int, float)) or not math.isfinite(v):
+        return -100.0
+    return max(-180.0, min(180.0, float(v)))
+
+
+def accent2(accent: str, shift: float, dark: bool) -> str:
+    """Dichroic glass's second hue, as shell/lib/color.js dichroic(): the
+    accent's hue turned `shift` degrees, saturation 0.72, lightness 0.74 in the
+    dark and 0.42 in the light (a grey accent counts as hue 0)."""
+    h, _, s = colorsys.rgb_to_hls(*_rgb(accent))
+    h = ((h if s > 0 else 0.0) + shift / 360) % 1
+    return _hex(colorsys.hls_to_rgb(h, 0.74 if dark else 0.42, 0.72))
+
+
+def with_accent2(palette: dict, settings: dict) -> dict:
+    """The palette with accent2 in both schemes (Colors.accent2, the focus ring)."""
+    shift = dichroic_shift(settings)
+    return {scheme: {**roles, "accent2": accent2(roles["accent"], shift, scheme == "dark")}
+            for scheme, roles in palette.items()}
+
+
 # -------------------------------------------------------------- palette -----
 
 def preset_names():
@@ -243,9 +271,10 @@ def resolve_palette(settings: dict, wallpaper: Path | None, run=subprocess.run, 
     pal["accent"] = (pal.get("accent") or "").lower()
     fallback = guard(palette_from_preset(pal["preset"], pal["accent"]))
     try:
-        return _from_wallpaper(pal, wallpaper, run, cache, fallback)
+        palette, note = _from_wallpaper(pal, wallpaper, run, cache, fallback)
     except OSError as e:          # matugen or ffmpeg missing, unreadable file, full disk
-        return fallback, f"{e}; preset {pal['preset']}"
+        palette, note = fallback, f"{e}; preset {pal['preset']}"
+    return with_accent2(palette, settings), note
 
 
 def _from_wallpaper(pal, wallpaper, run, cache, fallback):
@@ -282,17 +311,20 @@ def _fmt(x) -> str:
     return str(x)
 
 
-# Island heights per density (Tokens.qml): the bar's pieces are capsules.
-ISLAND_HEIGHT = {"compact": 30, "regular": 34, "comfortable": 38}
+# The small parts' radii scale with the panel radius per density (Tokens.qml
+# _rs: radiusPanel / 20). Compact values: a bar island 10, the launcher's
+# search field and buttons 12 (radiusTile). No capsules.
+RADIUS_SCALE = {"compact": 1.0, "regular": 1.1, "comfortable": 1.2}
 
 
 def island_radius(settings: dict) -> int:
-    return round(ISLAND_HEIGHT.get(settings.get("density"), 30) / 2)
+    """Tokens.radiusIsland: every bar island's corners (Bar's pieceRadius/fillet)."""
+    return round(10 * RADIUS_SCALE.get(settings.get("density"), 1.0))
 
 
 def launcher_radius(settings: dict) -> int:
-    """Half the launcher's capsule (Tokens.launcherHeight: an even 1.6 islands)."""
-    return round(ISLAND_HEIGHT.get(settings.get("density"), 30) * 0.8)
+    """Tokens.radiusLauncher: the launcher's search field and buttons."""
+    return round(12 * RADIUS_SCALE.get(settings.get("density"), 1.0))
 
 
 def _niri_pid(socket: str | None = None) -> str | None:
@@ -386,11 +418,11 @@ def effects_kdl(settings: dict, caps: dict | None = None) -> str:
     shaped = bool((caps or {}).get("shapedGlass"))
     out = ["// Generated by vitrum-theme from settings.json (materials, windows.materials). Do not edit.\n"]
     for g in GROUPS:
-        material = m.get("groups", {}).get(g, m["default"])
+        material = m.get("groups", {}).get(g) or m["default"]   # "" is "Default"
         if g in ("bar", "launcher") and material == "glass" and shaped:
-            # Shaped glass: every island its own capsule, a panel melts into
-            # the island it flows out of (patches/niri-glass); the launcher's
-            # results flow out of its search capsule the same way.
+            # Shaped glass: every island its own rounded piece, a panel melts
+            # into the island it flows out of (patches/niri-glass); the
+            # launcher's results flow out of its search field the same way.
             r = island_radius(settings) if g == "bar" else launcher_radius(settings)
             out.append(f'layer-rule {{\n    match namespace="^vitrum-{g}$"\n    geometry-corner-radius {r}\n'
                        f'{_effect_block(material, settings, fillet=r)}}}\n')
@@ -405,8 +437,16 @@ def effects_kdl(settings: dict, caps: dict | None = None) -> str:
         app, material = w.get("appId"), w.get("material")
         if not app or material not in ("solid", "frosted", "glass", "clear"):
             continue
-        out.append(f'window-rule {{\n    match app-id="^{app}$"\n{_effect_block(material, settings, window=True)}}}\n')
+        out.append(f'window-rule {{\n    match app-id={_exact_app_id(str(app))}\n{_effect_block(material, settings, window=True)}}}\n')
     return "\n".join(out)
+
+
+def _exact_app_id(app: str) -> str:
+    """An app id as a niri match, the id exactly: regex characters escaped and
+    the KDL string quoted (a typed "foo(bar" or a quote would otherwise make
+    niri reject the whole config)."""
+    rx = "^" + re.sub(r"([\\.+*?()|\[\]{}^$#&\-~])", r"\\\1", app) + "$"
+    return '"' + rx.replace("\\", "\\\\").replace('"', '\\"') + '"'
 
 
 def _game_matches(settings: dict) -> str:
@@ -433,8 +473,10 @@ def look_kdl(settings: dict, palette: dict, scheme: str) -> str:
     if focus == "ring":
         ring = f'focus-ring {{\n        on\n        width 2\n        active-color "{p["accent"]}"\n        inactive-color "#00000000"\n    }}'
     elif focus == "gradient":
+        # Dichroic: the accent turning to accent2 across the window.
+        to = p.get("accent2") or accent2(p["accent"], dichroic_shift(settings), scheme == "dark")
         ring = (f'focus-ring {{\n        on\n        width 2\n        active-gradient from="{p["accent"]}" '
-                f'to="{p["surfaceHighest"]}" angle=135 relative-to="workspace-view"\n        inactive-color "#00000000"\n    }}')
+                f'to="{to}" angle=135 relative-to="workspace-view"\n        inactive-color "#00000000"\n    }}')
     else:
         ring = "focus-ring {\n        off\n    }"
     return f"""// Generated by vitrum-theme from settings.json. Do not edit.
@@ -452,6 +494,26 @@ window-rule {{
 // focused or not. After the rule above, so it wins.
 window-rule {{
     match app-id=r#"^vitrum-(settings|disks|about)$"#
+    opacity 1.0
+}}
+
+// Media: never dimmed while you watch. After the unfocused rule, so it wins
+// over the opaque-media rule in config.kdl, which comes before this file.
+window-rule {{
+    match app-id=r#"^(mpv|vlc|org\\.gnome\\.Loupe|imv|com\\.obsproject\\.Studio)$"#
+    opacity 1.0
+}}
+
+// Steam's notification toasts ("… is playing", downloads, messages): small
+// windows of their own. Steam asks for the bottom-right corner, but niri
+// places windows itself and floated them in the middle of the screen. Here:
+// bottom-right, never taking focus, never dimmed, with the card's radius.
+window-rule {{
+    match app-id="^steam$" title="^notificationtoasts_"
+    open-floating true
+    open-focused false
+    default-floating-position x=24 y=24 relative-to="bottom-right"
+    geometry-corner-radius 12
     opacity 1.0
 }}
 
@@ -498,7 +560,7 @@ def animations_kdl(settings: dict) -> str:
     rows = {
         "window-open": "smooth", "window-movement": "smooth", "window-resize": "snappy",
         "horizontal-view-movement": "smooth", "workspace-switch": "smooth",
-        "overview-open-close": "smooth", "config-notification-open-close": "bouncy",
+        "overview-open-close": "smooth", "config-notification-open-close": "smooth",
     }
     body = "".join(f"    {name} {{\n        {spring(tok)}\n    }}\n" for name, tok in rows.items())
     body += '    window-close {\n        duration-ms 160\n        curve "ease-out-quad"\n    }\n'
@@ -535,6 +597,26 @@ def set_icon_theme(name: str) -> None:
                        capture_output=True, timeout=5)
     except (OSError, subprocess.TimeoutExpired):
         pass
+
+
+def set_cursor_theme(name: str, config: Path = None) -> None:
+    """The cursor for GTK apps: gsettings (Wayland) and gtk-cursor-theme-name
+    in GTK 3's and 4's settings.ini; niri takes it from its own config."""
+    if not name:
+        return
+    try:
+        subprocess.run(["gsettings", "set", "org.gnome.desktop.interface", "cursor-theme", name],
+                       capture_output=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        pass
+    config = Path(config) if config else Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
+    for ini in (config / "gtk-3.0/settings.ini", config / "gtk-4.0/settings.ini"):
+        if not ini.is_file():
+            continue
+        text = ini.read_text()
+        new = re.sub(r"(?m)^gtk-cursor-theme-name=.*$", "gtk-cursor-theme-name=" + name, text)
+        if new != text:
+            ini.write_text(new)
 
 
 def gtk_theme_name(scheme: str, themes: Path = None) -> str:

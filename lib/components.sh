@@ -16,6 +16,12 @@ COMPONENTS=(
   "phone|desktop|0|phone|WANT_PHONE"
   "tmux|tools|1|tmux|WANT_TMUX"
   "games|tools|1|games|WANT_GAMES"
+  # steam-theme has no packages: vitrum-steam-theme installs Millennium (the
+  # AUR's, or upstream's pinned release) where Steam has none.
+  "steam_theme|tools|1|steam-theme|WANT_STEAM_THEME"
+  # vesktop-theme neither: vitrum-vesktop-theme themes the Vesktop that is
+  # there, and none is installed for it.
+  "vesktop_theme|tools|1|vesktop-theme|WANT_VESKTOP_THEME"
   "utilities|tools|1|utilities|WANT_UTILITIES"
   "cli_tools|tools|1|cli-tools|WANT_CLI_TOOLS"
   "file_manager|tools|1|file-manager|WANT_FILE_MANAGER"
@@ -27,7 +33,18 @@ COMPONENTS=(
 
 # A part that only makes sense with another one ticked.
 # shellcheck disable=SC2034  # read by the choice screen
-declare -gA COMPONENT_REQUIRES=([tmux_autostart]=tmux [author_tmux_keys]=tmux)
+declare -gA COMPONENT_REQUIRES=([tmux_autostart]=tmux [author_tmux_keys]=tmux [steam_theme]=games)
+
+# vesktop_present — 0 when there is a Vesktop for the vesktop_theme part to
+# theme: the native one (on PATH, or its config from a run), or the Flatpak
+# (dev.vencord.Vesktop, installed for the system or the user, or its data).
+# The shell stage and the doctor go by it; vitrum-vesktop-theme finds the
+# config folder of either.
+vesktop_present() {
+  local id=dev.vencord.Vesktop
+  command -v vesktop >/dev/null 2>&1 || [[ -d "$XDG_CONFIG_HOME/vesktop" || -d "$HOME/.var/app/$id" ||
+    -d "${VITRUM_SYSROOT:-}/var/lib/flatpak/app/$id" || -d "$XDG_DATA_HOME/flatpak/app/$id" ]]
+}
 
 # One-of choices: id|var|options, the first option being the default.
 PICKS=(
@@ -104,6 +121,15 @@ component_get() {
   var="$(component_field "$1" var)" || return 1
   def="$(component_field "$1" default)"
   printf '%s\n' "${!var:-$def}"
+}
+
+# component_active <id> — 0 when the part is on and so is what it needs: what
+# the stages go by. Flags can say --no-games --with-steam-theme, and only the
+# choice screen turns the second off for them.
+component_active() {
+  local req="${COMPONENT_REQUIRES[$1]:-}"
+  [[ "$(component_get "$1")" == 1 ]] || return 1
+  [[ -z "$req" ]] || component_active "$req"
 }
 
 # component_set <id> <0|1>
@@ -195,7 +221,9 @@ if "version" not in d:
     # These were always installed; ticking them keeps what is there.
     v["cli_tools"] = v["file_manager"] = v["ocr"] = True
     print("MIGRATED=1")
-    print("KNOWN=" + " ".join(ids))
+    # The Steam and Vesktop themes came later and change those apps
+    # themselves: offered, not assumed.
+    print("KNOWN=" + " ".join(i for i in ids if i not in ("steam_theme", "vesktop_theme")))
 else:
     v = {k: bool(d[k]) for k in ids if k in d}
     known = d.get("known")
@@ -352,7 +380,7 @@ components_needs() {
   local needs=(required) id need
   if lspci 2>/dev/null | grep -qiE '(VGA|3D).*NVIDIA'; then needs+=(nvidia); fi
   for id in $(component_ids); do
-    [[ "$(component_get "$id")" == 1 ]] || continue
+    component_active "$id" || continue
     need="$(component_field "$id" need)"
     [[ "$need" == - ]] || needs+=("$need")
   done

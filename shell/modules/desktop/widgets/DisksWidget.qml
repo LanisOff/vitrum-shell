@@ -11,7 +11,7 @@ import qs.components
  *   M   the header; a bar for each disk with its used and total size, as
  *       many as fit
  *   L   the same, with room for more
- * A bar is the accent, yellow over 80 %, red over 90 %.
+ * A bar is the dichroic tint (the accent → accent2), amber over 80 %, red over 90 %.
  * options: mounts (the mount points shown, in that order; empty: every disk —
  * each device once, the boot partitions left out).
  * In a gallery card, sample disks; nothing runs.
@@ -99,6 +99,7 @@ Item {
         anchors.centerIn: parent
         spacing: Tokens.gap * 0.6
         Meter {
+            group: "widgets"
             anchors.horizontalCenter: parent.horizontalCenter
             kind: "circular"
             width: Math.min(root.width, root.height) * 0.66; height: width
@@ -126,6 +127,7 @@ Item {
             model: root.disks.slice(0, rows.fits)
             delegate: Meter {
                 required property var modelData
+                group: "widgets"
                 width: rows.width
                 label: root.name(modelData)
                 trailing: root.sizes(modelData)

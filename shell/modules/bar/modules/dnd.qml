@@ -6,5 +6,4 @@ StatusIcon {
     shown: Notifs.doNotDisturb
     icon: "dnd"
     tint: Colors.accent
-    filled: true
 }

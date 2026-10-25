@@ -48,7 +48,7 @@ Page {
                 readonly property var e: Settings.get("screencast.remember", {})[modelData] || {}
                 label: ScreenShare.appName(modelData)
                 hint: e.type === "monitor" ? "Shares the screen " + e.connector : "Shares a " + (e.appId || "") + " window"
-                Capsule { label: "Forget"; onClicked: ScreenShare.forget(modelData) }
+                GlassButton { label: "Forget"; onClicked: ScreenShare.forget(modelData) }
             }
         }
     }
@@ -67,7 +67,7 @@ Page {
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: ColorPick.copy(modelData) }
                 }
             }
-            Capsule { visible: (Settings.get("picker.history", []) || []).length > 0; label: "Clear"; onClicked: Settings.set("picker.history", []) }
+            GlassButton { visible: (Settings.get("picker.history", []) || []).length > 0; label: "Clear"; onClicked: Settings.set("picker.history", []) }
         }
     }
 }

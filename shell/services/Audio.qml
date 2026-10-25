@@ -52,6 +52,12 @@ Singleton {
         return p["application.name"] || p["application.process.binary"] || n.description || n.name || "An app";
     }
     function setStreamVolume(n, v) { if (n && n.audio) { n.audio.volume = Math.max(0, Math.min(1.5, v)); } }
+    function setStreamMuted(n, m) { if (n && n.audio) n.audio.muted = !!m; }
+    /// The app's icon name: its own (application.icon-name), else its desktop entry's.
+    function streamIcon(n) {
+        const p = (n && n.properties) || {};
+        return p["application.icon-name"] || Apps.iconFor(p["application.process.binary"] || p["application.name"] || "", "");
+    }
 
     // ----------------------------------------------------------- actions ---
 

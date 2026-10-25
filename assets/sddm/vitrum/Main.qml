@@ -4,18 +4,22 @@ import QtQuick.Shapes
 
 /*
  * vitrum for SDDM: the lock screen before login — the blurred wallpaper, the
- * time cut out of glass, your picture and a greeting, a glass capsule for the
+ * time cut out of glass, your picture and a greeting, a glass field for the
  * password (dots, the keyboard layout, Caps Lock), the user when there are
  * several, the session, and power actions.
  *
  * It moves like the lock screen: the wallpaper settles and blurs in while the
- * blocks rise one after another; typing pops dots in; a light sweeps the field
- * while SDDM checks; a wrong password blushes the glass and the dots red and
- * swings the capsule once, then the dots go out together; switching users
+ * blocks rise one after another; typing grows dots in; a light sweeps the
+ * field while SDDM checks; a wrong password blushes the glass and the dots red
+ * and swings the field once, then the dots go out together; switching users
  * cross-fades the picture and the name. A good password lets everything go
  * and the wallpaper sharpens: the desktop starts on the same picture.
  *
- * Glass.qml (with glass.frag.qsb) is the shell's own glass, copied here.
+ * Dichroic glass, as in the shell: what is on (the picked user, the go button
+ * once there is a password, an armed power action) is clear glass tinted from
+ * the accent to its second hue (accent2), and the text on it stays the text
+ * colour. Glass.qml (with glass.frag.qsb) is the shell's own glass and
+ * Tint.qml its tint, both plain QtQuick, copied here.
  * The picture, palette and day/night times come from the picked user's
  * /var/lib/vitrum/login/<user>/ (the shell keeps it through vitrum's root
  * helper), else from theme.conf, which the installer writes.
@@ -31,12 +35,25 @@ Rectangle {
     readonly property color cText: pal.text || config.text || "#eceef2"
     readonly property color cDim: pal.textDim || config.textDim || "#a3a8b3"
     readonly property color cAccent: pal.accent || config.accent || "#8ab4f8"
-    readonly property color cOnAccent: pal.onAccent || config.onAccent || "#0b1a33"
+    // The tint's second hue, from wherever the accent came from: a palette's own
+    // accent2, else the shell's maths on that accent (lib/color.js dichroic: the
+    // accent turned −100°, s 0.72, l 0.74). A user's palette without accent2 (left
+    // before dichroic) must not borrow theme.conf's, which pairs another accent.
+    readonly property color cAccent2: (pal.accent ? pal.accent2 : (config.accent ? config.accent2 : ""))
+        || Qt.hsla(wrap01(Math.max(0, cAccent.hslHue) - 100 / 360), 0.72, 0.74, 1)
     readonly property color cSurface: pal.surface || config.surface || "#1f2125"
     readonly property color cDanger: pal.danger || config.danger || "#ef6b6b"
     readonly property color cBg: pal.bg || config.bg || "#141518"
     readonly property string fontName: info.font || config.font || "Inter"
     readonly property real unit: Math.max(1, height / 1080)
+    // Radii as the shell's compact tokens (radiusTile, radiusButton).
+    readonly property real rTile: 12 * unit
+    readonly property real rButton: 9 * unit
+
+    function wrap01(h) { h = h % 1; return h < 0 ? h + 1 : h; }
+    /// The tint's second colour for any other colour (danger): the same colour
+    /// turned −30° and a little lighter, as the shell's Colors.pair.
+    function pair(c) { return Qt.hsla(wrap01(Math.max(0, c.hslHue) - 30 / 360), c.hslSaturation, Math.min(0.9, c.hslLightness + 0.08), 1); }
 
     property int userIndex: userModel.lastIndex >= 0 ? userModel.lastIndex : 0
     // The remembered session; on a first login (no last user) niri with vitrum, if it is installed.
@@ -81,7 +98,7 @@ Rectangle {
         function onLoginFailed() {
             root.busy = false;
             root.error = "Wrong password";
-            capsule.refuse();
+            field.refuse();
             password.text = "";
             password.forceActiveFocus();
         }
@@ -264,16 +281,23 @@ Rectangle {
                 width: 96 * root.unit; height: width
                 opacity: root.rise(2) * (1 - root.leave) * who.swap
                 scale: 0.9 + 0.1 * who.swap
+                // Round, tinted glass behind the initial; the picture covers it.
                 Rectangle {
                     anchors.fill: parent
                     radius: width / 2
-                    color: root.cAccent
+                    color: Qt.rgba(1, 1, 1, 0.07)
                     border.width: 2; border.color: Qt.rgba(1, 1, 1, 0.25)
+                    Tint {
+                        anchors.fill: parent
+                        radius: width / 2
+                        color: root.cAccent; color2: root.cAccent2
+                        active: face.status !== Image.Ready
+                    }
                     Text {
                         anchors.centerIn: parent
                         visible: face.status !== Image.Ready
                         text: (root.firstName(who.shown) || "?").charAt(0)
-                        color: root.cOnAccent
+                        color: root.cText
                         font { family: root.fontName; pixelSize: 40 * root.unit; weight: Font.DemiBold }
                     }
                     Image {
@@ -332,13 +356,14 @@ Rectangle {
                         required property string name
                         required property string realName
                         readonly property bool on: index === root.userIndex
-                        height: 36 * root.unit; radius: height / 2
+                        height: 36 * root.unit; radius: root.rTile
                         width: ur.implicitWidth + 24 * root.unit
-                        tint: on ? Qt.rgba(root.cAccent.r, root.cAccent.g, root.cAccent.b, 0.85) : um.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.07)
+                        tint: um.containsMouse && !on ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.07)
                         Behavior on tint { ColorAnimation { duration: 180 } }
-                        scale: um.pressed ? 0.94 : 1
+                        scale: um.pressed ? 0.97 : 1
                         Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-                        Text { id: ur; anchors.centerIn: parent; text: chip.realName || chip.name; color: chip.on ? root.cOnAccent : root.cText; font { family: root.fontName; pixelSize: 14 * root.unit } }
+                        Tint { anchors.fill: parent; radius: chip.radius; color: root.cAccent; color2: root.cAccent2; active: chip.on; hovered: um.containsMouse }
+                        Text { id: ur; anchors.centerIn: parent; text: chip.realName || chip.name; color: root.cText; font { family: root.fontName; pixelSize: 14 * root.unit } }
                         MouseArea { id: um; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: { root.userIndex = chip.index; password.forceActiveFocus(); } }
                     }
                 }
@@ -349,11 +374,10 @@ Rectangle {
             anchors.horizontalCenter: parent.horizontalCenter
             visible: root.typeName
             width: 300 * root.unit; height: 44 * root.unit
-            Rectangle {
+            // Clear glass, like the password field under it.
+            GlassPane {
                 anchors.fill: parent
-                radius: height / 2
-                color: Qt.rgba(root.cSurface.r, root.cSurface.g, root.cSurface.b, 0.78)
-                border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.12)
+                radius: root.rTile
                 TextInput {
                     id: nameField
                     anchors { fill: parent; leftMargin: 20 * root.unit; rightMargin: 20 * root.unit }
@@ -367,14 +391,14 @@ Rectangle {
             }
         }
 
-        // The capsule: password (as dots), layout, go.
+        // The field: password (as dots), layout, go.
         Rise {
             order: 4
             anchors.horizontalCenter: parent.horizontalCenter
-            width: capsule.width; height: capsule.height
+            width: field.width; height: field.height
             GlassPane {
-                id: capsule
-                width: 440 * root.unit; height: 54 * root.unit; radius: height / 2
+                id: field
+                width: 440 * root.unit; height: 54 * root.unit; radius: root.rTile
                 tint: Qt.tint(Qt.rgba(1, 1, 1, 0.07), Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, 0.38 * flash))
                 outline: Qt.tint(Qt.rgba(1, 1, 1, 0.14), Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, 0.85 * flash))
 
@@ -384,34 +408,34 @@ Rectangle {
                 property real swing: 0
                 property bool refusing: false
                 property real dotsOpacity: 1
-                transform: Translate { x: 22 * root.unit * Math.sin(capsule.swing * Math.PI * 6) * Math.pow(1 - capsule.swing, 2) }
+                transform: Translate { x: 22 * root.unit * Math.sin(field.swing * Math.PI * 6) * Math.pow(1 - field.swing, 2) }
                 function refuse() { refusing = true; refuseAnim.restart(); }
                 SequentialAnimation {
                     id: refuseAnim
                     ParallelAnimation {
-                        NumberAnimation { target: capsule; property: "swing"; from: 0; to: 1; duration: 520 }
+                        NumberAnimation { target: field; property: "swing"; from: 0; to: 1; duration: 520 }
                         SequentialAnimation {
-                            NumberAnimation { target: capsule; property: "flash"; to: 1; duration: 90; easing.type: Easing.OutCubic }
+                            NumberAnimation { target: field; property: "flash"; to: 1; duration: 90; easing.type: Easing.OutCubic }
                             PauseAnimation { duration: 260 }
-                            NumberAnimation { target: capsule; property: "flash"; to: 0; duration: 520; easing.type: Easing.InOutCubic }
+                            NumberAnimation { target: field; property: "flash"; to: 0; duration: 520; easing.type: Easing.InOutCubic }
                         }
                         SequentialAnimation {
                             PauseAnimation { duration: 380 }
-                            NumberAnimation { target: capsule; property: "dotsOpacity"; to: 0; duration: 160; easing.type: Easing.InCubic }
+                            NumberAnimation { target: field; property: "dotsOpacity"; to: 0; duration: 160; easing.type: Easing.InCubic }
                         }
                     }
-                    ScriptAction { script: { capsule.refusing = false; capsule.dotsOpacity = 1; dots.sync(password.text.length, false); } }
+                    ScriptAction { script: { field.refusing = false; field.dotsOpacity = 1; dots.sync(password.text.length, false); } }
                 }
 
-                // The checking sweep, cut to the capsule's own shape. A `clip`
-                // on the capsule cut it square, so the light ran on past the
-                // round ends as a bright rectangle — for the seconds PAM holds
-                // a wrong password, just before the red shake. The mask is the
-                // glass's rounded rectangle: same bounds, same radius.
+                // The checking sweep, cut to the field's own shape. A `clip`
+                // on the field cut it square, so the light ran on past the
+                // rounded corners as a bright rectangle — for the seconds PAM
+                // holds a wrong password, just before the red shake. The mask
+                // is the glass's rounded rectangle: same bounds, same radius.
                 Rectangle {
                     id: sweepMask
                     anchors.fill: parent
-                    radius: capsule.radius
+                    radius: field.radius
                     visible: false
                     layer.enabled: true
                     layer.smooth: true
@@ -423,9 +447,9 @@ Rectangle {
                     layer.effect: MultiEffect { maskEnabled: true; maskSource: sweepMask; maskThresholdMin: 0.5; maskSpreadAtMin: 1.0 }
                     Rectangle {
                         id: sweep
-                        width: capsule.width * 0.35; height: capsule.height
+                        width: field.width * 0.35; height: field.height
                         property real p: 0
-                        x: -width + p * (capsule.width + width)
+                        x: -width + p * (field.width + width)
                         gradient: Gradient {
                             orientation: Gradient.Horizontal
                             GradientStop { position: 0; color: "transparent" }
@@ -450,11 +474,11 @@ Rectangle {
                     enabled: !root.busy && !root.leaving
                     clip: true
                     onAccepted: root.login()
-                    onTextChanged: { if (text) root.error = ""; if (!capsule.refusing) dots.sync(text.length, true); }
+                    onTextChanged: { if (text) root.error = ""; if (!field.refusing) dots.sync(text.length, true); }
                     Keys.onEscapePressed: text = ""
                     Text {
                         anchors.verticalCenter: parent.verticalCenter
-                        opacity: !password.text && dotModel.count === 0 && !capsule.refusing ? 1 : 0
+                        opacity: !password.text && dotModel.count === 0 && !field.refusing ? 1 : 0
                         Behavior on opacity { NumberAnimation { duration: 240; easing.type: Easing.OutCubic } }
                         text: root.busy ? "Signing in…" : "Password"
                         color: root.cDim
@@ -468,7 +492,7 @@ Rectangle {
                         interactive: false
                         spacing: 7 * root.unit
                         clip: true
-                        opacity: capsule.dotsOpacity
+                        opacity: field.dotsOpacity
                         model: ListModel { id: dotModel }
                         property bool animated: true
                         function sync(n, anim) {
@@ -479,10 +503,10 @@ Rectangle {
                             animated = true;
                             positionViewAtEnd();
                         }
-                        delegate: Rectangle { width: 10 * root.unit; height: width; radius: width / 2; color: Qt.tint(root.cText, Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, capsule.flash)); y: (dots.height - height) / 2 }
+                        delegate: Rectangle { width: 10 * root.unit; height: width; radius: width / 2; color: Qt.tint(root.cText, Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, field.flash)); y: (dots.height - height) / 2 }
                         add: Transition {
                             enabled: dots.animated
-                            NumberAnimation { property: "scale"; from: 0; to: 1; duration: 220; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+                            NumberAnimation { property: "scale"; from: 0; to: 1; duration: 220; easing.type: Easing.OutCubic }
                             NumberAnimation { property: "opacity"; from: 0; to: 1; duration: 120 }
                         }
                         remove: Transition {
@@ -492,12 +516,15 @@ Rectangle {
                         }
                     }
                 }
+                // The layout: a small key of clear glass.
                 Rectangle {
                     id: layoutChip
                     anchors { right: go.left; rightMargin: 8 * root.unit; verticalCenter: parent.verticalCenter }
                     visible: keyboard.layouts.length > 1
-                    width: visible ? lt.implicitWidth + 16 * root.unit : 0; height: 28 * root.unit; radius: height / 2
-                    color: Qt.rgba(root.cAccent.r, root.cAccent.g, root.cAccent.b, 0.25)
+                    width: visible ? lt.implicitWidth + 16 * root.unit : 0; height: 28 * root.unit; radius: root.rButton
+                    color: Qt.rgba(1, 1, 1, lm.containsMouse ? 0.13 : 0.08)
+                    Behavior on color { ColorAnimation { duration: 150 } }
+                    border.width: 1; border.color: Qt.rgba(1, 1, 1, 0.14)
                     Text {
                         id: lt
                         anchors.centerIn: parent
@@ -505,23 +532,25 @@ Rectangle {
                         color: root.cText
                         font { family: root.fontName; pixelSize: 12 * root.unit; weight: Font.DemiBold }
                     }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: keyboard.currentLayout = (keyboard.currentLayout + 1) % keyboard.layouts.length }
+                    MouseArea { id: lm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: keyboard.currentLayout = (keyboard.currentLayout + 1) % keyboard.layouts.length }
                 }
+                // Go: clear glass, tinted once there is a password to send.
                 Rectangle {
                     id: go
                     anchors { right: parent.right; rightMargin: 7 * root.unit; verticalCenter: parent.verticalCenter }
-                    width: 40 * root.unit; height: width; radius: width / 2
-                    color: password.text ? root.cAccent : Qt.rgba(1, 1, 1, 0.08)
-                    Behavior on color { ColorAnimation { duration: 180 } }
-                    scale: gm.pressed ? 0.88 : password.text ? 1 : 0.94
-                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutBack } }
+                    width: 40 * root.unit; height: width; radius: root.rButton
+                    color: Qt.rgba(1, 1, 1, 0.08)
+                    border.width: 1; border.color: Qt.rgba(1, 1, 1, password.text ? 0 : 0.14)
+                    scale: (password.text ? 1 : 0.94) * (gm.pressed ? 0.97 : 1)
+                    Behavior on scale { NumberAnimation { duration: 160; easing.type: Easing.OutCubic } }
+                    Tint { anchors.fill: parent; radius: go.radius; color: root.cAccent; color2: root.cAccent2; active: password.text.length > 0; hovered: gm.containsMouse }
                     // An arrow, drawn (the greeter has no icon font of its own).
                     Shape {
                         anchors.centerIn: parent
                         width: 16 * root.unit; height: 14 * root.unit
                         preferredRendererType: Shape.CurveRenderer
                         ShapePath {
-                            strokeColor: password.text ? root.cOnAccent : root.cDim
+                            strokeColor: password.text ? root.cText : root.cDim
                             strokeWidth: 2.2 * root.unit
                             fillColor: "transparent"
                             capStyle: ShapePath.RoundCap
@@ -533,7 +562,7 @@ Rectangle {
                             PathLine { x: 9 * root.unit; y: 13 * root.unit }
                         }
                     }
-                    MouseArea { id: gm; anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.login() }
+                    MouseArea { id: gm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.login() }
                 }
             }
         }
@@ -595,14 +624,16 @@ Rectangle {
         property string text: ""
         property bool danger: false
         signal clicked()
-        height: 36 * root.unit; radius: height / 2
+        height: 36 * root.unit; radius: root.rButton
         width: pt.implicitWidth + 28 * root.unit
-        Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutBack } }
-        tint: danger ? Qt.rgba(root.cDanger.r, root.cDanger.g, root.cDanger.b, 0.8) : pm.containsMouse ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.07)
+        Behavior on width { NumberAnimation { duration: 220; easing.type: Easing.OutCubic } }
+        tint: pm.containsMouse && !danger ? Qt.rgba(1, 1, 1, 0.16) : Qt.rgba(1, 1, 1, 0.07)
         Behavior on tint { ColorAnimation { duration: 180 } }
-        scale: pm.pressed ? 0.94 : 1
+        scale: pm.pressed ? 0.97 : 1
         Behavior on scale { NumberAnimation { duration: 120; easing.type: Easing.OutCubic } }
-        Text { id: pt; anchors.centerIn: parent; text: p.text; color: p.danger ? "white" : root.cText; font { family: root.fontName; pixelSize: 14 * root.unit } }
+        // Armed: the danger tint fades in and sweeps across once.
+        Tint { anchors.fill: parent; radius: p.radius; color: root.cDanger; color2: root.pair(root.cDanger); active: p.danger; hovered: pm.containsMouse }
+        Text { id: pt; anchors.centerIn: parent; text: p.text; color: root.cText; font { family: root.fontName; pixelSize: 14 * root.unit } }
         MouseArea { id: pm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: p.clicked() }
     }
 

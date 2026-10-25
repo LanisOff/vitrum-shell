@@ -42,12 +42,15 @@ Item {
     Rectangle { anchors.fill: parent; color: Colors.alpha("#000000", 0.45); MouseArea { anchors.fill: parent; onClicked: sheet.close() } }
     Surface {
         anchors.centerIn: parent
-        transform: Translate { y: sheet.shown ? 0 : 36; Behavior on y { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } } }
+        transform: Translate { y: sheet.shown ? 0 : 36; Behavior on y { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } } }
         scale: sheet.shown ? 1 : 0.94
-        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
         width: 520
         height: col.implicitHeight + Tokens.padding * 2
         group: "dialogs"
+        // Solid, as apps/common's Sheet: an app window has no blur behind it,
+        // and the details under the glass read through the form.
+        color: Colors.bg
         MouseArea { anchors.fill: parent }
         Column {
             id: col
@@ -70,7 +73,7 @@ Item {
                 spacing: 4
                 Repeater {
                     model: ["ext4", "btrfs", "xfs", "exfat", "fat32", "ntfs"]
-                    delegate: Pill { required property string modelData; text: modelData; on: sheet.fs === modelData; onClicked: sheet.fs = modelData }
+                    delegate: Choice { required property string modelData; label: modelData; primary: sheet.fs === modelData; onClicked: sheet.fs = modelData }
                 }
             }
             Row {
@@ -78,7 +81,7 @@ Item {
                 spacing: 4
                 Repeater {
                     model: [{ v: "gpt", t: "GPT" }, { v: "msdos", t: "MBR (old PCs)" }]
-                    delegate: Pill { required property var modelData; text: modelData.t; on: sheet.scheme === modelData.v; onClicked: sheet.scheme = modelData.v }
+                    delegate: Choice { required property var modelData; label: modelData.t; primary: sheet.scheme === modelData.v; onClicked: sheet.scheme = modelData.v }
                 }
             }
             Label { visible: sheet.destructive; width: parent.width; wrapMode: Text.WordWrap; elide: Text.ElideNone; text: "Type “" + sheet.name + "” to confirm:" }
@@ -86,12 +89,12 @@ Item {
             Row {
                 anchors.right: parent.right
                 spacing: Tokens.gap
-                Pill { text: "Cancel"; onClicked: sheet.close() }
-                Pill {
-                    text: sheet.mode === "rename" ? "Rename" : sheet.mode === "erase" ? "Erase" : sheet.mode === "table" ? "Create" : "Delete"
-                    on: true; danger: sheet.destructive
+                Choice { label: "Cancel"; onClicked: sheet.close() }
+                // The action: tinted, from the danger colour when it destroys something.
+                Choice {
+                    label: sheet.mode === "rename" ? "Rename" : sheet.mode === "erase" ? "Erase" : sheet.mode === "table" ? "Create" : "Delete"
+                    primary: true; danger: sheet.destructive
                     enabled: !sheet.destructive || confirm.text === sheet.name
-                    opacity: enabled ? 1 : 0.4
                     onClicked: sheet.go()
                 }
             }
@@ -99,13 +102,15 @@ Item {
     }
     Keys.onEscapePressed: close()
 
-    component Field: Rectangle {
+    // A glass field, as apps/common's Field; Enter goes ahead.
+    component Field: Surface {
         property alias text: inp.text
         property string placeholder: ""
         function forceActiveFocus() { inp.forceActiveFocus(); }
-        width: col.width; height: Tokens.islandHeight * 1.2; radius: Tokens.radiusInner
-        color: Colors.alpha(Colors.text, 0.06)
-        border.width: inp.activeFocus ? 2 : 0; border.color: Colors.accent
+        width: col.width; height: Tokens.islandHeight * 1.2; radius: Tokens.radiusButton
+        group: "dialogs"; level: 1
+        border.width: inp.activeFocus ? 2 : Tokens.hairline
+        border.color: inp.activeFocus ? Colors.accent : Materials.border(group)
         TextInput {
             id: inp
             anchors { fill: parent; leftMargin: Tokens.gap; rightMargin: Tokens.gap }
@@ -115,15 +120,10 @@ Item {
             Label { visible: !inp.text; text: parent.parent.placeholder; role: "dim"; anchors.verticalCenter: parent.verticalCenter }
         }
     }
-    component Pill: Rectangle {
-        id: p
-        property string text: ""
-        property bool on: false
-        property bool danger: false
-        signal clicked()
-        height: Tokens.islandHeight * 1.15; radius: height / 2; width: pl.implicitWidth + Tokens.padding * 1.6
-        color: on ? (danger ? Colors.danger : Colors.accent) : pm.containsMouse ? Colors.alpha(Colors.text, 0.12) : Colors.alpha(Colors.text, 0.06)
-        Label { id: pl; anchors.centerIn: parent; text: p.text; font.weight: Font.DemiBold; color: p.on && p.danger ? "white" : p.on ? Colors.onAccent : Colors.text }
-        MouseArea { id: pm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: if (p.enabled) p.clicked() }
+    // A button on the sheet: a format or scheme to pick (tinted when picked),
+    // Cancel, or the action.
+    component Choice: GlassButton {
+        group: "dialogs"
+        height: Tokens.islandHeight * 1.15
     }
 }

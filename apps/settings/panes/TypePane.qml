@@ -18,7 +18,6 @@ Page {
     Section {
         title: "Icons and cursor"
         SettingText { key: "icons.theme"; label: "Icon theme"; hint: "For applications (Papirus-Dark, Papirus-Light, …)." }
-        SettingToggle { key: "icons.backplates"; label: "Backplates behind app icons" }
         SettingText { key: "cursor.theme"; label: "Cursor theme"; divider: false }
     }
 }

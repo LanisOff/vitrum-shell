@@ -104,7 +104,9 @@ eq(w.bare("calendar"), false, "calendar has a plate");
       if (o.type === "choice") ok(Array.isArray(o.choices) && o.choices.some(c => c.value === o.default), `${t}.${o.key}: default among choices`);
     }
   }
-  eq(w.types().length, 26, "26 built-in types");
+  ok(w.types().length >= 26, "the 26 built-in types of 0.4, and more");
+  // ---- new in 0.5.0: system & apps
+  for (const t of ["processes", "screentime", "clipboard", "screenshots", "colors"]) ok(!!w.CATALOG[t] && w.widgetFile(t) !== "", `${t}: in the catalog, with a file`);
 }
 // Size presets: cells of 72 with 16 between.
 eq(j(w.presetSize("S")), j({ w: 160, h: 160 }), "S");

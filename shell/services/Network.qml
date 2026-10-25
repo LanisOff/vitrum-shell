@@ -26,6 +26,16 @@ Singleton {
     readonly property var wifiNetworks: _wifiNetworks()
 
     function setWifiEnabled(on) { if (nm) Networking.wifiEnabled = on; }
+
+    /// Look for networks while a list of them is open (Settings → Network, the
+    /// Control Centre's Wi-Fi): without it the list is only what NetworkManager
+    /// last saw on its own, minutes ago. scan(true) / scan(false), in pairs.
+    property int scanners: 0
+    function scan(on) { scanners = Math.max(0, scanners + (on ? 1 : -1)); _scan(); }
+    readonly property var wifiDevices: _devices().filter(d => d.type === DeviceType.Wifi)
+    onWifiDevicesChanged: _scan()
+    onWifiEnabledChanged: _scan()
+    function _scan() { for (const d of wifiDevices) d.scannerEnabled = scanners > 0 && wifiEnabled; }
     function connect(network, psk) { if (psk) network.connectWithPsk(psk); else network.connect(); }
 
     // What a network asks for before it lets you in.
@@ -90,23 +100,43 @@ Singleton {
         return out;
     }
 
-    function _fromNm() {
+    /*
+     * NetworkManager's view: { kind, name, strength } from the connected
+     * devices (a cable first). Read in a binding (nmView), so it is worked out
+     * again whenever a device comes or goes, connects or drops, or the Wi-Fi
+     * network or its signal changes; the poll below runs it as well.
+     *
+     * Polling alone said "Offline" on a wired machine that was online: its
+     * first run is at start, before NM's devices have loaded (they arrive
+     * some 20 ms later), so the shell stayed "none" until the next poll —
+     * 3 s, if the Timer ran. Under the session lock a QML Timer can stall for
+     * seconds (only the lock surface draws), and a shell that starts while
+     * locked (it locks again at once after a crash or restart) showed
+     * "Offline" on the lock for as long.
+     */
+    function _readNm() {
         let wired = null, wifi = null;
         for (const d of _devices()) {
             if (d.type === DeviceType.Wired && d.connected) wired = d;
             if (d.type === DeviceType.Wifi && d.connected) wifi = d;
         }
-        if (wired) { kind = "wired"; name = wired.name; strength = 1; }
-        else if (wifi) {
+        if (wired) return { kind: "wired", name: wired.name, strength: 1 };
+        if (wifi) {
             const n = wifi.networks.values.find(x => x.connected);
-            kind = "wifi"; name = n ? n.name : wifi.name; strength = n ? n.signalStrength : 0;
-        } else { kind = "none"; name = ""; strength = 0; }
-        online = kind !== "none";
+            return { kind: "wifi", name: n ? n.name : wifi.name, strength: n ? n.signalStrength : 0 };
+        }
+        return { kind: "none", name: "", strength: 0 };
     }
+    function _apply(v) {
+        kind = v.kind; name = v.name; strength = v.strength;
+        online = v.kind !== "none";
+    }
+    readonly property var nmView: nm ? _readNm() : null
+    onNmViewChanged: if (nmView) _apply(nmView)
 
     Timer {
         interval: root.nm ? 3000 : 10000; running: true; repeat: true; triggeredOnStart: true
-        onTriggered: root.nm ? root._fromNm() : ipProc.running = true
+        onTriggered: root.nm ? root._apply(root._readNm()) : ipProc.running = true
     }
 
     // Fallback: the interface carrying the default route.

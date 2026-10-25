@@ -23,6 +23,8 @@ Singleton {
     property string previous: ""
 
     function set(v) { Settings.set("audio.noiseFilter", !!v); }
+    // The Settings app reads `available` too: only the shell runs the filter.
+    readonly property bool inShell: !Quickshell.env("VITRUM_NO_THEME")
     function toggle() { set(!on); }
 
     Process {
@@ -55,14 +57,14 @@ Singleton {
 
     Process {
         id: chain
-        running: root.on && root.available
+        running: root.inShell && root.on && root.available
         command: ["sh", "-c", 'mkdir -p "$1" && printf "%s" "$2" > "$1/vitrum-rnnoise.conf" && PIPEWIRE_CONFIG_DIR="$1" exec pipewire -c vitrum-rnnoise.conf',
                   "_", root.dir, root.conf]
         onRunningChanged: if (!running) root._restore()
     }
 
     // Once the source exists, it becomes the default; the one it replaced is kept.
-    onNodeChanged: if (node && on) {
+    onNodeChanged: if (inShell && node && on) {
         const cur = Pipewire.defaultAudioSource;
         if (cur && cur.name !== nodeName) previous = cur.name;
         Pipewire.preferredDefaultAudioSource = node;

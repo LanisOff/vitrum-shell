@@ -5,7 +5,7 @@
 <h1 align="center">vitrum</h1>
 
 <p align="center">
-  A glass desktop for <a href="https://github.com/YaLTeR/niri">niri</a>.
+  A glass desktop for <a href="https://github.com/YaLTeR/niri">niri</a>, coloured by your wallpaper and lit from within.
 </p>
 
 <p align="center">
@@ -27,114 +27,110 @@
 </p>
 
 <p align="center">
-  <img src="assets/screenshots/desktop.jpg" alt="The vitrum desktop: glass clock, weather, system monitor and player widgets">
+  <img src="assets/screenshots/desktop.jpg" alt="The vitrum desktop on a purple wallpaper: air quality, moon phase, top processes and weather on the left, the glass clock in the middle, system rings and the player with synced lyrics on the right">
 </p>
 
-vitrum is the whole thing you see after logging in: a bar made of floating
-islands, a dock, Spotlight-style search, a control centre, notifications,
-desktop widgets, a lock screen and a settings app, all on real refracting
-glass. It runs on a patched niri (liquid glass, shaped blur) with a
-[Quickshell](https://quickshell.org) shell on top, and its colours come from
-your wallpaper.
-
-It started as my own setup and grew into something that installs cleanly on
-a fresh machine. It is still young: expect rough edges, and please
-[open an issue](https://github.com/LanisOff/vitrum-shell/issues) when you hit one.
+vitrum is the whole desktop you see after logging in. A bar of floating
+islands, a dock, search, a control centre, widgets, a lock screen and a
+settings app, all on real refracting glass. It started as my own setup. It's still young, so
+please [open an issue](https://github.com/LanisOff/vitrum-shell/issues)
+when something breaks.
 
 <p align="center">
-  <a href="#screenshots">Screenshots</a> ·
-  <a href="#what-you-get">What you get</a> ·
+  <a href="#previews">Previews</a> ·
+  <a href="#whats-inside">What's inside</a> ·
   <a href="#install">Install</a> ·
-  <a href="#keep-it-up-to-date">Updating</a> ·
-  <a href="#using-it">Using it</a> ·
-  <a href="#removing-it">Removing it</a>
+  <a href="#update">Update</a> ·
+  <a href="#remove">Remove</a>
 </p>
 
-## Screenshots
+---
 
-Every picture below is the shell as it is in the repository, taken in a
-nested niri session.
-
-### One desktop, many faces
-
-The palette follows the wallpaper, light or dark, and the widgets are yours
-to arrange: right-click a widget, or press `Mod+Alt+W`, to open the editor.
+## Previews
 
 <table>
   <tr>
-    <td width="50%"><img src="assets/screenshots/desktop-moon.jpg" alt="Dark scheme on a moon wallpaper: glass clock, world clocks, sun, analog clock and a quote"></td>
-    <td width="50%"><img src="assets/screenshots/desktop-train.jpg" alt="Light scheme on a train wallpaper: to-do list, notes, shortcuts, calendar, timer and countdown"></td>
+    <td width="50%"><img src="assets/screenshots/desktop-moon.jpg" alt="Dark scheme on a moon wallpaper: glass clock, world clocks, moon phase, NASA headlines and a quote"></td>
+    <td width="50%"><img src="assets/screenshots/desktop-train.jpg" alt="Light scheme on a train wallpaper: to-do list, habits, notes, an agenda for today and tomorrow, and a running stopwatch with laps"></td>
   </tr>
   <tr>
-    <td align="center"><sub>Dark, minimal: glass clock, world clocks, sun, analog clock, quote</sub></td>
-    <td align="center"><sub>Light, for the day: to-do, notes, shortcuts, calendar, timer, countdown</sub></td>
-  </tr>
-</table>
-
-### Control centre and notifications
-
-<table>
-  <tr>
-    <td width="50%"><img src="assets/screenshots/control.jpg" alt="The control centre: network, Bluetooth, VPN, do not disturb, appearance, power mode, game mode, volume and the player"></td>
-    <td width="50%"><img src="assets/screenshots/notifications.jpg" alt="The notification centre, grouped by app"></td>
+    <td align="center"><sub>Dark and calm, on a moon wallpaper</sub></td>
+    <td align="center"><sub>Light, for the day: agenda, habits, stopwatch</sub></td>
   </tr>
   <tr>
-    <td align="center"><sub>Quick toggles, volume and the player, one click from the bar</sub></td>
+    <td width="50%"><img src="assets/screenshots/control.jpg" alt="The control centre in glass tiles: network, Bluetooth, VPN, phone, do not disturb, appearance, power mode, stay awake, game mode, screen recording, volume and the player; the tiles that are on are lit from inside"></td>
+    <td width="50%"><img src="assets/screenshots/notifications.jpg" alt="The notification centre: a screenshot, two calendar reminders and a finished download, grouped by app"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Control centre, what is on lit inside the glass</sub></td>
     <td align="center"><sub>Notifications, grouped by app</sub></td>
   </tr>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/lock.jpg" alt="The lock screen: a large clock with the date and weather over the blurred wallpaper, the password field and the player with synced lyrics"></td>
+    <td width="50%"><img src="assets/screenshots/windows.jpg" alt="Two kitty windows on the moon wallpaper: fastfetch with the vitrum mark, and btop"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Lock screen, with the player and lyrics</sub></td>
+    <td align="center"><sub>kitty, fastfetch and btop in the same colours</sub></td>
+  </tr>
 </table>
 
-### Lock screen
+<table>
+  <tr>
+    <td width="50%"><img src="assets/screenshots/settings.jpg" alt="The Settings app, Appearance page: scheme, colours, tint and density"></td>
+    <td width="50%"><img src="assets/screenshots/about.jpg" alt="About this computer: processor, graphics, memory, storage, uptime, displays and board as glass tiles"></td>
+  </tr>
+  <tr>
+    <td align="center"><sub>Settings, Appearance page</sub></td>
+    <td align="center"><sub>About this computer, as spec tiles</sub></td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="assets/screenshots/lock.jpg" alt="The lock screen: a glass clock over the blurred wallpaper, the password field and the player with synced lyrics">
-  <br><sub>The wallpaper, blurred; the clock in glass; the player and its lyrics stay at hand</sub>
-</p>
+---
 
-### Windows and settings
+## What's inside
 
-<p align="center">
-  <img src="assets/screenshots/windows.jpg" alt="Two kitty windows, fastfetch and btop, themed from the wallpaper">
-  <br><sub>kitty and the terminal tools take the same palette as the shell</sub>
-</p>
+> [!NOTE]
+> **New in 0.5.0:** vitrum's own glass look instead of Material 3, a drag-and-drop bar editor, a reworked lock screen, a welcome tour, About this computer as spec tiles, new desktop widgets, and optional Steam and Vesktop themes that follow your colours.
 
-<p align="center">
-  <img src="assets/screenshots/settings.jpg" width="80%" alt="The Settings app, Appearance page">
-  <br><sub>A settings app for everyday changes, no config files needed</sub>
-</p>
+### Desktop
 
-## What you get
+- A bar of floating islands, a dock, Spotlight-style search, a control centre and notifications.
+- 40 desktop widgets, from clocks and weather to system graphs and a to-do list, now with an agenda, habits, a stopwatch, the moon, air quality, headlines and top processes. Add your own in QML or as a script, and arrange them right on the desktop.
+- A bar editor in Settings. Drag modules between islands and sides on a live bar, pick from a palette of named modules, set each one's options, give each screen its own layout, or reset.
+- A reworked lock screen. The field lights up as you type, Caps Lock gets a hint, your avatar sits in a coloured ring, and it goes quiet when idle.
+- Game mode turns on by itself when a game goes fullscreen. Video wallpapers pause under windows.
 
-| | |
-|---|---|
-| **Glass everywhere** | The bar, panels, dock and menus refract what is behind them. Pick solid, frosted or glass per surface if your GPU prefers. |
-| **Colours from the wallpaper** | kitty, GTK, Qt/KDE apps, tmux and Neovim follow the same palette, light or dark by sunrise and sunset. |
-| **Desktop widgets** | 26 of them, from clocks, weather and a calendar to system graphs, a player, notes and a to-do list, plus your own in QML or as a script. Placed and sized in an editor on the desktop itself. |
-| **Live wallpapers** | Videos as wallpaper, paused while windows cover them. |
-| **Game mode** | Turns on by itself when a game goes fullscreen: the shell gets out of the way, notifications wait, gamemode and MangoHud do their part. |
-| **A real settings app** | No config files needed for everyday changes. |
-| **The small things** | Clipboard history, screenshots and recording, synced lyrics in the player, hot corners, a polkit prompt and a login screen that look like the rest. |
+### Apps
+
+- Settings for everyday changes, so config files stay optional.
+- About this computer, redone as spec tiles.
+- A welcome tour on first login, with a live preview of each part of the desktop.
+- Clipboard history, screenshots and recording, synced lyrics, hot corners, a polkit prompt and a login screen that match.
+
+### Theming
+
+- vitrum's own look replaces Material 3. Anything that's on turns to frosted, lit glass with a soft glow in your accent. No pill shapes, thin Phosphor line icons, and calm motion with no bounce.
+- Colours from your wallpaper for the shell, kitty, GTK, Qt/KDE, tmux and Neovim, light or dark by sunrise and sunset.
+- A second colour drawn from the accent for rings, graphs and the window focus ring. Shift it in Settings → Appearance.
+- Optional Steam (via Millennium) and Vesktop (Discord) themes that follow your colours. Both are installer choices with a section in Settings.
+- fastfetch fits narrow terminals and tmux splits.
+
+### Under the hood
+
+- niri 26.04, patched with liquid glass and shaped blur. Choose solid, frosted or glass per surface if your GPU prefers.
+- A [Quickshell](https://quickshell.org) shell, one installer for four distributions, and `vitrum doctor` when something's off.
+
+---
 
 ## Install
-
-Supported: Arch (systemd), CachyOS and other Arch-based systems included;
-Gentoo (OpenRC or systemd); Fedora 43 or newer (tested on 44), with
-systemd; and Void, the glibc flavour, with runit and elogind. NVIDIA works.
-Notes on [Fedora and Void](#fedora-and-void) are below.
-
-The one-liner needs bash, curl and sudo. A minimal Void can lack all
-three: there, first run `xbps-install -Sy bash curl sudo` as root, then
-add your user to the `wheel` group (`usermod -aG wheel <you>`, with the
-`%wheel` line enabled in `visudo`) or set up sudo another way.
 
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LanisOff/vitrum-shell/main/get.sh | bash
 ```
 
-The line installs git if it is missing, clones vitrum next to your data
-(`~/.local/share/vitrum-src`) and starts the installer. Run again, it pulls
-that clone first, unless it has local changes: then it says so and installs
-from it as it is. Or by hand:
+This installs git if needed, clones vitrum to `~/.local/share/vitrum-src`
+and starts the installer. Or by hand:
 
 ```sh
 git clone https://github.com/LanisOff/vitrum-shell
@@ -142,48 +138,31 @@ cd vitrum-shell
 ./install.sh
 ```
 
-### What the installer asks
+> [!IMPORTANT]
+> Runs on Arch with systemd (CachyOS and other Arch-based systems too),
+> Gentoo with OpenRC or systemd, Fedora 43 or newer with systemd (tested on
+> 44), and Void (glibc, not musl) with runit and elogind. NVIDIA works.
 
-1. **The language** of the installer: English or Russian. Your system's is
-   picked already. This is the language of the screens; the stages' own
-   messages, which also go to the log, follow the system locale instead:
-   Russian on a `ru_*` locale, English otherwise.
-2. **What to install**, on one screen. Tick or untick with space, pick an
-   option with the arrows, `a` toggles a whole group. The line at the bottom
-   explains the part under the cursor.
-   - **Desktop**: the login screen, the boot splash, video wallpapers, your
-     phone (KDE Connect).
-   - **Tools**: tmux with its plugins, game mode and its HUD, the microphone
-     filter, VPN, sensors and mixer, command-line tools (eza, bat, fzf,
-     zoxide, delta), the Dolphin file manager, text recognition on
-     screenshots.
-   - **Extras**: the author's own setup, off unless you tick it: Neovim
-     with the author's config, the author's tmux keys (`Ctrl+a`, `|` and
-     `-` splits) and tmux starting with every terminal. Without them tmux
-     keeps its own keys.
-3. **A confirmation**: what will be installed and what will not, about how
-   long it takes, and the few questions that matter on your machine
-   (making fish your login shell, replacing another login screen, going on
-   with little disk space).
+> [!NOTE]
+> The installer backs up every file it replaces, and asks before it makes
+> fish your login shell or replaces another login screen. NetworkManager
+> takes over the network. On Fedora it enables RPM Fusion and a few COPRs,
+> and tells you which. On Void the login screen and network switch over at
+> the next boot. On Gentoo the first run is slow, because niri and some Qt
+> pieces build from source.
 
-Then it works on its own: one line per stage with the time it took, the
-running stage showing its last lines of output, and a bar with the time
-left. If a stage fails, you choose: retry it, skip it, read its log or
-quit and carry on later with `./install.sh --from <stage>`. At the end you
-get what was installed, anything that went wrong and what to do about it,
-and a few first shortcuts. The full log is kept in
+> [!TIP]
+> A minimal Void may lack bash, curl and sudo. Run
+> `xbps-install -Sy bash curl sudo` as root, then add yourself to `wheel`
+> (`usermod -aG wheel <you>`, with the `%wheel` line enabled in `visudo`).
+
+You pick the parts on one screen. Desktop has the login screen, boot
+splash, video wallpapers and KDE Connect. Tools has tmux, game mode, the
+Steam theme (needs game mode), the Vesktop theme, the mic filter, VPN, CLI
+tools, Dolphin and OCR. Extras holds my own Neovim and tmux setup, off by
+default. If a stage fails, you can retry it, skip it, read its log, or
+carry on later with `./install.sh --from <stage>`. Logs go to
 `~/.local/share/vitrum/`.
-
-A stage that was skipped or failed can be run later: on its own with
-`./install.sh --only <stage>`, or with every stage after it with
-`./install.sh --from <stage>` (the final screen says which). Until a run
-goes through completely, `vitrum update` counts the update as unfinished
-and runs the installer again.
-
-On the first login a short tour shows the bar, the dock, search, the
-control centre, widgets and Settings.
-
-Useful flags, which also pass through the one-liner with `bash -s --`:
 
 ```sh
 ./install.sh --dry-run   # show what it would do, change nothing
@@ -195,48 +174,29 @@ Useful flags, which also pass through the one-liner with `bash -s --`:
 ./install.sh --help      # every flag, one per part (--with-games, --no-ocr...)
 ```
 
+Every part has its own flags, such as `--with-steam-theme` and
+`--with-vesktop-theme`. They also pass through the one-liner:
+
 ```sh
 curl -fsSL https://raw.githubusercontent.com/LanisOff/vitrum-shell/main/get.sh | bash -s -- --dry-run
 ```
 
-Without a terminal (a pipe, `ssh -T`) the installer prints line by line
-and takes the defaults, as `--yes` does. On Gentoo the first run takes a
-while: niri and a few Qt pieces are built from source.
+Once you're in:
 
-### Fedora and Void
+| Key | Opens |
+|---|---|
+| `Mod+Space` | Search |
+| `Mod+Alt+C` | Control centre |
+| `Mod+Comma` | Settings |
+| `Mod+Alt+W` | Widget editor |
+| `Mod+/` | Every shortcut |
 
-**Fedora** does not package everything vitrum needs, so the installer
-enables third-party repositories, says which on screen, and enables only
-those the parts you chose need:
+The rest is in [KEYBINDS.md](KEYBINDS.md). Settings are also plain text in
+`~/.config/vitrum/settings.json`.
 
-- **RPM Fusion free**, always: Fedora's own `ffmpeg-free` cannot decode
-  H.264 or HEVC, so it is replaced with RPM Fusion's `ffmpeg`. **RPM Fusion
-  nonfree** is enabled only on a machine with an NVIDIA GPU.
-- **COPR repositories**: `errornointernet/quickshell` (the shell),
-  `avengemedia/danklinux` (matugen), `mineiro/hyprland` (satty, awww),
-  `brycensranch/gpu-screen-recorder-git` (screen recording) and
-  `atim/starship` (the prompt) for every install; `sdegler/hyprland`
-  (mpvpaper) for video wallpapers, `dejan/lazygit` for the author's Neovim
-  and `uriesk/noise-suppression-for-voice` for the microphone filter.
+---
 
-On a Workstation install `tuned-ppd` is replaced with
-`power-profiles-daemon`, which the shell's power modes use. Fedora 43 or
-newer is needed (tested on 44): older releases have no builds left in those
-COPRs.
-
-**Void** needs the glibc flavour (musl is refused) and elogind, which the
-installer installs and enables: it gives the session its seat, and the
-password-free root helper relies on it. Packages come from the main
-repository only, plus nonfree with an NVIDIA GPU. Services are runit
-links in `/var/service`. A link starts its service at once, so the two
-that must not change under a running system wait for the next boot: the
-login screen (SDDM), and NetworkManager taking over from dhcpcd and the
-other network services it would fight. `/etc/rc.local` makes those
-switches once and then removes its lines. If SDDM replaced another login
-screen, `./uninstall.sh` puts that one back the same way, and before the
-reboot it simply cancels the switch.
-
-## Keep it up to date
+## Update
 
 ```sh
 vitrum update           # pull and reinstall only what changed
@@ -245,48 +205,33 @@ vitrum rollback         # undo the last update (your configs are snapshotted fir
 vitrum doctor           # find out what is broken and how to fix it
 ```
 
-An update keeps your choices and asks nothing, unless the new version
-brings a part to choose or a part is still unticked: then the choice screen
-comes up with just those. The parts you left unticked are offered again on
-every update; Esc on that screen keeps your choices and goes on. Unticking
-a part later removes nothing: its packages and configs stay, and vitrum
-simply stops managing it. `vitrum update --choose` shows the whole choice
-screen, also when there is nothing new to pull. `vitrum update` also puts
-back packages and fonts that went missing.
+Your choices are kept. You're only asked about parts that are new or still
+unticked. A small island in the bar tells you when there's something to pull.
 
-A run with `--only`, `--from` or `--skip` (`./install.sh --only shell`
-after editing the QML is the author's daily one) asks nothing: it is about
-those stages, not about the choices.
+---
 
-The bar shows a small island when the repository is a few commits ahead of
-you; click it to see what is new.
-
-## Using it
-
-Everything is reachable from the keyboard: `Mod+/` shows every shortcut,
-and [KEYBINDS.md](KEYBINDS.md) has the full list. Settings live in the
-Settings app (or `~/.config/vitrum/settings.json` if you prefer text).
-
-## Removing it
+## Remove
 
 ```sh
 ./uninstall.sh
 ```
 
-It removes what the installer added and restores every file it backed up.
-Packages are left installed: you may depend on them by now. Your settings
-(`~/.config/vitrum`) and the installer's state directory
-(`~/.local/share/vitrum`: your choices, config snapshots and logs) stay,
-and so does the one-liner's clone in `~/.local/share/vitrum-src`, which is
-yours to delete. `--purge` removes the settings and the state directory,
-not the clone. Installing again afterwards is a first install, with the
-language screen and the tour.
+This undoes what the installer added and restores the files it backed up.
+Packages, `~/.config/vitrum` and `~/.local/share/vitrum` stay. `--purge`
+removes the last two. The clone in `~/.local/share/vitrum-src` is yours to
+delete. NetworkManager stays in charge of the network.
 
-On Void, uninstalling before the reboot cancels a queued switch to the
-login screen, but NetworkManager stays in charge of the network: the
-installer's switch to it is not undone, on Void or anywhere else.
+---
 
-## Star history
+## Credits
+
+- [niri](https://github.com/YaLTeR/niri) by YaLTeR, the compositor underneath.
+- [Niri-glass](https://github.com/YeFaDa/Niri-glass) by YeFaDa, the liquid glass it's patched with.
+- [Quickshell](https://quickshell.org), which the shell is written in.
+- [matugen](https://github.com/InioX/matugen), which turns the wallpaper into a palette.
+- [Phosphor Icons](https://phosphoricons.com), the line icons.
+- [Bibata](https://github.com/ful1e5/Bibata_Cursor), the cursor.
+- Default wallpapers from [Wallhaven](https://wallhaven.cc/).
 
 <a href="https://star-history.com/#LanisOff/vitrum-shell&Date">
   <picture>
@@ -295,12 +240,7 @@ installer's switch to it is not undone, on Void or anywhere else.
   </picture>
 </a>
 
-## Credits
-
-- [niri](https://github.com/YaLTeR/niri) by YaLTeR, the compositor underneath.
-- [Niri-glass](https://github.com/YeFaDa/Niri-glass) by YeFaDa, the liquid glass it is patched with.
-- [Quickshell](https://quickshell.org), which the shell is written in.
-- Default wallpapers are from [Wallhaven](https://wallhaven.cc/).
+---
 
 ## License
 

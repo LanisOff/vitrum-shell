@@ -10,7 +10,7 @@ Page {
     Section {
         title: "Lyrics"
         SettingToggle { key: "media.lyrics"; label: "Synced lyrics"; hint: "From lrclib.net: in the player and on the lock screen." }
-        SettingToggle { key: "media.lyricsInBar"; label: "The line being sung in the bar"; hint: "Instead of the track's title, while lyrics are found."; divider: false }
+        SettingToggle { key: "media.lyricsInBar"; needs: "media.lyrics"; label: "The line being sung in the bar"; hint: "Instead of the track's title, while lyrics are found."; divider: false }
     }
     Section {
         title: "Player"

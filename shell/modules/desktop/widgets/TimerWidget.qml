@@ -7,11 +7,11 @@ import "../../../lib/timers.js" as Lib
 /*
  * The timers (Timers: the same ones the launcher starts and the bar shows).
  *   S   the next to end as a ring, the time remaining inside, pause and stop under it;
- *       with none running, a chip per quick timer (and Pomodoro)
+ *       with none running, a button per quick timer (and Pomodoro, tinted)
  *   M   the header; the ring beside the timer's name, when it ends, and the
- *       buttons; with none running, the chips
- * options: presets (minutes, one chip each), pomodoro (a Pomodoro chip).
- * In a gallery card a sample ring stands in, and the chips start nothing.
+ *       buttons; with none running, the quick timers' buttons
+ * options: presets (minutes, one button each), pomodoro (a Pomodoro button).
+ * In a gallery card a sample ring stands in, and the buttons start nothing.
  */
 Item {
     id: root
@@ -50,28 +50,15 @@ Item {
         ? (timer.phase === "work" ? "Focus, round " + (timer.round || 1) : timer.phase === "long" ? "Long break" : "Short break")
         : timer.label
 
-    component TimerButton: Rectangle {
-        id: btn
-        property string icon: ""
-        property bool primary: false
-        signal clicked()
-        width: Math.round(Tokens.islandHeight * 0.95); height: width; radius: width / 2
-        color: primary ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22) : Colors.alpha(Colors.text, btnMouse.containsMouse ? 0.12 : 0.07)
-        Behavior on color { enabled: Motion.enabled; ColorAnim {} }
-        Icon { anchors.centerIn: parent; name: btn.icon; size: Math.round(btn.width * 0.55); filled: true; color: btn.primary ? Colors.accent : Colors.text }
-        MouseArea { id: btnMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: btn.clicked() }
+    // Pause/play and stop: square glass buttons, the main one tinted.
+    component TimerButton: GlassButton {
+        width: Math.round(Tokens.islandHeight * 0.95); height: width
+        group: "widgets"
     }
-    component PresetChip: Rectangle {
-        id: chip
-        property string text: ""
-        property bool primary: false
-        signal clicked()
-        width: chipLabel.implicitWidth + Tokens.gap * 1.6; height: Math.round(Tokens.islandHeight * 0.9)
-        radius: Tokens.radiusInner
-        color: primary ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22) : Colors.alpha(Colors.text, chipMouse.containsMouse ? 0.12 : 0.07)
-        Behavior on color { enabled: Motion.enabled; ColorAnim {} }
-        Label { id: chipLabel; anchors.centerIn: parent; text: chip.text; numeric: true; size: Tokens.textSmall + 1; font.weight: Font.Medium; role: chip.primary ? "accent" : "text" }
-        MouseArea { id: chipMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chip.clicked() }
+    // A quick timer: a glass button with its length; Pomodoro is tinted.
+    component PresetButton: GlassButton {
+        height: Math.round(Tokens.islandHeight * 0.9)
+        group: "widgets"
     }
 
     WidgetHeader {
@@ -85,11 +72,14 @@ Item {
     // The ring, the time remaining inside it; placed by the layouts below.
     component Dial: Meter {
         id: dial
+        group: "widgets"
         property string time: ""
         property string sub: ""
         property bool paused: false
         kind: "circular"
+        // Paused: a plain grey arc, not a grey pair.
         color: paused ? Colors.textDim : Colors.accent
+        color2: paused ? Colors.textDim : Colors.accent2
         Column {
             anchors.centerIn: parent
             Label {
@@ -170,7 +160,7 @@ Item {
             anchors.horizontalCenter: parent.horizontalCenter
             name: "timer"
             size: Math.round(root.height * 0.22)
-            color: Colors.accent
+            color: Colors.accent2
         }
         Label {
             visible: root.sizeClass !== "S"
@@ -186,16 +176,16 @@ Item {
         }
         Flow {
             id: flow
-            // Centred at S: as wide as its chips are, at most the widget.
+            // Centred at S: as wide as its buttons are, at most the widget.
             width: root.sizeClass === "S" ? Math.min(parent.width, chipsWidth) : parent.width
             anchors.horizontalCenter: root.sizeClass === "S" ? parent.horizontalCenter : undefined
             spacing: 6
             readonly property real chipsWidth: { let w = 0; for (let i = 0; i < children.length; i++) w += children[i].width + spacing; return w; }
             Repeater {
                 model: root.chips
-                delegate: PresetChip {
+                delegate: PresetButton {
                     required property var modelData
-                    text: modelData.text
+                    label: modelData.text
                     primary: modelData.minutes === 0
                     onClicked: root.startChip(modelData)
                 }

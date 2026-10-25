@@ -1,4 +1,4 @@
 import QtQuick
 import ".."
 import qs.services
-Stat { icon: "gpu"; value: Math.round(SysInfo.gpuUsage * 100) + "%"; alert: SysInfo.gpuTemp > 85; shown: SysInfo.gpuAvailable }
+Stat { show: Settings.get("bar.modules.gpu.show", "both"); icon: "gpu"; value: Math.round(SysInfo.gpuUsage * 100) + "%"; alert: SysInfo.gpuTemp > 85; shown: SysInfo.gpuAvailable }

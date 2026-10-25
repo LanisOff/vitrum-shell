@@ -9,7 +9,7 @@ import qs.components
  *   S   two by two, the icons alone
  *   M   the header; two by two with the name and the state (one row of
  *       them when there are three or fewer)
- * A tile that is on is filled with the accent's tone.
+ * Each is the Control Centre's glass tile; one that is on is tinted.
  * options: wifi, bluetooth, dnd, awake (which tiles).
  * In a gallery card the tiles show the real states and take no clicks.
  */
@@ -90,64 +90,80 @@ Item {
         readonly property real tileH: (height - (root.rowCount - 1) * spacing) / root.rowCount
         Repeater {
             model: root.tiles
-            delegate: Rectangle {
-                id: tile
+            delegate: Item {
+                id: cell
                 required property string modelData
                 readonly property bool active: root.isOn(modelData)
                 readonly property bool usable: root.available(modelData)
-                // Wide enough for the name beside the icon; else stacked, or (S) the icon alone.
-                readonly property bool beside: width >= 128
+                // Wide enough for the name beside the icon: the Control Centre's
+                // Tile. Else the same glass with the name under the icon, or (S)
+                // the icon alone.
+                readonly property bool beside: !root.small && width >= 128
                 width: grid.tileW; height: grid.tileH
-                radius: Math.min(height / 2, Tokens.radiusInner * 1.6)
-                color: active ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22)
-                          : Colors.alpha(Colors.text, tap.containsMouse && usable ? 0.11 : 0.07)
                 opacity: usable ? 1 : 0.5
-                scale: tap.pressed ? 0.96 : 1
-                Behavior on color { enabled: Motion.enabled; ColorAnim {} }
-                Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
 
-                Icon {
-                    id: icon
-                    name: root.glyph(tile.modelData)
-                    filled: tile.active
-                    color: tile.active ? Colors.accent : Colors.text
-                    size: root.small ? Math.round(Math.min(tile.width, tile.height) * 0.42)
-                                     : Math.round(Math.min(Tokens.iconSize * 1.5, tile.height * 0.42))
-                    x: tile.beside ? Tokens.padding : (tile.width - width) / 2
-                    y: tile.beside || root.small ? (tile.height - height) / 2
-                                                 : (tile.height - height - (root.small ? 0 : Tokens.textSmall + 6)) / 2
+                Tile {
+                    visible: cell.beside
+                    enabled: cell.beside && cell.usable && !root.preview
+                    anchors.fill: parent
+                    group: "widgets"
+                    icon: root.glyph(cell.modelData)
+                    title: root.title(cell.modelData)
+                    subtitle: cell.height >= Tokens.textSize * 3 ? root.status(cell.modelData) : ""
+                    active: cell.active
+                    onToggled: root.flip(cell.modelData)
                 }
-                Column {
-                    visible: !root.small
-                    anchors {
-                        left: tile.beside ? icon.right : parent.left
-                        leftMargin: tile.beside ? Tokens.gap : 4
-                        right: parent.right
-                        rightMargin: tile.beside ? Tokens.gap : 4
-                        top: tile.beside ? undefined : icon.bottom
-                        topMargin: 4
-                        verticalCenter: tile.beside ? parent.verticalCenter : undefined
+
+                Item {
+                    id: stacked
+                    visible: !cell.beside
+                    anchors.fill: parent
+                    scale: tap.pressed ? 0.97 : 1
+                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
+                    Surface {
+                        anchors.fill: parent
+                        group: "widgets"
+                        level: 1
+                        radius: Tokens.radiusTile
+                    }
+                    Rectangle {
+                        anchors.fill: parent
+                        radius: Tokens.radiusTile
+                        color: Colors.alpha(Colors.text, !cell.active && tap.containsMouse ? 0.06 : 0)
+                        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+                    }
+                    ShellTint {
+                        anchors.fill: parent
+                        radius: Tokens.radiusTile
+                        group: "widgets"
+                        active: cell.active
+                        hovered: tap.containsMouse
+                    }
+                    Icon {
+                        id: icon
+                        name: root.glyph(cell.modelData)
+                        color: Colors.text
+                        size: root.small ? Math.round(Math.min(stacked.width, stacked.height) * 0.42)
+                                         : Math.round(Math.min(Tokens.iconSize * 1.5, stacked.height * 0.42))
+                        x: (stacked.width - width) / 2
+                        y: root.small ? (stacked.height - height) / 2
+                                      : (stacked.height - height - Tokens.textSmall - 6) / 2
                     }
                     Label {
-                        width: parent.width
-                        horizontalAlignment: tile.beside ? Text.AlignLeft : Text.AlignHCenter
-                        text: root.title(tile.modelData)
+                        visible: !root.small
+                        anchors { left: parent.left; right: parent.right; margins: 4; top: icon.bottom; topMargin: 4 }
+                        horizontalAlignment: Text.AlignHCenter
+                        text: root.title(cell.modelData)
                         size: Tokens.textSmall + 1; font.weight: Font.Medium
                     }
-                    Label {
-                        visible: tile.beside && tile.height >= Tokens.textSize * 3
-                        width: parent.width
-                        text: root.status(tile.modelData)
-                        role: "dim"; size: Tokens.textSmall
+                    MouseArea {
+                        id: tap
+                        anchors.fill: parent
+                        enabled: !cell.beside && cell.usable && !root.preview
+                        hoverEnabled: true
+                        cursorShape: Qt.PointingHandCursor
+                        onClicked: root.flip(cell.modelData)
                     }
-                }
-                MouseArea {
-                    id: tap
-                    anchors.fill: parent
-                    enabled: !root.preview && tile.usable
-                    hoverEnabled: true
-                    cursorShape: Qt.PointingHandCursor
-                    onClicked: root.flip(tile.modelData)
                 }
             }
         }

@@ -5,8 +5,12 @@
 #   build.sh <dir>     → <dir>/tinywl
 set -euo pipefail
 dir="${1:?dir}"; mkdir -p "$dir"; cd "$dir"
-[ -x tinywl ] && exit 0
+[ -x tinywl ] && ./tinywl -h >/dev/null 2>&1 && exit 0   # built, and its libraries load
 wlr="$(pkg-config --list-all | awk '/^wlroots-/{print $1}' | sort -V | tail -1)"
+if [ -z "$wlr" ]; then
+  echo "test host: no wlroots (pacman -S wlroots0.20) — nested niri falls back to the user's session" >&2
+  exit 1
+fi
 ver="$(pkg-config --modversion "$wlr")"
 curl -fsSL -o tinywl.c "https://gitlab.freedesktop.org/wlroots/wlroots/-/raw/$ver/tinywl/tinywl.c"
 python3 - <<'PY'
@@ -23,4 +27,11 @@ s = s.replace(old, old + """ else {
 open("tinywl.c", "w").write(s)
 PY
 wayland-scanner server-header "$(pkg-config --variable=pkgdatadir wayland-protocols)/stable/xdg-shell/xdg-shell.xml" xdg-shell-protocol.h
-cc -O2 -DWLR_USE_UNSTABLE -I. tinywl.c -o tinywl $(pkg-config --cflags --libs "$wlr" wayland-server xkbcommon)
+cc -O2 -DWLR_USE_UNSTABLE -I. tinywl.c -o tinywl -Wl,-rpath,'$ORIGIN/lib' $(pkg-config --cflags --libs "$wlr" wayland-server xkbcommon) \
+  -Wl,--no-as-needed -l:libliftoff.so.0   # needed directly, so the rpath finds it for wlroots too
+# Keep wlroots and libliftoff (only wlroots needs it) next to the binary, so the
+# host keeps working after the package is removed again.
+mkdir -p lib
+for l in libwlroots libliftoff; do
+  ldd tinywl | awk -v l="$l" '$1 ~ "^" l {print $3}' | while read -r f; do cp -L "$f" "lib/$(basename "$f")"; done
+done

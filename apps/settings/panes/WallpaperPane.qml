@@ -17,13 +17,18 @@ Page {
     property string target: ""          // "" = every screen, else one output name
     property var files: []
 
-    Process {
-        id: lister
-        running: true
-        command: ["sh", "-c", 'find "$1" -maxdepth 1 -type f \\( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.gif" \\) | sort', "_", page.dir]
-        stdout: StdioCollector { onStreamFinished: page.files = text.split("\n").filter(s => s) }
+    // The folder's pictures, listed again when the folder changes. Through
+    // Command with the folder as an argument: a Process restarted from
+    // onDirChanged could start before its command had the new folder, and one
+    // still running ignored the restart, so a new folder showed nothing.
+    Command { id: lister }
+    function relist() {
+        const d = page.dir;
+        lister.exec(["sh", "-c", 'find "$1" -maxdepth 1 -type f \\( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" -o -iname "*.mp4" -o -iname "*.webm" -o -iname "*.mkv" -o -iname "*.gif" \\) | sort', "_", d], "",
+                    (code, out) => { if (d === page.dir) page.files = out.split("\n").filter(s => s); });
     }
-    onDirChanged: lister.running = true
+    onDirChanged: relist()
+    Component.onCompleted: relist()
 
     function pick(path) {
         if (page.target) {
@@ -42,21 +47,31 @@ Page {
             label: "Apply to"; divider: false
             Repeater {
                 model: [""].concat(Quickshell.screens.map(s => s.name))
-                delegate: Rectangle {
+                // The chosen target is tinted glass; the others clear.
+                delegate: GlassButton {
                     required property string modelData
-                    readonly property bool on: page.target === modelData
-                    height: Tokens.islandHeight * 1.05; radius: height / 2; width: tl.implicitWidth + Tokens.padding * 1.4
-                    color: on ? Colors.accent : Colors.alpha(Colors.text, 0.06)
-                    Label { id: tl; anchors.centerIn: parent; text: modelData || "Every screen"; role: parent.on ? "onAccent" : "text"; size: Tokens.textSmall + 1 }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: page.target = modelData }
+                    label: modelData || "Every screen"
+                    primary: page.target === modelData
+                    labelSize: Tokens.textSmall + 1
+                    onClicked: page.target = modelData
                 }
             }
         }
     }
     Section {
         title: page.files.length ? page.files.length + " in the folder" : "Nothing in the folder"
+        // An empty folder said in words, not an empty strip of glass.
+        Label {
+            visible: page.files.length === 0
+            width: parent.width
+            padding: Tokens.padding
+            text: "No pictures or videos in " + page.dir + "."
+            role: "dim"
+            wrapMode: Text.WordWrap; elide: Text.ElideNone
+        }
         Grid {
             id: grid
+            visible: page.files.length > 0
             width: parent.width
             padding: Tokens.padding
             columns: Math.max(2, Math.floor((width - 2 * Tokens.padding) / 180))
@@ -67,7 +82,8 @@ Page {
                 delegate: Rectangle {
                     required property string modelData
                     readonly property bool video: WLib.isVideo(modelData)
-                    readonly property bool on: modelData === page.current || (page.target && WLib.pathFor(Settings.get("wallpaper", {}), page.target, page.home) === modelData)
+                    // The picture on the chosen target: one screen's own, else the shared one (two were ringed).
+                    readonly property bool on: page.target ? WLib.pathFor(Settings.get("wallpaper", {}), page.target, page.home) === modelData : modelData === page.current
                     width: grid.cell; height: width * 0.62; radius: Tokens.radiusInner
                     color: Colors.alpha(Colors.text, 0.06)
                     border.width: on ? 3 : 0; border.color: Colors.accent
@@ -87,12 +103,12 @@ Page {
         SettingChoice { key: "wallpaper.transition"; label: "Change with"; names: ({ grow: "Grow", fade: "Fade", none: "Nothing" }) }
         SettingToggle { key: "wallpaper.parallax"; label: "Parallax"; hint: "The picture moves a little as you change workspace. Costs GPU." }
         SettingToggle { key: "wallpaper.live.enabled"; label: "Play video wallpapers" }
-        SettingToggle { key: "wallpaper.live.pauseWhenCovered"; label: "Pause videos when windows cover them"; divider: false }
+        SettingToggle { key: "wallpaper.live.pauseWhenCovered"; needs: "wallpaper.live.enabled"; label: "Pause videos when windows cover them"; divider: false }
     }
     // Keys set from this pane without a row of their own:
     readonly property var _keys: ["wallpaper.path", "wallpaper.perOutput"]
     Section {
         title: "Day and night"
-        SettingToggle { key: "wallpaper.dayNight"; label: "Day and night pictures"; hint: "With automatic light and dark, a wallpaper named …-day.jpg changes to …-night.jpg (and back) when the scheme does."; divider: false }
+        SettingToggle { key: "wallpaper.dayNight"; enabled: Settings.get("scheme.mode", "auto") === "auto"; label: "Day and night pictures"; hint: "With automatic light and dark, a wallpaper named …-day.jpg changes to …-night.jpg (and back) when the scheme does."; divider: false }
     }
 }

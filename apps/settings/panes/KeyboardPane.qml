@@ -6,11 +6,12 @@ import qs.theme
 import qs.components
 import qs.common
 import "../lib/keybinds.js" as KB
+import "../lib/keyboard.js" as Kb
 
 Page {
     id: page
     title: "Keyboard & shortcuts"
-    subtitle: "Change any shortcut or turn it off, and add your own. Layouts come from niri's config (input → keyboard → xkb)."
+    subtitle: "Your keyboard layouts and their order; change any shortcut or turn it off, and add your own."
     property string filter: ""
     property var catalogue: []
     readonly property var changes: Settings.get("keybinds.changes", {})
@@ -20,6 +21,30 @@ Page {
     FileView {
         path: Quickshell.env("HOME") + "/.config/vitrum/binds.json"
         onLoaded: { try { page.catalogue = JSON.parse(text()); } catch (e) { page.catalogue = []; } }
+    }
+    // Layouts: keyboard.layouts, or niri's config.kdl's own until the first change
+    // (vitrum-theme writes the list into generated/input.kdl; niri reloads).
+    readonly property string niriDir: Quickshell.env("HOME") + "/.config/vitrum/niri/"
+    property string configText: ""
+    property string overridesText: ""
+    property var rules: []             // xkb's catalogue: { id, name }
+    readonly property var layouts: {
+        const l = Kb.currentLayouts(Settings.get("keyboard.layouts", []), configText);
+        return l.length ? l : Kb.layoutsFromNames(rules, Niri.keyboardLayouts);
+    }
+    // overrides.kdl's own xkb block wins over what is set here.
+    readonly property bool overridden: Kb.parseXkb(overridesText) !== null
+    property bool adding: false
+    property string layoutQuery: ""
+    readonly property var found: Kb.searchLayouts(rules, layoutQuery, layouts, 8)
+    function setLayouts(l) { Settings.set("keyboard.layouts", l); }
+    // Add a layout from the picker and close it.
+    function pick(id) { const l = Kb.addLayout(layouts, id); adding = false; setLayouts(l); }
+    FileView { path: page.niriDir + "config.kdl"; onLoaded: page.configText = text() }
+    FileView { path: page.niriDir + "overrides.kdl"; watchChanges: true; onFileChanged: reload(); onLoaded: page.overridesText = text() }
+    FileView {
+        path: "/usr/share/X11/xkb/rules/evdev.lst"
+        onLoaded: page.rules = Kb.parseRules(text())
     }
     readonly property var shown: {
         const q = filter.trim().toLowerCase();
@@ -66,28 +91,70 @@ Page {
     Section {
         SettingRow {
             label: "All shortcuts"; hint: "The sheet the shell shows on Mod+/ or Mod+. — every binding at a glance."; divider: false
-            Capsule { label: "Show"; onClicked: Quickshell.execDetached(["vitrum-ipc", "keybinds", "open"]) }
+            GlassButton { label: "Show"; onClicked: Quickshell.execDetached(["vitrum-ipc", "keybinds", "open"]) }
         }
     }
     Section {
         title: "Layouts"
+        SettingRow {
+            visible: page.overridden
+            label: "overrides.kdl sets the layouts"
+            hint: "Its xkb { } block wins over this list: remove it there for these to apply."
+        }
         Repeater {
-            model: Niri.keyboardLayouts
+            model: page.layouts
             delegate: SettingRow {
                 required property string modelData
                 required property int index
-                label: modelData
-                Icon { name: "check"; visible: index === Niri.keyboardLayoutIndex; color: Colors.accent; anchors.verticalCenter: parent.verticalCenter }
+                label: Kb.layoutName(page.rules, modelData)
+                hint: index === 0 ? "First: the one niri starts with" : ""
+                // niri's live list, once it has the same layouts
+                Icon { name: "check"; color: Colors.accent; anchors.verticalCenter: parent.verticalCenter
+                       visible: Niri.keyboardLayouts.length === page.layouts.length && index === Niri.keyboardLayoutIndex }
+                GlassButton { label: "↑"; visible: page.layouts.length > 1; enabled: index > 0
+                              onClicked: page.setLayouts(Kb.moveLayout(page.layouts, index, -1)) }
+                GlassButton { label: "↓"; visible: page.layouts.length > 1; enabled: index < page.layouts.length - 1
+                              onClicked: page.setLayouts(Kb.moveLayout(page.layouts, index, 1)) }
+                GlassButton { label: "Remove"; enabled: page.layouts.length > 1
+                              onClicked: page.setLayouts(Kb.removeLayout(page.layouts, index)) }
+            }
+        }
+        SettingRow {
+            label: "Add a layout"
+            hint: page.layouts.length >= Kb.MAX_LAYOUTS ? "Four at most: xkb holds no more." : "Any of xkb's layouts and variants."
+            GlassButton { label: page.adding ? "Cancel" : "Add"; enabled: page.adding || page.layouts.length < Kb.MAX_LAYOUTS
+                          onClicked: { page.adding = !page.adding; addField.text = ""; if (page.adding) addField.takeFocus(); } }
+        }
+        Item {
+            visible: page.adding
+            width: parent.width; height: visible ? addField.height + Tokens.gap * 2 : 0
+            Field {
+                id: addField
+                anchors { left: parent.left; right: parent.right; margins: Tokens.padding; verticalCenter: parent.verticalCenter }
+                placeholder: page.rules.length ? "Find a layout: German, de, phonetic…" : "No xkb catalogue (/usr/share/X11/xkb/rules/evdev.lst)"
+                onTextChanged: page.layoutQuery = text
+                onAccepted: if (page.found.length) page.pick(page.found[0].id)
+            }
+        }
+        Repeater {
+            model: page.adding ? page.found : []
+            delegate: SettingRow {
+                required property var modelData
+                label: modelData.name; hint: modelData.id
+                // One call into the page: closing the picker destroys this row mid-handler.
+                GlassButton { label: "Add"; onClicked: page.pick(modelData.id) }
             }
         }
         SettingRow { label: "Switch layout"; hint: "Also from the bar, and on the lock screen."; divider: false
-            Rectangle { height: Tokens.islandHeight * 1.05; radius: height / 2; width: kl.implicitWidth + Tokens.padding * 1.6; color: Colors.alpha(Colors.text, 0.06)
-                        Label { id: kl; anchors.centerIn: parent; text: "Next" }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Niri.switchLayout(true) } } }
+            GlassButton { label: "Next"; height: Tokens.islandHeight * 1.05; onClicked: Niri.switchLayout(true) } }
     }
-    Rectangle {
-        width: parent.width; height: Tokens.islandHeight * 1.2; radius: height / 2
-        color: Colors.alpha(Colors.text, 0.06)
+    // The filter: a glass field; focus draws an accent ring.
+    Surface {
+        width: parent.width; height: Tokens.islandHeight * 1.2
+        group: "panels"; level: 1
+        radius: Tokens.radiusButton
+        border.width: f.activeFocus ? 2 : Tokens.hairline
+        border.color: f.activeFocus ? Colors.accent : Materials.border(group)
         TextInput {
             id: f
             anchors { fill: parent; leftMargin: Tokens.padding; rightMargin: Tokens.padding }
@@ -98,7 +165,7 @@ Page {
         }
     }
     Section {
-        title: page.shown.length + " shortcuts"
+        title: page.shown.length + (page.shown.length === 1 ? " shortcut" : " shortcuts")
         Repeater {
             model: page.shown
             delegate: Column {
@@ -118,13 +185,15 @@ Page {
                         color: Colors.alpha(Colors.text, 0.08)
                         Label { id: kk; anchors.centerIn: parent; text: KB.keyCaps(rowBox.modelData.keys).join(" "); size: Tokens.textSmall }
                     }
-                    Capsule { label: "Edit"; visible: !rowBox.modelData.off; onClicked: { page.editFrom = ""; page.editing = rowBox.modelData.default } }
-                    Capsule { label: "Reset"; visible: rowBox.modelData.changed; onClicked: page.restore(rowBox.modelData.default) }
-                    Capsule { label: rowBox.modelData.off ? "Turn on" : "Turn off"
-                              onClicked: rowBox.modelData.off ? page.restore(rowBox.modelData.default) : page.setChange(rowBox.modelData.default, null) }
+                    GlassButton { label: "Edit"; visible: !rowBox.modelData.off; onClicked: { page.editFrom = ""; page.editing = rowBox.modelData.default } }
+                    GlassButton { label: "Reset"; visible: rowBox.modelData.changed; onClicked: page.restore(rowBox.modelData.default) }
+                    GlassButton { label: rowBox.modelData.off ? "Turn on" : "Turn off"
+                                  onClicked: rowBox.modelData.off ? page.restore(rowBox.modelData.default) : page.setChange(rowBox.modelData.default, null) }
                 }
                 Loader {
-                    width: parent.width
+                    // inset like the rows' text, with air below
+                    x: Tokens.padding; width: parent.width - Tokens.padding * 2
+                    height: active && item ? item.implicitHeight + Tokens.gap : 0
                     active: page.editing === rowBox.modelData.default
                     visible: active
                     sourceComponent: KeyEditor {
@@ -148,12 +217,19 @@ Page {
                 SettingRow {
                     width: parent.width
                     label: ownBox.modelData.title; hint: ownBox.modelData.command
-                    Label { anchors.verticalCenter: parent.verticalCenter; text: KB.keyCaps(ownBox.modelData.keys).join(" "); size: Tokens.textSmall }
-                    Capsule { label: "Edit"; onClicked: page.editing = "own:" + ownBox.modelData.own }
-                    Capsule { label: "Remove"; onClicked: page.setOwn(ownBox.modelData.own, null) }
+                    Rectangle {   // the same key pill as vitrum's binds
+                        anchors.verticalCenter: parent.verticalCenter
+                        height: Tokens.islandHeight * 0.95; radius: Tokens.radiusInner; width: ok.implicitWidth + Tokens.padding
+                        color: Colors.alpha(Colors.text, 0.08)
+                        Label { id: ok; anchors.centerIn: parent; text: KB.keyCaps(ownBox.modelData.keys).join(" "); size: Tokens.textSmall }
+                    }
+                    GlassButton { label: "Edit"; onClicked: page.editing = "own:" + ownBox.modelData.own }
+                    GlassButton { label: "Remove"; onClicked: page.setOwn(ownBox.modelData.own, null) }
                 }
                 Loader {
-                    width: parent.width
+                    // inset like the rows' text, with air below
+                    x: Tokens.padding; width: parent.width - Tokens.padding * 2
+                    height: active && item ? item.implicitHeight + Tokens.gap : 0
                     active: page.editing === "own:" + ownBox.modelData.own
                     visible: active
                     sourceComponent: OwnBindEditor { list: page.list; index: ownBox.modelData.own; entry: page.own[ownBox.modelData.own]
@@ -164,10 +240,11 @@ Page {
         }
         SettingRow {
             label: "Add a bind"; hint: "A key combination that runs a command or an app."; divider: false
-            Capsule { label: "Add"; onClicked: page.editing = "own:new" }
+            GlassButton { label: "Add"; onClicked: page.editing = "own:new" }
         }
         Loader {
-            width: parent.width
+            x: Tokens.padding; width: parent.width - Tokens.padding * 2
+            height: active && item ? item.implicitHeight + Tokens.gap : 0
             active: page.editing === "own:new"; visible: active
             sourceComponent: OwnBindEditor { list: page.list; index: -1; entry: ({ keys: "", command: "", title: "" })
                                              onDone: e => page.commitOwn(-1, e)

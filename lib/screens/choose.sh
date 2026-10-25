@@ -31,6 +31,8 @@ choose_label() {
     phone)            T "Phone (KDE Connect)" ;;
     tmux)             T "tmux, themed, with plugins" ;;
     games)            T "Game mode + HUD (gamemode, MangoHud)" ;;
+    steam_theme)      T "Steam theme (Millennium)" ;;
+    vesktop_theme)    T "Vesktop theme (Discord)" ;;
     utilities)        T "Mic noise filter, VPN, sensors, mixer, archives" ;;
     cli_tools)        T "Command-line tools: eza, bat, fzf, zoxide, delta" ;;
     file_manager)     T "File manager: Dolphin" ;;
@@ -46,8 +48,9 @@ choose_label() {
 # tmux" beside a row that cannot be ticked.
 choose_name() {
   case "$1" in
-    tmux) printf 'tmux' ;;
-    *)    choose_label "$1" ;;
+    tmux)  printf 'tmux' ;;
+    games) T "Game mode" ;;
+    *)     choose_label "$1" ;;
   esac
 }
 
@@ -91,6 +94,8 @@ choose_hint() {
     phone)            text="$(T "Notifications from the phone, its battery, a shared clipboard and files. Pulls in part of KDE Frameworks.")" ;;
     tmux)             text="$(T "tmux with a vitrum status bar and its plugins. Without the author's keys it keeps its own (Ctrl+b).")" ;;
     games)            text="$(T "Game mode with its HUD: gamemode and MangoHud.")" ;;
+    steam_theme)      text="$(T "Steam theme: vitrum's look for Steam via Millennium, follows your colours.")" ;;
+    vesktop_theme)    text="$(T "Vesktop theme: vitrum's glass for Discord (Vesktop), follows your colours.")" ;;
     utilities)        text="$(T "The microphone noise filter, WireGuard and OpenVPN, hardware sensors, a sound mixer (pavucontrol), cava and Ark for archives.")" ;;
     cli_tools)        text="$(T "Better ls, cat, find and cd: eza, bat, fzf and zoxide, with delta for git diffs.")" ;;
     file_manager)     text="$(T "Dolphin, themed like the rest of the desktop.")" ;;

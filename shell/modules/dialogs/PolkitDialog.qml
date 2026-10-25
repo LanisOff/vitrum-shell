@@ -27,11 +27,11 @@ DialogFrame {
         width: root.w
         spacing: Tokens.gap * 1.2
 
-        Rectangle {
+        // A plain line icon in the second hue, where the tonal circle was.
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Tokens.islandHeight * 1.7; height: width; radius: width / 2
-            color: Colors.alpha(Colors.accent, 0.16)
-            Icon { anchors.centerIn: parent; name: "lock"; size: Tokens.iconSize * 1.7; color: Colors.accent }
+            width: Tokens.islandHeight * 1.7; height: width
+            Icon { anchors.centerIn: parent; name: "lock"; size: Tokens.iconSize * 1.7; color: Colors.accent2 }
         }
         Label {
             width: parent.width; horizontalAlignment: Text.AlignHCenter
@@ -48,7 +48,7 @@ DialogFrame {
             id: field
             width: parent.width
             height: Tokens.islandHeight * 1.35
-            radius: height / 2
+            radius: Tokens.radiusButton
             group: "dialogs"; level: 1
             border.width: pass.activeFocus ? 2 : Tokens.hairline
             border.color: root.failed ? Colors.danger : pass.activeFocus ? Colors.alpha(Colors.accent, 0.8) : Materials.border("dialogs")
@@ -83,8 +83,8 @@ DialogFrame {
                 visible: Niri.keyboardShort.length > 0
                 anchors.right: parent.right; anchors.rightMargin: Tokens.gap
                 anchors.verticalCenter: parent.verticalCenter
-                width: visible ? Tokens.iconSize * 2 : 0; height: Tokens.iconSize * 1.3; radius: height / 2
-                color: Colors.alpha(Colors.accent, 0.2)
+                width: visible ? Tokens.iconSize * 2 : 0; height: Tokens.iconSize * 1.3; radius: Tokens.radiusKnob
+                color: Colors.alpha(Colors.text, 0.10)
                 Label { anchors.centerIn: parent; text: Niri.keyboardShort; size: Tokens.textSmall; font.weight: Font.DemiBold }
             }
         }
@@ -103,21 +103,17 @@ DialogFrame {
             spacing: Tokens.gap
             Repeater {
                 model: [{ text: "Cancel", main: false }, { text: "Authenticate", main: true }]
-                delegate: Rectangle {
+                // Authenticate is tinted, Cancel clear glass.
+                delegate: GlassButton {
                     required property var modelData
                     width: (root.w - Tokens.gap) / 2
                     height: Tokens.islandHeight * 1.2
-                    radius: height / 2
-                    color: modelData.main ? (btn.containsMouse ? Qt.lighter(Colors.accent, 1.08) : Colors.accent)
-                                          : Colors.alpha(Colors.text, btn.containsMouse ? 0.12 : 0.07)
+                    group: "dialogs"
+                    label: modelData.text
+                    primary: modelData.main
                     opacity: modelData.main && pass.text.length === 0 ? 0.55 : 1
                     Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
-                    Label { anchors.centerIn: parent; text: parent.modelData.text; role: parent.modelData.main ? "onAccent" : "text"; font.weight: Font.DemiBold }
-                    MouseArea {
-                        id: btn
-                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: parent.modelData.main ? root.submit() : root.dismissed()
-                    }
+                    onClicked: modelData.main ? root.submit() : root.dismissed()
                 }
             }
         }

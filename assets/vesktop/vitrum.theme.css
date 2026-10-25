@@ -1,0 +1,907 @@
+/**
+ * @name vitrum
+ * @author vitrum
+ * @description vitrum's lit glass for Discord: the colours of your wallpaper, glass panels on a solid ground, "on" lit from inside. Kept in sync by vitrum-theme.
+ * @version 1.0.0
+*/
+
+/* The colours below are written by vitrum-theme from vitrum's palette (always
+   its dark scheme). Everything outside the block is the shipped theme.
+
+   The language (vitrum's lit glass, CLAUDE.md "Design language"):
+   - the window's ground is solid: vitrum's bg with a faint wash of the accents;
+   - panels are glass layers over it: fixed alphas, a 1 px hairline rim, a
+     faint top light;
+   - on (the selected channel, server, tab, a primary button, a switch): the
+     glass lit from inside, brighter and frostier, a white rim and top light,
+     the accent only as a soft glow under it and in the icon; the text stays
+     the text colour;
+   - radii: tiles 12, buttons 9, panels 20; no capsules;
+   - Inter; motion damped, no overshoot.
+
+   Selectors: Discord's class names end in a hash that changes with its
+   updates (sidebarList__5e434), so they are matched by the readable part
+   ([class*="sidebarList_"]), or by ARIA roles and states, which are stable. */
+
+/* vitrum:colours begin (vitrum-theme rewrites this block; edit outside it) */
+/* palette: preset graphite (shipped default) */
+:root {
+  --vt-bg: #0e0f11;
+  --vt-surface: #1b1d21;
+  --vt-surface-high: #24272c;
+  --vt-surface-highest: #2e3238;
+  --vt-outline: #3c4148;
+  --vt-text: #e6e8eb;
+  --vt-text-dim: #a3a9b1;
+  --vt-accent: #8ab4f8;
+  --vt-accent2: #92ec8d;
+  --vt-danger: #f28b82;
+  --vt-warning: #fdd663;
+  --vt-success: #81c995;
+  --vt-bg-rgb: 14, 15, 17;
+  --vt-surface-rgb: 27, 29, 33;
+  --vt-surface-high-rgb: 36, 39, 44;
+  --vt-surface-highest-rgb: 46, 50, 56;
+  --vt-outline-rgb: 60, 65, 72;
+  --vt-text-rgb: 230, 232, 235;
+  --vt-text-dim-rgb: 163, 169, 177;
+  --vt-accent-rgb: 138, 180, 248;
+  --vt-accent2-rgb: 146, 236, 141;
+  --vt-danger-rgb: 242, 139, 130;
+  --vt-warning-rgb: 253, 214, 99;
+  --vt-success-rgb: 129, 201, 149;
+  --vt-glow-rgb: 72, 138, 244;
+}
+/* vitrum:colours end */
+
+/* ------------------------------------------------------------- tokens --- */
+
+:root {
+  --vt-font: "Inter", "Inter Variable", "Noto Sans", sans-serif;
+  --vt-radius-tile: 12px;
+  --vt-radius-button: 9px;
+  --vt-radius-panel: 20px;
+
+  /* The ground: solid, with a faint wash of the two hues. */
+  --vt-ground: radial-gradient(1400px 900px at 0% 0%, rgba(var(--vt-accent-rgb), .07), transparent 62%),
+               radial-gradient(1200px 800px at 100% 100%, rgba(var(--vt-accent2-rgb), .045), transparent 60%),
+               var(--vt-bg);
+  /* Glass layers over it (fixed alphas: the window itself is opaque). */
+  --vt-glass-1: rgba(var(--vt-surface-rgb), .62);
+  --vt-glass-2: rgba(var(--vt-surface-high-rgb), .66);
+  /* What floats over the content (menus, popouts, dialogs) stays readable. */
+  --vt-float: rgba(var(--vt-surface-high-rgb), .94);
+  --vt-float-high: rgba(var(--vt-surface-highest-rgb), .96);
+  --vt-rim-panel: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .07);
+  --vt-rim-float: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 1px 0 rgba(255, 255, 255, .12),
+                  0 18px 48px -12px rgba(0, 0, 0, .55);
+
+  /* Off and on. */
+  --vt-off: rgba(255, 255, 255, .05);
+  --vt-off-hover: rgba(255, 255, 255, .08);
+  --vt-off-active: rgba(255, 255, 255, .11);
+  --vt-rim-off: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .05);
+  /* The lit glass at rest. The "on" rule below spells these two out with
+     every alpha scaled by --vt-k, so the light can fade in and brighten;
+     at --vt-k = 1 it is exactly this (a test holds them together). */
+  --vt-lit: linear-gradient(180deg, rgba(255, 255, 255, .20), rgba(255, 255, 255, .10));
+  --vt-rim-lit: inset 0 0 0 1px rgba(255, 255, 255, .30), inset 0 1px 0 rgba(255, 255, 255, .55),
+                0 4px 16px -6px rgba(var(--vt-glow-rgb), .55);
+  --vt-switch-on: rgba(var(--vt-glow-rgb), .32);
+  --vt-rim-switch: inset 0 0 0 1px rgba(255, 255, 255, .30), inset 0 1px 0 rgba(255, 255, 255, .50);
+
+  /* Motion: heavy and damped, no overshoot, nothing that loops. Every
+     duration and distance lives here, so reduced motion (the system's or
+     Discord's own) zeroes them in one place, at the end of the file. */
+  --vt-ease: cubic-bezier(.2, .8, .2, 1);
+  --vt-ease-sweep: cubic-bezier(.4, 0, .2, 1);   /* the glint: eases in, so it is seen crossing */
+  --vt-dur-fast: 140ms;
+  --vt-dur: 220ms;
+  --vt-dur-slow: 320ms;
+  --vt-dur-sweep: 380ms;
+  --vt-delay-sweep: 40ms;  /* the glint waits for the light to come up */
+  --vt-slide: 2px;      /* a hovered channel's text */
+  --vt-lift: -1px;      /* a hovered server */
+  --vt-rise: 6px;       /* what arrives rises this far */
+  --vt-pop: .97;        /* what opens grows from this */
+  --vt-press: .97;      /* a pressed button */
+  --vt-tr-surface: background-color var(--vt-dur) var(--vt-ease), border-color var(--vt-dur) var(--vt-ease),
+                   box-shadow var(--vt-dur) var(--vt-ease), color var(--vt-dur) var(--vt-ease),
+                   --vt-k var(--vt-dur) var(--vt-ease), filter var(--vt-dur) var(--vt-ease),
+                   transform var(--vt-dur-fast) var(--vt-ease);
+}
+
+/* Registered, so they animate: the strength of the lit glass, and where the
+   one-shot light sweep across it is (parked past the right edge). */
+@property --vt-k {
+  syntax: "<number>";
+  inherits: false;
+  initial-value: 1;
+}
+
+@property --vt-sweep-x {
+  syntax: "<percentage>";
+  inherits: false;
+  initial-value: -20%;
+}
+
+/* --------------------------------------------- Discord's own variables --- */
+
+/* Discord defines these per theme class (.theme-dark, .theme-light, …), on
+   <html> and again on nested layers; the same classes here, a step more
+   specific and later in the page, win everywhere. Every Discord theme gets
+   vitrum's dark palette. A profile's own theme (custom-user-profile-theme)
+   keeps its colours. */
+:root,
+:is(.theme-dark, .theme-light, .theme-darker, .theme-midnight):not(.custom-user-profile-theme) {
+  color-scheme: dark;
+
+  /* type and shape */
+  --font-primary: var(--vt-font);
+  --font-display: var(--vt-font);
+  --font-headline: var(--vt-font);
+  --radius-xs: 6px;
+  --radius-sm: var(--vt-radius-button);
+  --radius-md: var(--vt-radius-tile);
+  --radius-lg: var(--vt-radius-panel);
+  --radius-xl: var(--vt-radius-panel);
+
+  /* surfaces */
+  --app-frame-background: var(--vt-bg);
+  --background-gradient-app-frame: var(--vt-ground);
+  --background-base-lowest: var(--vt-bg);
+  --background-base-lower: var(--vt-glass-1);
+  --background-base-low: var(--vt-glass-2);
+  --background-surface-high: var(--vt-float);
+  --background-surface-higher: var(--vt-float);
+  --background-surface-highest: var(--vt-float-high);
+  --background-primary: var(--vt-glass-1);
+  --background-secondary: var(--vt-glass-1);
+  --background-secondary-alt: var(--vt-glass-2);
+  --background-tertiary: var(--vt-bg);
+  --background-floating: var(--vt-float);
+  --background-nested-floating: var(--vt-float-high);
+  --background-accent: rgba(255, 255, 255, .10);
+  --bg-surface-raised: var(--vt-float);
+  --bg-surface-overlay: var(--vt-float);
+  --home-background: var(--vt-bg);
+  --chat-background-default: var(--vt-glass-2);
+  --channeltextarea-background: var(--vt-glass-2);
+  --custom-channel-members-bg: var(--vt-glass-1);
+  --modal-background: var(--vt-float);
+  --modal-footer-background: rgba(var(--vt-surface-rgb), .6);
+  --card-background-default: var(--vt-off);
+  --background-code: rgba(0, 0, 0, .22);
+  --background-scrim: rgba(var(--vt-bg-rgb), .72);
+  --background-scrim-lightbox: rgba(var(--vt-bg-rgb), .9);
+
+  /* states: white light in the glass, never an accent fill */
+  --background-mod-muted: rgba(255, 255, 255, .03);
+  --background-mod-subtle: var(--vt-off);
+  --background-mod-normal: var(--vt-off-hover);
+  --background-mod-strong: var(--vt-off-active);
+  --background-modifier-hover: rgba(255, 255, 255, .06);
+  --background-modifier-active: rgba(255, 255, 255, .10);
+  --background-modifier-selected: rgba(255, 255, 255, .14);
+  --background-modifier-accent: rgba(255, 255, 255, .08);
+  --interactive-background-hover: rgba(255, 255, 255, .06);
+  --interactive-background-active: rgba(255, 255, 255, .10);
+  --interactive-background-selected: rgba(255, 255, 255, .14);
+  --message-background-hover: rgba(255, 255, 255, .025);
+  --input-background-default: rgba(0, 0, 0, .20);
+  --input-border-default: rgba(255, 255, 255, .08);
+  --input-border-hover: rgba(255, 255, 255, .14);
+  --input-border-active: rgba(var(--vt-accent-rgb), .65);
+  --input-placeholder-text-default: rgba(var(--vt-text-dim-rgb), .7);
+  --input-text-default: var(--vt-text);
+
+  /* rims */
+  --border-faint: rgba(255, 255, 255, .04);
+  --border-muted: rgba(255, 255, 255, .05);
+  --border-subtle: rgba(255, 255, 255, .07);
+  --border-normal: rgba(255, 255, 255, .10);
+  --border-strong: rgba(255, 255, 255, .15);
+  --border-focus: rgba(var(--vt-accent-rgb), .65);
+  --focus-primary: var(--vt-accent);
+
+  /* text and icons */
+  --text-default: var(--vt-text);
+  --text-normal: var(--vt-text);
+  --text-strong: var(--vt-text);
+  --text-subtle: var(--vt-text-dim);
+  --text-muted: rgba(var(--vt-text-dim-rgb), .72);
+  --text-secondary: var(--vt-text-dim);
+  --text-tertiary: rgba(var(--vt-text-dim-rgb), .72);
+  --text-link: var(--vt-accent);
+  --text-brand: var(--vt-accent);
+  --header-primary: var(--vt-text);
+  --header-secondary: var(--vt-text-dim);
+  --channels-default: var(--vt-text-dim);
+  --channel-icon: var(--vt-text-dim);
+  --channel-text-area-placeholder: rgba(var(--vt-text-dim-rgb), .7);
+  --chat-text-muted: rgba(var(--vt-text-dim-rgb), .72);
+  --icon-default: var(--vt-text-dim);
+  --icon-strong: var(--vt-text);
+  --icon-subtle: var(--vt-text-dim);
+  --icon-muted: rgba(var(--vt-text-dim-rgb), .6);
+  --icon-link: var(--vt-text-dim);
+  --interactive-normal: var(--vt-text-dim);
+  --interactive-hover: var(--vt-text);
+  --interactive-active: var(--vt-text);
+  --interactive-muted: rgba(var(--vt-text-dim-rgb), .45);
+  --interactive-text-default: var(--vt-text-dim);
+  --interactive-text-hover: var(--vt-text);
+  --interactive-text-active: var(--vt-text);
+  --interactive-icon-default: var(--vt-text-dim);
+  --interactive-icon-hover: var(--vt-text);
+  --interactive-icon-active: var(--vt-accent);
+
+  /* the brand is vitrum's accent, kept from going pastel where it fills */
+  --brand-260: var(--vt-accent);
+  --brand-360: var(--vt-accent);
+  --brand-400: rgb(var(--vt-glow-rgb));
+  --brand-500: rgb(var(--vt-glow-rgb));
+  --brand-560: rgb(var(--vt-glow-rgb));
+  --brand-600: rgb(var(--vt-glow-rgb));
+  --brand-experiment: rgb(var(--vt-glow-rgb));
+  --background-brand: rgb(var(--vt-glow-rgb));
+  --control-brand-foreground: var(--vt-accent);
+  --control-brand-foreground-new: var(--vt-accent);
+  --mention-foreground: var(--vt-accent);
+  --mention-background: rgba(var(--vt-accent-rgb), .14);
+  --message-mentioned-background-default: rgba(var(--vt-glow-rgb), .08);
+  --message-mentioned-background-hover: rgba(var(--vt-glow-rgb), .12);
+  --message-reacted-background-default: rgba(var(--vt-glow-rgb), .18);
+  --reaction-background-default: var(--vt-off);
+  --reaction-background-hover: var(--vt-off-hover);
+  --reaction-background-reacted-default: rgba(var(--vt-glow-rgb), .18);
+  --reaction-background-reacted-hover: rgba(var(--vt-glow-rgb), .24);
+  --reaction-border-reacted-default: rgba(var(--vt-accent-rgb), .5);
+  --reaction-text-reacted-default: var(--vt-text);
+
+  /* controls: buttons are glass (a primary one lit, below), switches and
+     checks light up with the glow */
+  --control-primary-background-default: rgba(255, 255, 255, .16);
+  --control-primary-background-hover: rgba(255, 255, 255, .21);
+  --control-primary-background-active: rgba(255, 255, 255, .25);
+  --control-primary-border-default: rgba(255, 255, 255, .30);
+  --control-primary-border-hover: rgba(255, 255, 255, .34);
+  --control-primary-border-active: rgba(255, 255, 255, .34);
+  --control-primary-text-default: var(--vt-text);
+  --control-primary-text-hover: var(--vt-text);
+  --control-primary-text-active: var(--vt-text);
+  --control-primary-icon-default: var(--vt-accent);
+  --control-primary-icon-hover: var(--vt-accent);
+  --control-primary-icon-active: var(--vt-accent);
+  --control-secondary-background-default: var(--vt-off);
+  --control-secondary-background-hover: var(--vt-off-hover);
+  --control-secondary-background-active: var(--vt-off-active);
+  --control-secondary-border-default: rgba(255, 255, 255, .08);
+  --control-secondary-border-hover: rgba(255, 255, 255, .12);
+  --control-secondary-border-active: rgba(255, 255, 255, .12);
+  --control-secondary-text-default: var(--vt-text);
+  --control-secondary-text-hover: var(--vt-text);
+  --control-secondary-text-active: var(--vt-text);
+  --control-secondary-icon-default: var(--vt-text-dim);
+  --control-secondary-icon-hover: var(--vt-text);
+  --control-secondary-icon-active: var(--vt-text);
+  --control-critical-primary-background-default: rgba(var(--vt-danger-rgb), .18);
+  --control-critical-primary-background-hover: rgba(var(--vt-danger-rgb), .24);
+  --control-critical-primary-background-active: rgba(var(--vt-danger-rgb), .30);
+  --control-critical-primary-border-default: rgba(var(--vt-danger-rgb), .45);
+  --control-critical-primary-text-default: var(--vt-text);
+  --control-critical-primary-text-hover: var(--vt-text);
+  --control-critical-primary-icon-default: var(--vt-danger);
+  --switch-background-default: rgba(255, 255, 255, .10);
+  --switch-background-hover: rgba(255, 255, 255, .14);
+  --switch-background-selected-default: var(--vt-switch-on);
+  --switch-background-selected-hover: rgba(var(--vt-glow-rgb), .40);
+  --switch-border-default: rgba(255, 255, 255, .10);
+  --switch-border-selected-default: rgba(255, 255, 255, .30);
+  --switch-thumb-background-default: var(--vt-text);
+  --switch-thumb-background-selected-default: #ffffff;
+  --checkbox-background-default: rgba(255, 255, 255, .06);
+  --checkbox-background-selected-default: var(--vt-switch-on);
+  --checkbox-background-selected-hover: rgba(var(--vt-glow-rgb), .40);
+  --checkbox-border-selected-default: rgba(255, 255, 255, .30);
+  --checkbox-icon-active: #ffffff;
+  --radio-background-selected-default: var(--vt-switch-on);
+  --radio-border-selected-default: rgba(255, 255, 255, .30);
+  --radio-thumb-background-active: #ffffff;
+  --slider-track-background: rgba(255, 255, 255, .10);
+  --progressbar-track-background: rgba(255, 255, 255, .08);
+  --progressbar-indicator-background: rgb(var(--vt-glow-rgb));
+
+  /* status: vitrum's roles */
+  --status-danger: var(--vt-danger);
+  --status-warning: var(--vt-warning);
+  --status-positive: var(--vt-success);
+  --text-feedback-critical: var(--vt-danger);
+  --text-feedback-warning: var(--vt-warning);
+  --text-feedback-positive: var(--vt-success);
+  --text-feedback-info: var(--vt-accent);
+  --icon-feedback-critical: var(--vt-danger);
+  --icon-feedback-warning: var(--vt-warning);
+  --icon-feedback-positive: var(--vt-success);
+  --icon-feedback-info: var(--vt-accent);
+  --text-danger: var(--vt-danger);
+  --text-positive: var(--vt-success);
+  --text-warning: var(--vt-warning);
+  --background-feedback-critical: rgba(var(--vt-danger-rgb), .10);
+  --background-feedback-warning: rgba(var(--vt-warning-rgb), .08);
+  --background-feedback-positive: rgba(var(--vt-success-rgb), .08);
+  --background-feedback-info: rgba(var(--vt-accent-rgb), .08);
+  --border-feedback-critical: rgba(var(--vt-danger-rgb), .35);
+
+  /* scrollbars */
+  --scrollbar-auto-thumb: rgba(255, 255, 255, .16);
+  --scrollbar-auto-track: transparent;
+  --scrollbar-thin-thumb: rgba(255, 255, 255, .16);
+  --scrollbar-thin-track: transparent;
+  --scrollbar-auto-scrollbar-color-thumb: rgba(255, 255, 255, .16);
+  --scrollbar-auto-scrollbar-color-track: transparent;
+}
+
+/* ---------------------------------------------------------- the ground --- */
+
+html,
+body,
+#app-mount {
+  background: var(--vt-bg) !important;
+}
+
+body {
+  font-family: var(--vt-font);
+}
+
+::selection {
+  background: rgba(var(--vt-accent-rgb), .35);
+  color: var(--vt-text);
+}
+
+/* The app frame shows the ground (Discord paints it through
+   --background-gradient-app-frame, set above); the containers between it and
+   the panels let it through. */
+:is([class^="app_"], [class*=" app_"]),
+:is([class^="chat_"], [class*=" chat_"]):has(> * > :is([class^="chatContent_"], [class*=" chatContent_"]), > :is([class^="chatContent_"], [class*=" chatContent_"])),
+:is([class^="sidebar_"], [class*=" sidebar_"]):has(:is([class^="sidebarList_"], [class*=" sidebarList_"])),
+:is([class^="guilds_"], [class*=" guilds_"]),
+:is([class^="guilds_"], [class*=" guilds_"]) > nav,
+:is([class^="sidebarList_"], [class*=" sidebarList_"]) > :is(nav, [class^="container_"], [class*=" container_"]),
+:is([class^="privateChannels_"], [class*=" privateChannels_"]) {
+  background: transparent !important;
+}
+
+/* No dark fade under the channel list: the glass ends with its rim. */
+:is([class^="sidebar_"], [class*=" sidebar_"]):has(:is([class^="sidebarList_"], [class*=" sidebarList_"]))::after {
+  background: none !important;
+}
+
+/* Full-window layers cover the app: they stand on the ground themselves, or
+   the app would show through their glass. That is the old full-screen layer,
+   and the settings Discord has now (a sidebar <aside> and a panel in one
+   container over the app). */
+:is([class^="layers_"], [class*=" layers_"]) > :is([class^="layer_"], [class*=" layer_"]):not([class*="baseLayer_"]),
+:is([class^="container_"], [class*=" container_"]):has(> aside:is([class^="sidebar_"], [class*=" sidebar_"]), > * > aside:is([class^="sidebar_"], [class*=" sidebar_"])) {
+  background: var(--vt-ground) !important;
+}
+
+/* --------------------------------------------------------- the panels --- */
+
+/* The server list: a faint glass strip on the ground. */
+:is([class^="guilds_"], [class*=" guilds_"]) {
+  background: rgba(var(--vt-surface-rgb), .22) !important;
+}
+
+/* The channel list and the chat: glass layers with a hairline rim. */
+:is([class^="sidebarList_"], [class*=" sidebarList_"]) {
+  background: var(--vt-glass-1) !important;
+  box-shadow: var(--vt-rim-panel);
+  border-radius: var(--vt-radius-panel) 0 0 0;
+}
+
+:is([class^="chatContent_"], [class*=" chatContent_"]) {
+  background: var(--vt-glass-1) !important;
+}
+
+/* The user panel floats over the lists' foot: frosted, so they blur under it. */
+:is([class^="sidebar_"], [class*=" sidebar_"]) :is([class^="panels_"], [class*=" panels_"]) {
+  background: var(--vt-glass-2) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border: 0 !important;
+  box-shadow: var(--vt-rim-float);
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+/* The message box. */
+:is([class^="channelTextArea_"], [class*=" channelTextArea_"]) :is([class^="scrollableContainer_"], [class*=" scrollableContainer_"]),
+:is([class^="channelTextArea_"], [class*=" channelTextArea_"]) :is([class^="themedBackground_"], [class*=" themedBackground_"]) {
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+/* Menus and dialogs: frosted glass over the content (popouts take the
+   near-opaque float colour from the variables). */
+[role="menu"],
+[role="dialog"][aria-modal="true"]:is([class^="root_"], [class*=" root_"]) {
+  -webkit-backdrop-filter: blur(24px) saturate(1.25);
+  backdrop-filter: blur(24px) saturate(1.25);
+  box-shadow: var(--vt-rim-float) !important;
+  border-color: transparent !important;
+}
+
+[role="menu"] {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+[role="dialog"][aria-modal="true"]:is([class^="root_"], [class*=" root_"]) {
+  border-radius: var(--vt-radius-panel) !important;
+}
+
+/* Menu rows: the focused one lit softly (the text keeps its colour); their
+   corners follow the menu's (12 outside, 6 inside its padding). */
+[role="menu"] [role^="menuitem"] {
+  border-radius: 6px !important;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease), color var(--vt-dur-fast) var(--vt-ease);
+}
+
+[role="menu"] [role^="menuitem"]:is([class*="focused_"], :hover):not([class*="colorDanger_"]) {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* Popouts, the emoji and GIF picker, tooltips: vitrum's corners (Discord's
+   are 8 and 9 here), the float's rim. */
+.user-profile-popout,
+:is([class^="positionContainer_"], [class*=" positionContainer_"]) :is([class^="contentWrapper_"], [class*=" contentWrapper_"]) {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+:is([class^="positionContainer_"], [class*=" positionContainer_"]) :is([class^="contentWrapper_"], [class*=" contentWrapper_"]) {
+  border-color: transparent !important;
+  box-shadow: var(--vt-rim-float) !important;
+}
+
+:is([class*="tooltipTop_"], [class*="tooltipBottom_"], [class*="tooltipLeft_"], [class*="tooltipRight_"]) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+/* ------------------------------------------------------- the on states --- */
+
+/* Everything that is on, in one place: the selected channel and DM, the
+   selected settings row, a selected tab or segment, a toggle button that is pressed, a primary
+   button. The glass lit from inside (--vt-lit and --vt-rim-lit, every alpha
+   scaled by --vt-k so the light can fade in and brighten), with a band of
+   light on top that rests past the right edge until the sweep runs it
+   across once. Top tab bars (an underline under the label) are not boxes;
+   they are lit below. */
+:is([class^="modeSelected_"], [class*=" modeSelected_"]) :is([class^="link_"], [class*=" link_"]),
+:is([class^="interactiveSelected_"], [class*=" interactiveSelected_"]),
+[role="tab"][aria-selected="true"]:not(:is([class^="top_"], [class*=" top_"]) > *),
+[data-settings-sidebar-item] > [aria-current="page"],
+:is([class^="segmentedItemSelected_"], [class*=" segmentedItemSelected_"]),
+:is([class^="toggleButton_"], [class*=" toggleButton_"]):is([aria-pressed="true"], [data-selected]),
+:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"]) {
+  background:
+    linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .22) 50%, transparent 60%)
+      var(--vt-sweep-x, -20%) 0 / 250% 100% no-repeat,
+    linear-gradient(180deg, rgba(255, 255, 255, calc(.20 * var(--vt-k, 1))), rgba(255, 255, 255, calc(.10 * var(--vt-k, 1)))) !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, calc(.30 * var(--vt-k, 1))),
+              inset 0 1px 0 rgba(255, 255, 255, calc(.55 * var(--vt-k, 1))),
+              0 4px 16px -6px rgba(var(--vt-glow-rgb), calc(.55 * var(--vt-k, 1))) !important;
+  border-color: transparent !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+/* Turning on: the light comes up inside the glass. */
+:is([class^="modeSelected_"], [class*=" modeSelected_"]) :is([class^="link_"], [class*=" link_"]),
+:is([class^="interactiveSelected_"], [class*=" interactiveSelected_"]),
+[role="tab"][aria-selected="true"]:not(:is([class^="top_"], [class*=" top_"]) > *),
+[data-settings-sidebar-item] > [aria-current="page"],
+:is([class^="segmentedItemSelected_"], [class*=" segmentedItemSelected_"]),
+:is([class^="toggleButton_"], [class*=" toggleButton_"]):is([aria-pressed="true"], [data-selected]) {
+  animation: vt-lit-in var(--vt-dur-slow) var(--vt-ease) backwards;
+}
+
+/* A channel or DM that becomes selected: the light comes up, and a glint
+   runs across the glass once. */
+:is([class^="modeSelected_"], [class*=" modeSelected_"]) :is([class^="link_"], [class*=" link_"]),
+:is([class^="interactiveSelected_"], [class*=" interactiveSelected_"]) {
+  animation: vt-lit-in var(--vt-dur-slow) var(--vt-ease) backwards,
+             vt-sweep var(--vt-dur-sweep) var(--vt-ease-sweep) var(--vt-delay-sweep) backwards;
+}
+
+/* Hovered or focused, a lit button glows a little brighter. */
+:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"]):is(:hover, :focus-visible) {
+  --vt-k: 1.3;
+}
+
+/* Inside the lit glass: the text stays the text colour, icons take the accent. */
+:is([class^="modeSelected_"], [class*=" modeSelected_"]) :is([class^="name_"], [class*=" name_"]),
+:is([class^="interactiveSelected_"], [class*=" interactiveSelected_"]) :is([class^="name_"], [class*=" name_"]) {
+  color: var(--vt-text) !important;
+}
+
+:is([class^="modeSelected_"], [class*=" modeSelected_"]) :is([class^="icon_"], [class*=" icon_"]),
+[role="tab"][aria-selected="true"] svg,
+[data-settings-sidebar-item] > [aria-current="page"] svg,
+:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"]) svg {
+  color: var(--vt-accent) !important;
+}
+
+/* --------------------------------------------------- the channel list --- */
+
+/* Rows: the hover light fades in and out, the name moves over a touch. */
+:is([class^="sidebarList_"], [class*=" sidebarList_"]) :is([class^="link_"], [class*=" link_"]),
+:is([class^="privateChannels_"], [class*=" privateChannels_"]) :is([class^="interactive_"], [class*=" interactive_"]) {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+:is([class^="sidebarList_"], [class*=" sidebarList_"]) :is([class^="linkTop_"], [class*=" linkTop_"]) :is([class^="name_"], [class*=" name_"]),
+:is([class^="privateChannels_"], [class*=" privateChannels_"]) :is([class^="layout_"], [class*=" layout_"]) > :is([class^="content_"], [class*=" content_"]) {
+  transition: transform var(--vt-dur) var(--vt-ease);
+}
+
+:is([class^="sidebarList_"], [class*=" sidebarList_"]) :is([class^="link_"], [class*=" link_"]):hover :is([class^="linkTop_"], [class*=" linkTop_"]) :is([class^="name_"], [class*=" name_"]),
+:is([class^="privateChannels_"], [class*=" privateChannels_"]) :is([class^="interactive_"], [class*=" interactive_"]):hover :is([class^="layout_"], [class*=" layout_"]) > :is([class^="content_"], [class*=" content_"]) {
+  transform: translateX(var(--vt-slide));
+}
+
+/* An unread channel's mark fades in. */
+:is([class^="sidebarList_"], [class*=" sidebarList_"]) :is([class^="unread_"], [class*=" unread_"]) {
+  animation: vt-fade var(--vt-dur) var(--vt-ease) backwards;
+}
+
+/* ---------------------------------------------------- the server list --- */
+
+/* The pill: a lit bead with the glow, not a white bar; it glides between
+   heights (Discord drives it; this takes the edge off). */
+:is([class^="guilds_"], [class*=" guilds_"]) :is([class^="pill_"], [class*=" pill_"]) :is([class^="item_"], [class*=" item_"]) {
+  background: linear-gradient(180deg, rgba(255, 255, 255, .95), rgba(255, 255, 255, .70)) !important;
+  box-shadow: 0 0 10px rgba(var(--vt-glow-rgb), .65);
+  transition: height var(--vt-dur-slow) var(--vt-ease), opacity var(--vt-dur) var(--vt-ease),
+              transform var(--vt-dur-slow) var(--vt-ease) !important;
+}
+
+/* A server lifts and glows under the pointer; the selected one glows under
+   its icon (the icon keeps Discord's shape); pressed, it sinks back. */
+:is([class^="blobContainer_"], [class*=" blobContainer_"]) {
+  transition: transform var(--vt-dur) var(--vt-ease), filter var(--vt-dur) var(--vt-ease);
+}
+
+:is([class^="blobContainer_"], [class*=" blobContainer_"]):hover:not(:active, [class*="wobble_"], [class*="sorting_"]) {
+  transform: translateY(var(--vt-lift));
+  filter: drop-shadow(0 6px 12px rgba(var(--vt-glow-rgb), .32));
+}
+
+:is([class^="blobContainer_"], [class*=" blobContainer_"]):is([class*="selected_"]) {
+  filter: drop-shadow(0 4px 10px rgba(var(--vt-glow-rgb), .50));
+}
+
+:is([class^="blobContainer_"], [class*=" blobContainer_"]):is([class*="selected_"]):hover:not(:active) {
+  filter: drop-shadow(0 6px 14px rgba(var(--vt-glow-rgb), .60));
+}
+
+/* Folders open smoothly: the folder's glass fades in behind it and the
+   servers inside come down into place. */
+:is([class^="folderGroupBackground_"], [class*=" folderGroupBackground_"]) {
+  border-radius: var(--vt-radius-tile) !important;
+  transition: opacity var(--vt-dur-slow) var(--vt-ease), background-color var(--vt-dur-slow) var(--vt-ease);
+}
+
+:is([class^="folderButtonContent_"], [class*=" folderButtonContent_"]) {
+  transition-timing-function: var(--vt-ease) !important;
+}
+
+:is([class^="isExpanded_"], [class*=" isExpanded_"]) :is([class^="folderGuildsList_"], [class*=" folderGuildsList_"]) > * {
+  animation: vt-drop var(--vt-dur-slow) var(--vt-ease) backwards;
+}
+
+/* ------------------------------------------------------------- tabs --- */
+
+[role="tab"] {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+/* A top tab bar (a profile's, Vencord's, …): the label keeps the text colour
+   (Discord's "brand" look paints it in the accent), the line under the
+   selected one is lit and grows out from its middle; a hovered one gets a
+   faint line. */
+:is([class^="top_"], [class*=" top_"]) > :is([role="tab"], [class^="item_"], [class*=" item_"]) {
+  --selected-tab-item-color: var(--vt-text) !important;
+  border-radius: 0 !important;
+  transition: color var(--vt-dur) var(--vt-ease) !important;
+}
+
+:is([class^="top_"], [class*=" top_"]) > :is([role="tab"], [class^="item_"], [class*=" item_"]):hover:not([aria-selected="true"], [class*="selected_"])::after {
+  background: rgba(255, 255, 255, .28) !important;
+}
+
+:is([class^="top_"], [class*=" top_"]) > :is([role="tab"], [class^="item_"], [class*=" item_"]):is([aria-selected="true"], [class*="selected_"])::after {
+  background: rgba(255, 255, 255, .92) !important;
+  box-shadow: 0 0 10px rgba(var(--vt-glow-rgb), .65);
+  animation: vt-line-in var(--vt-dur-slow) var(--vt-ease) backwards;
+}
+
+/* The settings sidebar: rows fade their hover light (Discord switches it
+   off for hover), the selected one is lit (above); a section's sub-list has
+   a thumb that glides beside it, lit like the top tabs' line. */
+[data-settings-sidebar-item] > [role="link"] {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+[data-settings-sidebar-item] [role="link"][aria-current="location"] {
+  color: var(--vt-text) !important;
+}
+
+:is([class^="subnav_"], [class*=" subnav_"]) :is([class^="thumb_"], [class*=" thumb_"]) {
+  background: rgba(255, 255, 255, .92) !important;
+  box-shadow: 0 0 8px rgba(var(--vt-glow-rgb), .65);
+}
+
+:is([class^="segmentedItem_"], [class*=" segmentedItem_"]) {
+  border-radius: 6px !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+/* -------------------------------------------------- buttons, switches --- */
+
+/* Buttons: clear glass (the primary one is lit, above). The hover light
+   fades, a press sinks them a touch. */
+:is(button, [role="button"]):is([class*="lookFilled_"]) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+button:is([class*="lookFilled_"], [class*="lookOutlined_"], [class^="button_"], [class*=" button_"]) {
+  transition: var(--vt-tr-surface) !important;
+}
+
+:is(button, [role="button"]):is([class*="lookFilled_"]):is([class*="colorPrimary_"], [class*="colorSecondary_"], [class*="colorTransparent_"]) {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-color: transparent !important;
+  color: var(--vt-text) !important;
+}
+
+:is(button, [role="button"]):is([class*="lookFilled_"]):is([class*="colorPrimary_"], [class*="colorSecondary_"], [class*="colorTransparent_"]):hover {
+  background: var(--vt-off-hover) !important;
+}
+
+button:is([class*="lookFilled_"], [class*="lookOutlined_"], [class^="button_"], [class*=" button_"]):active:not(:disabled) {
+  transform: scale(var(--vt-press));
+}
+
+/* Switches. Discord paints its switch's track inline from its own colours
+   (blurple when on), so the on track is found by that colour or by its
+   container's checked class; Vencord's own switches say it in their class.
+   The track's light fades, the knob glides. */
+:is([class^="switchIndicator_"], [class*=" switchIndicator_"]) {
+  background-color: rgba(255, 255, 255, .10) !important;
+  box-shadow: var(--vt-rim-off);
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+:is([class^="switchIndicator_"], [class*=" switchIndicator_"]):is([style*="88, 101, 242"], [style*="68, 82, 187"], [style*="71, 82, 196"], [style*="brand"], [style*="blurple"]),
+:is([class^="checked_"], [class*=" checked_"]) > :is([class^="switchIndicator_"], [class*=" switchIndicator_"]),
+.vc-switch-container.vc-switch-checked {
+  background-color: var(--vt-switch-on) !important;
+  box-shadow: var(--vt-rim-switch), 0 0 12px -2px rgba(var(--vt-glow-rgb), .55) !important;
+}
+
+:is([class^="switchIndicator_"], [class*=" switchIndicator_"]) :is([class^="thumb_"], [class*=" thumb_"]),
+.vc-switch-slider {
+  transition: transform var(--vt-dur) var(--vt-ease), left var(--vt-dur) var(--vt-ease), inset-inline-start var(--vt-dur) var(--vt-ease) !important;
+}
+
+.vc-switch-container {
+  border-radius: 8px !important;
+  transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+/* ------------------------------------------------------------- fields --- */
+
+:is([class^="inputDefault_"], [class*=" inputDefault_"]),
+:is([class^="searchBar_"], [class*=" searchBar_"]),
+:is([class^="input_"], [class*=" input_"]):is(input, textarea) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+:is(input, textarea):focus-visible {
+  outline-color: rgba(var(--vt-accent-rgb), .65) !important;
+}
+
+/* ------------------------------------------------------------ Vencord --- */
+
+/* Vencord's cards: vitrum's tile corners, and its notices as a tint with a
+   soft rim of their colour instead of a full-strength frame. */
+.vc-card-base {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+.vc-card-normal {
+  border-color: rgba(255, 255, 255, .08) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+
+.vc-card-warning { border-color: rgba(var(--vt-warning-rgb), .32) !important; }
+.vc-card-danger { border-color: rgba(var(--vt-danger-rgb), .32) !important; }
+.vc-card-success { border-color: rgba(var(--vt-success-rgb), .32) !important; }
+.vc-card-info { border-color: rgba(var(--vt-accent-rgb), .32) !important; }
+
+/* --------------------------------------------------------- scrollbars --- */
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, .16) !important;
+  border-radius: 3px !important;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+
+/* ----------------------------------------------------------- messages --- */
+
+/* A message arrives: it fades in and rises into place (once, when it is
+   added to the list; a whole channel opening does it together). */
+li:is([class^="messageListItem_"], [class*=" messageListItem_"]) {
+  animation: vt-rise-in var(--vt-dur-slow) var(--vt-ease) backwards;
+}
+
+/* The hover light fades in and out. */
+li:is([class^="messageListItem_"], [class*=" messageListItem_"]) > :is([class^="message_"], [class*=" message_"]) {
+  transition: background-color var(--vt-dur-fast) var(--vt-ease);
+}
+
+/* The action bar fades in and comes up. */
+li:is([class^="messageListItem_"], [class*=" messageListItem_"]) :is([class^="buttons_"], [class*=" buttons_"]) {
+  transition: opacity var(--vt-dur-fast) var(--vt-ease);
+}
+
+li:is([class^="messageListItem_"], [class*=" messageListItem_"]) :is([class^="buttonsInner_"], [class*=" buttonsInner_"]) {
+  transform: translateY(calc(var(--vt-rise) / 2));
+  transition: transform var(--vt-dur) var(--vt-ease);
+}
+
+li:is([class^="messageListItem_"], [class*=" messageListItem_"]) > :is([class^="message_"], [class*=" message_"]):is(:hover, :focus-within, [class*="selected_"]) :is([class^="buttonsInner_"], [class*=" buttonsInner_"]) {
+  transform: none;
+}
+
+/* "N new messages" is a lit glass bar, not a brand-coloured one. */
+:is([class^="newMessagesBar_"], [class*=" newMessagesBar_"]) {
+  background: rgba(var(--vt-glow-rgb), .26) !important;
+  -webkit-backdrop-filter: blur(18px) saturate(1.2);
+  backdrop-filter: blur(18px) saturate(1.2);
+  border-color: transparent !important;
+  border-radius: 0 0 var(--vt-radius-tile) var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-switch), 0 8px 24px -10px rgba(0, 0, 0, .5) !important;
+  color: var(--vt-text) !important;
+}
+
+/* Unread marks and the typing line only fade in. */
+:is([class^="newMessagesBar_"], [class*=" newMessagesBar_"]),
+:is([class^="isUnread_"], [class*=" isUnread_"]),
+:is([class^="numberBadge_"], [class*=" numberBadge_"]),
+:is([class^="typingDots_"], [class*=" typingDots_"]) {
+  animation: vt-fade var(--vt-dur) var(--vt-ease) backwards;
+}
+
+/* ------------------------------------------------------------ floats --- */
+
+/* What opens grows in from a touch smaller and fades up; Discord's own
+   placement (its layers and their slide) is left alone, this runs on what is
+   inside. Context menus, the emoji and GIF picker, tooltips: */
+[role="menu"],
+:is([class^="positionContainer_"], [class*=" positionContainer_"]) :is([class^="contentWrapper_"], [class*=" contentWrapper_"]),
+:is([class*="tooltipTop_"], [class*="tooltipBottom_"], [class*="tooltipLeft_"], [class*="tooltipRight_"]) {
+  animation: vt-pop var(--vt-dur) var(--vt-ease) backwards;
+}
+
+[role="menu"] {
+  transform-origin: 50% 0;
+}
+
+:is([class^="positionContainer_"], [class*=" positionContainer_"]) :is([class^="contentWrapper_"], [class*=" contentWrapper_"]) {
+  transform-origin: 100% 100%;
+}
+
+:is([class*="tooltipTop_"], [class*="tooltipBottom_"], [class*="tooltipLeft_"], [class*="tooltipRight_"]) {
+  animation-duration: var(--vt-dur-fast);
+}
+
+/* Any other popout fades in (weightless, so the rules above win). */
+:where(:is([class^="layerContainer_"], [class*=" layerContainer_"]) > :is([class^="layer_"], [class*=" layer_"])) > * {
+  animation: vt-fade var(--vt-dur) var(--vt-ease) backwards;
+}
+
+/* Dialogs grow in over a backdrop that fades. */
+[role="dialog"][aria-modal="true"] {
+  animation: vt-pop var(--vt-dur-slow) var(--vt-ease) backwards;
+}
+
+:is([class^="layerContainer_"], [class*=" layerContainer_"]) > :is([class^="backdrop_"], [class*=" backdrop_"]),
+:is([class^="backdrop_"], [class*=" backdrop_"]):has(+ :is([class^="layer_"], [class*=" layer_"])) {
+  animation: vt-fade var(--vt-dur-slow) var(--vt-ease) backwards;
+}
+
+/* A user's profile rises in. */
+.user-profile-popout {
+  animation: vt-rise-pop var(--vt-dur-slow) var(--vt-ease) backwards !important;
+}
+
+/* ---------------------------------------------------------- keyframes --- */
+
+/* Each runs once; the end state is the element's own, so nothing is left
+   half-way if one is cut short. */
+@keyframes vt-fade {
+  from { opacity: 0; }
+}
+
+@keyframes vt-pop {
+  from { opacity: 0; transform: scale(var(--vt-pop)); }
+}
+
+@keyframes vt-rise-in {
+  from { opacity: 0; transform: translateY(var(--vt-rise)); }
+}
+
+@keyframes vt-rise-pop {
+  from { opacity: 0; transform: translateY(calc(var(--vt-rise) * 1.5)) scale(.98); }
+}
+
+@keyframes vt-drop {
+  from { opacity: 0; transform: translateY(calc(var(--vt-rise) * -1)); }
+}
+
+@keyframes vt-lit-in {
+  from { --vt-k: 0; }
+}
+
+@keyframes vt-sweep {
+  from { --vt-sweep-x: 120%; }
+  to { --vt-sweep-x: -20%; }
+}
+
+@keyframes vt-line-in {
+  from { opacity: 0; transform: scaleX(.3); }
+}
+
+/* ------------------------------------------------------ reduced motion --- */
+
+/* The system's setting, or Discord's own (Settings → Accessibility → Reduced
+   Motion puts .reduce-motion on <html>): nothing moves. Durations go to
+   zero, so every fade and sweep above lands at once, and the distances go
+   to zero, so hovers and presses don't shift anything. */
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vt-dur-fast: 0ms;
+    --vt-dur: 0ms;
+    --vt-dur-slow: 0ms;
+    --vt-dur-sweep: 0ms;
+    --vt-delay-sweep: 0ms;
+    --vt-slide: 0px;
+    --vt-lift: 0px;
+    --vt-rise: 0px;
+    --vt-pop: 1;
+    --vt-press: 1;
+  }
+}
+
+.reduce-motion {
+  --vt-tr-surface: none;
+  --vt-dur-fast: 0ms;
+  --vt-dur: 0ms;
+  --vt-dur-slow: 0ms;
+  --vt-dur-sweep: 0ms;
+  --vt-delay-sweep: 0ms;
+  --vt-slide: 0px;
+  --vt-lift: 0px;
+  --vt-rise: 0px;
+  --vt-pop: 1;
+  --vt-press: 1;
+}

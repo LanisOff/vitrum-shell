@@ -60,7 +60,11 @@ def main(argv=None) -> int:
         a.niri_dir / "animations.kdl": vt.animations_kdl(settings),
     }
     from vitrum_theme import niri_input
-    outputs[a.niri_dir / "input.kdl"] = niri_input.input_kdl(settings)
+    try:   # config.kdl's xkb options stay when Settings sets the layouts
+        base_xkb = niri_input.xkb_from_kdl((a.niri_dir.parent / "config.kdl").read_text(encoding="utf-8"))
+    except OSError:
+        base_xkb = None
+    outputs[a.niri_dir / "input.kdl"] = niri_input.input_kdl(settings, base_xkb)
     catalogue = niri_input.load_catalogue(a.binds)
     if catalogue is not None:
         outputs[a.niri_dir / "binds.kdl"] = niri_input.binds_kdl(catalogue, settings)
@@ -83,6 +87,18 @@ def main(argv=None) -> int:
         changed += len(written)
         if written:
             render.reload_running(a.config, render.components(a.out_palette.parent), written)
+    # Steam (Millennium): only with the steam_theme component and steam.theme.sync.
+    if not a.dry_run:
+        from vitrum_theme import steam
+        for w in steam.sync(settings, palette, a.out_palette.parent, note=note):
+            say(f"wrote {w}")
+            changed += 1
+    # Vesktop (Vencord): only with the vesktop_theme component and vesktop.theme.sync.
+    if not a.dry_run:
+        from vitrum_theme import vesktop
+        for w in vesktop.sync(settings, palette, a.out_palette.parent, note=note):
+            say(f"wrote {w}")
+            changed += 1
     if not a.dry_run:
         if changed == 0:
             say("nothing changed")
@@ -90,6 +106,7 @@ def main(argv=None) -> int:
             vt.set_color_scheme(scheme, gtk=(settings.get("toolkits") or {}).get("gtk", True) is not False)
             from vitrum_theme import render as icons
             vt.set_icon_theme(icons.icon_theme((settings.get("icons") or {}).get("theme") or "Papirus-Dark", scheme))
+            vt.set_cursor_theme((settings.get("cursor") or {}).get("theme") or "")
     say(f"palette: {note}; scheme: {scheme}")
     return 0
 

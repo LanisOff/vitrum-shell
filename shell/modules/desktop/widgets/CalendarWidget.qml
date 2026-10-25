@@ -8,7 +8,7 @@ import "../../../lib/widgets.js" as W
  * This month.
  *   S   today's date big, the weekday over it, the month under it
  *   L   the header (month, year); the weekday initials; six weeks of days,
- *       today in an accent circle, the neighbours' days dim; ISO week numbers
+ *       today on a tinted glass square, the neighbours' days dim; ISO week numbers
  *       down the left when asked for
  * options: firstDay ("1" Monday, "0" Sunday), weekNumbers.
  * A free size too short for the grid shows the S glance.
@@ -76,6 +76,7 @@ Item {
         readonly property real cellW: width / cols
         readonly property real cellH: (height - names.height) / 6
         readonly property real dot: Math.min(cellW, cellH) * 0.86
+        readonly property int todayAt: root.grid.findIndex(d => d.inMonth && d.day === root.today.getDate())
 
         Row {
             id: names
@@ -91,6 +92,16 @@ Item {
                     text: Qt.locale().dayName((root.first + index) % 7, Locale.NarrowFormat)
                 }
             }
+        }
+        // Today: one square of tinted glass under its cell, rounded but never a
+        // circle (one piece for the month, not one per day).
+        ShellTint {
+            visible: month.todayAt >= 0
+            width: month.dot; height: width
+            x: ((root.weeks ? 1 : 0) + month.todayAt % 7) * month.cellW + (month.cellW - width) / 2
+            y: names.height + Math.floor(month.todayAt / 7) * month.cellH + (month.cellH - height) / 2
+            radius: Math.min(Tokens.radiusTile, Math.round(width * 0.3))
+            group: "widgets"
         }
         Column {
             anchors.top: names.bottom
@@ -116,19 +127,13 @@ Item {
                             required property var modelData
                             readonly property bool isToday: modelData.inMonth && modelData.day === root.today.getDate()
                             width: month.cellW; height: month.cellH
-                            Rectangle {
-                                anchors.centerIn: parent
-                                width: month.dot; height: width; radius: width / 2
-                                color: Colors.accent
-                                visible: parent.isToday
-                            }
                             Label {
                                 anchors.centerIn: parent
                                 text: modelData.day
                                 numeric: true
                                 size: Math.max(Tokens.textSmall, Math.round(month.dot * 0.42))
                                 font.weight: parent.isToday ? Font.DemiBold : Font.Normal
-                                color: parent.isToday ? Colors.onAccent : Colors.text
+                                color: Colors.text
                                 opacity: modelData.inMonth ? 1 : 0.32
                             }
                         }

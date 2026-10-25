@@ -44,14 +44,15 @@ FloatingWindow {
                 anchors { right: closeBtn.left; rightMargin: Tokens.gap; verticalCenter: parent.verticalCenter }
                 spacing: Tokens.gap
             }
-            Rectangle {
+            // Clear glass; under the pointer the danger tint comes in.
+            GlassButton {
                 id: closeBtn
                 anchors { right: parent.right; rightMargin: Tokens.padding; verticalCenter: parent.verticalCenter }
-                width: Tokens.islandHeight * 0.9; height: width; radius: width / 2
-                color: closeMouse.containsMouse ? Colors.danger : Colors.alpha(Colors.text, 0.08)
-                Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-                Icon { anchors.centerIn: parent; name: "close"; size: Tokens.iconSize * 0.9; color: closeMouse.containsMouse ? "white" : Colors.text }
-                MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: win.close() }
+                width: Tokens.islandHeight * 0.9; height: width
+                icon: "close"
+                danger: true
+                primary: hovered
+                onClicked: win.close()
             }
         }
         Item {

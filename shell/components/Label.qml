@@ -3,7 +3,7 @@ import qs.theme
 
 // Text in the vitrum type: role picks the colour, numeric switches on tabular figures.
 Text {
-    property string role: "text"          // text | dim | accent | onAccent | danger
+    property string role: "text"          // text | dim | accent | danger (onAccent: deprecated alias, kept for user widgets)
     property bool numeric: false
     property int size: Tokens.textSize
 

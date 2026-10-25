@@ -65,9 +65,11 @@ PanelWindow {
     readonly property real plateW: row.implicitWidth + 2 * Tokens.padding
     readonly property real plateH: icon + 2 * Tokens.padding
     readonly property real barTop: Settings.get("bar.position", "top") === "top" ? Tokens.islandHeight + 2 * Tokens.gap : 0
+    /// Above a bar at the bottom (bar.position), not over its islands.
+    readonly property real lift_: Settings.get("bar.position", "top") === "top" ? 0 : Tokens.islandHeight + Tokens.gap
     // From targetScreen, not the window's own screen/width: those change as the dock maps and unmaps.
     readonly property var ts: targetScreen
-    readonly property rect plateRect: Qt.rect(((ts ? ts.width : 0) - plateW) / 2, (ts ? ts.height : 0) - Tokens.gap - plateH, plateW, plateH)
+    readonly property rect plateRect: Qt.rect(((ts ? ts.width : 0) - plateW) / 2, (ts ? ts.height : 0) - Tokens.gap - lift_ - plateH, plateW, plateH)
     readonly property bool overlapping: ts ? DockLib.overlaps({ x: plateRect.x, y: plateRect.y, w: plateRect.width, h: plateRect.height },
                                                               Niri.tilesOn(ts.name, barTop)) : false
     property bool hovered: false
@@ -99,7 +101,7 @@ PanelWindow {
     // Room above the plate for the hover label (and magnification); it takes no input.
     // Or for the right-click menu, whichever is taller.
     readonly property real menuRoom: 3 * Tokens.islandHeight + 2 * Tokens.padding + 2 * Tokens.gap
-    implicitHeight: plateH + Tokens.gap + Math.max(Tokens.islandHeight + 3 * Tokens.gap + (magnify ? icon * (magnifyAmount - 1) : 0), menuRoom)
+    implicitHeight: plateH + Tokens.gap + lift_ + Math.max(Tokens.islandHeight + 3 * Tokens.gap + (magnify ? icon * (magnifyAmount - 1) : 0), menuRoom)
     exclusionMode: ExclusionMode.Ignore
     color: "transparent"
     WlrLayershell.namespace: "vitrum-dock"
@@ -132,9 +134,9 @@ PanelWindow {
         group: "dock"
         width: root.plateW
         height: root.plateH
-        radius: Math.min(Tokens.radiusPanel + Tokens.padding, height / 2)
+        radius: Math.min(Tokens.radiusPanel, height / 2)
         x: (parent.width - width) / 2
-        y: root.shown ? root.height - Tokens.gap - height : root.height + 2
+        y: root.shown ? root.height - Tokens.gap - root.lift_ - height : root.height + 2
         // One curve with a known length: the window unmaps when it is over (MapGate).
         Behavior on y { enabled: Motion.enabled; NumberAnimation { duration: root.shown ? Motion.emphasized : Motion.standard; easing.type: root.shown ? Easing.OutQuint : Easing.InCubic } }
         // While magnifying the plate follows the icons exactly; its own curve would lag them.
@@ -155,12 +157,13 @@ PanelWindow {
                     readonly property real zoom: root.zoomAt(index)
                     width: root.icon * zoom; height: root.icon
 
-                    // The press dip, apart from the magnification so its spring never slows the zoom.
+                    // The press dip (slight, damped), apart from the magnification so its
+                    // spring never slows the zoom.
                     Item {
                         anchors.fill: parent
-                        scale: mouse.pressed ? 0.9 : 1
+                        scale: mouse.pressed ? 0.97 : 1
                         transformOrigin: Item.Bottom
-                        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
                         // Drawn once at the largest size and scaled down: an icon re-rendered
                         // at every new size each frame is what made the zoom stutter.
                         IconImage {
@@ -170,17 +173,33 @@ PanelWindow {
                             mipmap: true
                             scale: slot.zoom / root.magnifyAmount
                             transformOrigin: Item.Bottom
-                            source: Quickshell.iconPath(slot.app ? slot.app.icon : slot.modelData.appId, "application-x-executable")
+                            source: Apps.iconSource(slot.app ? slot.app.icon : slot.modelData.appId)
+                            // No icon in the theme: a line glyph, not the missing texture.
+                            Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
                         }
                     }
-                    // Running: a dot; focused: a wider capsule.
+                    // Running: a short thin mark; focused: a longer one that turns from
+                    // the accent to accent2, the tint's two hues as a line.
                     Rectangle {
                         visible: slot.running
-                        anchors { horizontalCenter: parent.horizontalCenter; top: parent.bottom; topMargin: 2 }
-                        height: 4; radius: 2
-                        width: slot.modelData.focused ? 14 : 4
-                        color: slot.modelData.focused ? Colors.accent : Colors.text
+                        anchors { horizontalCenter: parent.horizontalCenter; top: parent.bottom; topMargin: 2 * Tokens.hairline }
+                        height: 2 * Tokens.hairline; radius: Tokens.hairline
+                        width: Math.round(root.icon * (slot.modelData.focused ? 0.4 : 0.18))
+                        color: Colors.alpha(Colors.text, 0.6)
                         Behavior on width { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
+                        Rectangle {
+                            anchors.fill: parent
+                            radius: parent.radius
+                            opacity: slot.modelData.focused ? 1 : 0
+                            visible: opacity > 0
+                            Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
+                            gradient: Gradient {
+                                orientation: Gradient.Horizontal
+                                GradientStop { position: 0; color: Colors.accent }
+                                GradientStop { position: 0.5; color: Colors.accent2 }
+                                GradientStop { position: 1; color: Colors.accent }
+                            }
+                        }
                     }
                     MouseArea {
                         id: mouse
@@ -281,7 +300,7 @@ PanelWindow {
         Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
         width: tip.implicitWidth + 2 * Tokens.padding
         height: Tokens.islandHeight
-        radius: height / 2
+        radius: Tokens.islandRadius
         anchors.horizontalCenter: parent.horizontalCenter
         y: -height - Tokens.gap * 2
         Label { id: tip; anchors.centerIn: parent; text: parent.text }

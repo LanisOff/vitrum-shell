@@ -44,9 +44,18 @@ QQC.Popup {
     // Cancel, Escape and a click outside all say "cancelled"; a plain close() does not.
     closePolicy: QQC.Popup.NoAutoClose
 
-    QQC.Overlay.modal: Rectangle {
-        color: Colors.alpha("#000000", 0.45)
-        MouseArea { anchors.fill: parent; onClicked: sheet.cancel() }
+    QQC.Overlay.modal: Rectangle { color: Colors.alpha("#000000", 0.45) }
+    // A click outside: the overlay takes the press for a modal popup (a
+    // MouseArea in the dimmer above never saw it), so listen to the overlay.
+    // Only the topmost popup cancels — not a sheet under a file dialog.
+    QQC.Overlay.onPressed: if (sheet.visible && sheet._topmost()) sheet.cancel()
+    function _topmost() {
+        const mine = flick.parent;
+        if (!host || !mine) return false;
+        let top = null;
+        for (const c of host.children)
+            if (c.visible && (!top || c.z >= top.z)) top = c;
+        return top === mine;
     }
     background: Surface {
         group: "dialogs"
@@ -56,7 +65,7 @@ QQC.Popup {
     enter: Transition {
         enabled: Motion.enabled
         NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Motion.fast; easing.type: Easing.OutCubic }
-        NumberAnimation { property: "scale"; from: 0.94; to: 1; duration: Motion.standard; easing.type: Easing.OutBack; easing.overshoot: 1.6 }
+        NumberAnimation { property: "scale"; from: 0.94; to: 1; duration: Motion.standard; easing.type: Easing.OutCubic }
     }
     exit: Transition {
         enabled: Motion.enabled
@@ -83,12 +92,14 @@ QQC.Popup {
             Row {
                 anchors.right: parent.right
                 spacing: Tokens.gap
-                Capsule { label: "Cancel"; onClicked: sheet.cancel() }
-                Capsule {
+                GlassButton { label: "Cancel"; group: "dialogs"; onClicked: sheet.cancel() }
+                // The main action: tinted, from the danger colour when it destroys something.
+                GlassButton {
                     label: sheet.busy ? "Working…" : sheet.acceptText
-                    active: true
-                    opacity: sheet.acceptEnabled && !sheet.busy ? 1 : 0.5
-                    color: sheet.danger ? Colors.danger : Colors.accent
+                    group: "dialogs"
+                    primary: true
+                    danger: sheet.danger
+                    enabled: sheet.acceptEnabled && !sheet.busy
                     onClicked: sheet.accept()
                 }
             }

@@ -9,7 +9,7 @@ import qs.components
  *   S   the next of the two: its icon, its time big, which one it is under it
  *       (and the length of the day, with daylight on)
  *   M   the header; the day as an arc from sunrise to sunset with the sun on
- *       it now, the two times under its ends, the length of the day between
+ *       it now (the day gone by turning from the sun's colour to its pair), the two times under its ends, the length of the day between
  * options: daylight (show the length of the day).
  * In a gallery card with no times yet, a sample day stands in.
  */
@@ -57,6 +57,7 @@ Item {
     }
 
     readonly property color sunColor: Colors.meaning(0.12)
+    readonly property color sunColor2: Colors.pair(sunColor)
 
     WidgetHeader {
         id: head
@@ -83,7 +84,6 @@ Item {
             name: "sunrise"
             size: Math.round(root.height * 0.26)
             color: root.nextIsSet ? Colors.meaning(0.06) : root.sunColor
-            filled: true
         }
         Metric {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -119,6 +119,11 @@ Item {
         readonly property real ry: Math.max(10, height - dot)
         property real shown: root.progress
         Behavior on shown { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
+        readonly property real line: 3
+        readonly property real half: line / 2
+        readonly property real sweep: Math.max(0.5, 180 * shown)
+        function px(a, r) { return cx + r * Math.cos(a * Math.PI / 180); }
+        function py(a, r) { return cy + r * Math.sin(a * Math.PI / 180); }
 
         Rectangle {
             x: 0; width: parent.width; height: Tokens.hairline
@@ -129,25 +134,62 @@ Item {
             anchors.fill: parent
             preferredRendererType: Shape.CurveRenderer
             ShapePath {
-                strokeColor: Colors.alpha(root.sunColor, 0.22); strokeWidth: 3
+                strokeColor: Colors.alpha(root.sunColor, 0.22); strokeWidth: sky.line
                 fillColor: "transparent"; capStyle: ShapePath.RoundCap
                 PathAngleArc { centerX: sky.cx; centerY: sky.cy; radiusX: sky.rx; radiusY: sky.ry; startAngle: 180; sweepAngle: 180 }
             }
-            // The part of the day gone by.
+            // The part of the day gone by: a band with round ends (outer arc,
+            // the end, the inner arc back, the start), so the dichroic pair can
+            // run across it, from the sun's colour at sunrise to its pair at sunset.
             ShapePath {
-                strokeColor: root.sunColor; strokeWidth: 3
-                fillColor: "transparent"; capStyle: ShapePath.RoundCap
-                PathAngleArc { centerX: sky.cx; centerY: sky.cy; radiusX: sky.rx; radiusY: sky.ry; startAngle: 180; sweepAngle: Math.max(0.5, 180 * sky.shown) }
+                strokeColor: "transparent"; strokeWidth: 0
+                fillRule: ShapePath.WindingFill
+                fillGradient: LinearGradient {
+                    x1: sky.cx - sky.rx; y1: sky.cy
+                    x2: sky.cx + sky.rx; y2: sky.cy
+                    GradientStop { position: 0; color: root.sunColor }
+                    GradientStop { position: 1; color: root.sunColor2 }
+                }
+                startX: sky.px(180, sky.rx + sky.half); startY: sky.py(180, sky.ry + sky.half)
+                PathAngleArc {
+                    moveToStart: false
+                    centerX: sky.cx; centerY: sky.cy
+                    radiusX: sky.rx + sky.half; radiusY: sky.ry + sky.half
+                    startAngle: 180; sweepAngle: sky.sweep
+                }
+                PathAngleArc {
+                    moveToStart: false
+                    centerX: sky.px(180 + sky.sweep, sky.rx); centerY: sky.py(180 + sky.sweep, sky.ry)
+                    radiusX: sky.half; radiusY: sky.half
+                    startAngle: 180 + sky.sweep; sweepAngle: 180
+                }
+                PathAngleArc {
+                    moveToStart: false
+                    centerX: sky.cx; centerY: sky.cy
+                    radiusX: Math.max(0, sky.rx - sky.half); radiusY: Math.max(0, sky.ry - sky.half)
+                    startAngle: 180 + sky.sweep; sweepAngle: -sky.sweep
+                }
+                PathAngleArc {
+                    moveToStart: false
+                    centerX: sky.px(180, sky.rx); centerY: sky.py(180, sky.ry)
+                    radiusX: sky.half; radiusY: sky.half
+                    startAngle: 0; sweepAngle: 180
+                }
             }
         }
-        // The sun now; at night a dim one waiting at the end it rises from or set at.
+        // The sun now, in the band's colour where it stands; at night a dim one
+        // waiting at the end it rises from or set at.
         Rectangle {
             readonly property real a: Math.PI * (1 + sky.shown)
+            readonly property real t: (1 + Math.cos(a)) / 2
+            readonly property color day: Qt.rgba(root.sunColor.r + (root.sunColor2.r - root.sunColor.r) * t,
+                                                 root.sunColor.g + (root.sunColor2.g - root.sunColor.g) * t,
+                                                 root.sunColor.b + (root.sunColor2.b - root.sunColor.b) * t, 1)
             width: sky.dot; height: width; radius: width / 2
             x: sky.cx + sky.rx * Math.cos(a) - width / 2
             y: sky.cy + sky.ry * Math.sin(a) - height / 2
-            color: root.isDay ? root.sunColor : Colors.textDim
-            border.width: 2; border.color: Colors.alpha(root.isDay ? root.sunColor : Colors.textDim, 0.3)
+            color: root.isDay ? day : Colors.textDim
+            border.width: 2; border.color: Colors.alpha(root.isDay ? day : Colors.textDim, 0.3)
         }
     }
     Item {

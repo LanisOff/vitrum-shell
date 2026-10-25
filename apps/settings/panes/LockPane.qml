@@ -24,8 +24,10 @@ Page {
             readonly property string face: Quickshell.env("HOME") + "/.face"
             property int stamp: 0
             Rectangle {
+                // An avatar: round by nature; clear glass under the picture.
                 width: Tokens.islandHeight * 1.6; height: width; radius: width / 2
-                color: Colors.alpha(Colors.accent, 0.25)
+                color: Colors.alpha(Colors.text, 0.06)
+                border.width: Tokens.hairline; border.color: Colors.alpha(Colors.text, 0.12)
                 RoundImage {
                     id: faceImg
                     anchors.fill: parent
@@ -35,8 +37,8 @@ Page {
                 }
                 Icon { anchors.centerIn: parent; name: "user"; visible: faceImg.status !== Image.Ready; color: Colors.textDim }
             }
-            Capsule { label: "Choose…"; onClicked: faceDialog.open() }
-            Capsule { label: "Remove"; visible: faceImg.status === Image.Ready; onClicked: { Quickshell.execDetached(["rm", "-f", pic.face, pic.face + ".icon"]); faceTimer.restart(); } }
+            GlassButton { label: "Choose…"; onClicked: faceDialog.open() }
+            GlassButton { label: "Remove"; visible: faceImg.status === Image.Ready; onClicked: { Quickshell.execDetached(["rm", "-f", pic.face, pic.face + ".icon"]); faceTimer.restart(); } }
             // .face for the lock screen, .face.icon for SDDM; both a copy, so the
             // original picture can move or go.
             FileDialog {

@@ -361,7 +361,12 @@ def render_all(pal: dict, scheme: str, settings: dict, templates: Path, config: 
         if not theme and not base:
             continue
         # GTK colours (vitrum.css), unless turned off; gtk.css itself is the user's.
+        # Off: an empty vitrum.css, so the import in gtk.css brings nothing
+        # instead of the last palette, frozen.
         if theme and dest.startswith("gtk-") and not _toolkit_on(settings, "gtk"):
+            out = Path(config) / dest
+            if _write(out, "/* Colour GTK apps is off (Settings → Appearance). */\n"):
+                written.append(out)
             continue
         if not _wanted(comps, _component(dest)):
             continue
@@ -843,6 +848,16 @@ def _gsettings_get(key: str) -> str:
         return ""
 
 
+def _tmux_runs_vitrum() -> bool:
+    """The running tmux server has vitrum's colours loaded (@vitrum_accent)."""
+    try:
+        r = subprocess.run(["tmux", "show-options", "-gqv", "@vitrum_accent"],
+                           capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.SubprocessError):
+        return False
+    return bool(r and r.returncode == 0 and (r.stdout or "").strip())
+
+
 def reload_running(config: Path = None, comps: dict = None, written: list = None) -> None:
     """Running kitty windows and the tmux server pick the new colours up. tmux
     sources only its colour file — the whole tmux.conf would rerun plugin
@@ -852,8 +867,12 @@ def reload_running(config: Path = None, comps: dict = None, written: list = None
     config = Path(config) if config else Path(os.environ.get("XDG_CONFIG_HOME", Path.home() / ".config"))
     comps = comps or {}
     cmds = [["pkill", "-USR1", "-x", "kitty"]]
-    if comps.get("tmux", True):
-        cmds.append(["tmux", "source-file", str(config / "tmux/vitrum.conf")])
+    # Only a tmux that already runs vitrum's colours, and only its own file:
+    # the default server may be someone else's (a test run on another
+    # machine once sourced vitrum's theme over the user's own).
+    colours = config / "tmux/vitrum.conf"
+    if comps.get("tmux", True) and colours.is_file() and _tmux_runs_vitrum():
+        cmds.append(["tmux", "source-file", str(colours)])
     if any("gtk-" in str(w) for w in (written or [])):
         theme = _gsettings_get("gtk-theme") or "Adwaita"
         key = ["gsettings", "set", "org.gnome.desktop.interface", "gtk-theme"]

@@ -111,7 +111,7 @@ PanelWindow {
                     required property var modelData
                     visible: modelData.show
                     group: "overlay"; level: 2; outlined: false
-                    width: Tokens.islandHeight; height: width; radius: width / 2
+                    width: Tokens.islandHeight; height: width; radius: Tokens.radiusButton
                     Icon { anchors.centerIn: parent; name: modelData.icon; size: Tokens.iconSize * 0.9 }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { if (root.shot) modelData.run(); root.shown = false; } }
                 }

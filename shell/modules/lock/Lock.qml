@@ -32,6 +32,9 @@ Scope {
     property bool busy: false
     /// The unlock animation is playing; the session unlocks when it ends.
     property bool leaving: false
+    /// How long it plays: the blocks float off, the wallpaper sharpens and a
+    /// soft dichroic flash blooms out of the field and fades (LockView).
+    readonly property int leaveDuration: Motion.enabled ? Math.round(Motion.emphasized * 1.6) : 0
     /// Wrong attempts since the last one went through (for the flash).
     property int failures: 0
     property real lockedAt: Date.now()
@@ -47,9 +50,22 @@ Scope {
     }
     Timer {
         interval: 500
-        running: UiState.locked && !root.leaving
+        // (The preview too: tests see the quiet screen there.)
+        running: (UiState.locked || root.preview) && !root.leaving
         repeat: true
         onTriggered: root.ambient = Lib.ambientActive(Date.now(), root.lastInput, root.ambientSeconds, root.password.length > 0 || root.busy)
+    }
+
+    // Caps Lock, from the keyboards' LEDs (Qt has no state for it): looked at
+    // when the lock comes up and after each press of the key (LockField).
+    property bool capsLock: false
+    function checkCaps() { capsLater.restart(); }
+    // A moment later: the compositor sets the LED after it has the key.
+    Timer { id: capsLater; interval: 60; onTriggered: capsProc.running = true }
+    Process {
+        id: capsProc
+        command: ["sh", "-c", "cat /sys/class/leds/*::capslock/brightness 2>/dev/null"]
+        stdout: StdioCollector { onStreamFinished: root.capsLock = Lib.capsLockOn(text) }
     }
 
     Connections {
@@ -66,6 +82,7 @@ Scope {
             if (UiState.locked) {
                 root.password = ""; root.error = ""; root.failures = 0; root.leaving = false;
                 root.lockedAt = Date.now(); root.poke();
+                root.checkCaps();
                 Sounds.play("lock");
             }
             Quickshell.execDetached(UiState.locked ? ["touch", root.marker] : ["rm", "-f", root.marker]);
@@ -108,7 +125,7 @@ Scope {
     }
     Timer {
         id: unlockLater
-        interval: Motion.enabled ? Motion.emphasized : 0
+        interval: root.leaveDuration
         onTriggered: { UiState.locked = false; root.leaving = false; }
     }
 

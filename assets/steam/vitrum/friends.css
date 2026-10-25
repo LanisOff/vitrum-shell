@@ -1,0 +1,298 @@
+/* vitrum for Steam: the friends list and chats. Steam names most of these
+   with plain classes (friendlist, friend, chatWindow…), so no lookup is
+   needed; the names and status colours, the chat tabs and the entry box use
+   hashed classes and live in steam.vcss ("people", "chats"). The window's
+   solid bg comes from base.css; these are the glass layers on it. */
+
+.friendsui-container,
+.friendlist,
+.friendlist.collapsed,
+.friendlistListContainer,
+.chatWindow,
+.multiChatDialog,
+.chatDialogs,
+.titleBarContainer.ChatTabs {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* ------------------------------------------------------ the header --- */
+
+.friendListHeaderContainer,
+.currentUserContainer {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+}
+
+.currentUserContainer {
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+/* "Drag Friends & Chats here": a dashed glass well, not a cyan box. */
+.quickAccessFriendsMessage,
+.dropTargetBox {
+  border-color: rgba(255, 255, 255, .14) !important;
+  color: var(--vt-text-dim) !important;
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+.quickAccessFriendsMessageDismiss {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: 6px !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+.quickAccessFriendsMessageDismiss:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+/* The section bars (FRIENDS, GROUP CHATS): glass bars, dim labels. */
+.friendTab,
+.socialListTab,
+.friendTab.activeTab,
+.friendsListSectionTitle,
+.chatSectionTitle {
+  background: var(--vt-bar) !important;
+  background-image: none !important;
+  box-shadow: inset 0 1px 0 var(--vt-hairline), inset 0 -1px 0 var(--vt-hairline) !important;
+}
+
+.tabLabel,
+.groupChatSectionTitle {
+  color: var(--vt-text-dim) !important;
+  letter-spacing: .06em !important;
+}
+
+.requestsNumber {
+  background: rgba(var(--vt-glow-rgb), .85) !important;
+  color: var(--vt-text) !important;
+  border-radius: 6px !important;
+}
+
+.friendlistListContainer,
+.chatWindow .chatHistory {
+  background: var(--vt-panel-soft) !important;
+}
+
+.friendSearchInput[type="text"],
+.friendSearchInput {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-well) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  color: var(--vt-text) !important;
+  transition: box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+.friendSearchInput[type="text"]:focus,
+.friendSearchInput:focus {
+  background: rgba(0, 0, 0, .22) !important;
+  box-shadow: var(--vt-rim-focus) !important;
+}
+
+/* -------------------------------------------------- groups and friends --- */
+
+.friendGroup,
+.friendGroup.onlineFriends,
+.friendGroup.offlineFriends,
+.DropTarget.friendGroup {
+  background: transparent !important;
+  background-image: none !important;
+  border-top-color: var(--vt-hairline) !important;
+}
+
+.friendGroup .groupName,
+.groupName,
+.groupCount {
+  color: var(--vt-text-dim) !important;
+}
+
+.friendGroup hr {
+  border-color: var(--vt-hairline) !important;
+  background: var(--vt-hairline) !important;
+}
+
+.friend {
+  border-radius: var(--vt-radius-tile) !important;
+  margin: 0 6px !important;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+.friend:hover,
+.friend.gpfocus {
+  background: var(--vt-off-hover) !important;
+}
+
+.friend.selected,
+.friend.Selected {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+}
+
+.FriendInGameIcon {
+  box-shadow: none !important;
+  border-radius: 0 6px 6px 0 !important;
+}
+
+/* ------------------------------------------------------- group chats --- */
+
+.chatRoomListContainer {
+  background: var(--vt-panel-soft) !important;
+  background-image: none !important;
+}
+
+.ChatRoomListGroupItem {
+  border-radius: var(--vt-radius-tile) !important;
+  margin: 0 6px !important;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease) !important;
+}
+
+.ChatRoomListGroupItem:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+.chatRoomName {
+  color: var(--vt-text) !important;
+}
+
+.ChatRoomMultiFriendAvatar,
+.ChatRoomGroupAvatar {
+  border-color: rgba(255, 255, 255, .10) !important;
+  border-radius: 8px !important;
+  background: var(--vt-off) !important;
+  background-image: none !important;
+}
+
+.ChatRoomGroupAvatar_initials {
+  background: none !important;
+  -webkit-text-fill-color: var(--vt-text-dim) !important;
+  color: var(--vt-text-dim) !important;
+}
+
+.friendListFooter {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 1px 0 var(--vt-hairline) !important;
+}
+
+/* ------------------------------------------------------------- chats --- */
+
+.chatWindow .chatHeader,
+.chatWindow.SingleUserChat .chatHeader {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+}
+
+.ChatTabs.titleBarContainer {
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+  border-color: transparent !important;
+}
+
+.chatWindow .chatEntry,
+.chatEntry {
+  background: var(--vt-bar) !important;
+  box-shadow: inset 0 1px 0 var(--vt-hairline) !important;
+}
+
+.chatWindow .InsetWindowOpen .chatEntry {
+  background: rgba(var(--vt-bg-rgb), .9) !important;
+}
+
+.chatEntry textarea {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-well) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+}
+
+.speakerTimeStamp {
+  color: rgba(var(--vt-text-dim-rgb), .7) !important;
+}
+
+.speakerStatus {
+  background: rgba(255, 255, 255, .18) !important;
+  border-radius: 1px !important;
+}
+
+.msgText,
+.chatHistory .msg {
+  color: var(--vt-text) !important;
+}
+
+.FriendChatTypingNotification {
+  background: linear-gradient(to top, rgba(var(--vt-bg-rgb), .9), rgba(var(--vt-bg-rgb), 0)) !important;
+  color: var(--vt-text-dim) !important;
+}
+
+/* "Scroll to bottom" and the round invite button: glass. */
+.ScrollToBottomButton span {
+  background: var(--vt-menu) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-panel), var(--vt-shadow-menu) !important;
+  border-radius: var(--vt-radius-button) var(--vt-radius-button) 0 0 !important;
+  color: var(--vt-text) !important;
+}
+
+.inviteAnotherFriendButton {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+.inviteAnotherFriendButton:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+.ChatMessageEntryVoice {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.VoiceToggle {
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  border: 0 !important;
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+.VoiceToggle:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+.VoiceToggle.Active {
+  background-color: var(--vt-lit-fill) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+}
+
+.chatBody .InnerChatTab {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+}
+
+.chatBody .ChatBodyControls .InnerChatTabs .InnerChatTab.Active {
+  background: var(--vt-lit) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+.chatTab .UnreadGlow {
+  background: radial-gradient(ellipse farthest-corner at 98% 90%, rgba(var(--vt-glow-rgb), .45), transparent 70%) !important;
+}
+
+.chatUnreadCircle,
+.ChatUnreadMessageIndicator {
+  background: rgba(var(--vt-glow-rgb), .85) !important;
+  color: var(--vt-text) !important;
+}
+
+/* A friend's list arriving, a chat opening: fade and rise. */
+.friendlistListContainer,
+.chatHistory {
+  animation: var(--vt-a-rise);
+}

@@ -216,13 +216,14 @@ test_unpackaged_rows_get_their_asset() {
   assert_contains "$w" "jetbrains-mono-nerd"
   assert_contains "$w" "adw-gtk3"
   assert_contains "$w" "noise-suppression"
-  assert_contains "$w" "material-symbols"
+  assert_contains "$w" "phosphor-light"
+  assert_contains "$w" "phosphor-fill"
   _pk dnf; _package_needs() { printf '%s\n' required utilities; }
   w="$(assets_wanted)"
   assert_contains "$w" "jetbrains-mono-nerd"
   ! grep -qx "jetbrains-mono\|adw-gtk3\|noise-suppression" <<<"$w"
   _pk pacman; _package_needs() { printf '%s\n' required utilities; }
-  assert_eq "$(assets_wanted | tr '\n' ' ')" "material-symbols bibata apple-emoji "
+  assert_eq "$(assets_wanted | tr '\n' ' ')" "phosphor-light phosphor-fill bibata apple-emoji "
 }
 test_every_asset_stand_in_names_a_table_row() {
   local f

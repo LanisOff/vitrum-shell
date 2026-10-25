@@ -81,23 +81,47 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("widgets", blurKick.screen) && !blurKick.on && !root.editing ? effect : blurKick.none
     Region { id: effect }
-    Item { id: dot; width: 1; height: 1 }
-    Component { id: regionComp; Region {} }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
+    Region { id: dotRegion; item: dot }
+    // A Region follows its item's own geometry, never a parent's transform:
+    // regions on the frames themselves stayed where the stage was when they
+    // were made, and on the way out of the editor niri's glass sat on the
+    // small stage while the widgets zoomed home, then jumped under them. So
+    // each frame has a piece out here, bound to where the stage's transform
+    // (and the frame's own settle-in scale, about its centre) puts it on
+    // screen: the regions move with every frame of the zoom.
+    Item { id: pieceLayer }
+    Component {
+        id: pieceComp
+        Item {
+            id: piece
+            property Item frame
+            readonly property real s: frame ? stage.scale * frame.scale : 0
+            x: frame ? stage.x + (frame.x + frame.width * (1 - frame.scale) / 2) * stage.scale : 0
+            y: frame ? stage.y + (frame.y + frame.height * (1 - frame.scale) / 2) * stage.scale : 0
+            width: frame ? frame.width * s : 0
+            height: frame ? frame.height * s : 0
+            readonly property Region input: Region { item: piece }
+            readonly property Region glass: Region { item: piece; radius: piece.frame ? piece.frame.radius * piece.s : 0 }
+        }
+    }
     function rebuildRegions() {
-        for (const r of inputMask.regions) r.destroy();
-        for (const r of effect.regions) r.destroy();
+        const old = pieceLayer.children.slice();
         const frames = [];
         for (let i = 0; i < frameRepeater.count; i++) if (frameRepeater.itemAt(i)) frames.push(frameRepeater.itemAt(i));
+        const pieces = frames.map(f => pieceComp.createObject(pieceLayer, { frame: f }));
         inputMask.item = editing ? catcher : null;
         // Every widget takes input (a right-click opens the editor); what a
         // non-interactive one gets, it ignores.
-        inputMask.regions = editing ? [] : frames.map(f => regionComp.createObject(inputMask, { item: f }));
+        inputMask.regions = editing ? [] : pieces.map(p => p.input);
         // A bare widget is its own glass: niri blurs nothing behind it.
-        const plated = frames.filter(f => !f.bare);
-        effect.regions = plated.length ? plated.map(f => regionComp.createObject(effect, { item: f, radius: f.radius }))
-                                       : [regionComp.createObject(effect, { item: dot })];   // never an empty region
+        const plated = pieces.filter(p => !p.frame.bare);
+        effect.regions = plated.length ? plated.map(p => p.glass) : [dotRegion];   // never an empty region
+        for (const p of old) p.destroy();
     }
     onEditingChanged: {
+        animateEditor();
         Qt.callLater(rebuildRegions);
         dragDelta = null;
         if (editing && focused_) keys.forceActiveFocus();
@@ -148,22 +172,48 @@ PanelWindow {
     ShaderEffectSource { id: wallGlassTex; sourceItem: root.wantsGlass || root.editing ? wallGlass : null; visible: false; hideSource: false }
 
     // ---------------------------------------------------------- editor ---
-    // t: 0 the desktop as it is, 1 the editor. Everything below follows it.
-    property real t: editing ? 1 : 0
-    Behavior on t { enabled: Motion.enabled; NumberAnimation { duration: Math.round(Motion.emphasized * 1.2); easing.type: Easing.OutCubic } }
-    // A Region is measured when it is made and does not follow the stage's
-    // transform: the widgets' regions are made again once they are back home.
-    onTChanged: if (!editing && t === 0) Qt.callLater(rebuildRegions)
+    // Two parts, one after the other, never at once:
+    //   fade  0..1  the backdrop and the stage's wallpaper copy cover the desktop
+    //   zoom  0..1  the stage shrinks from the whole screen into its place
+    // In: fade, then zoom. Out: zoom, then fade. The copy is opaque whenever it
+    // is not where the real wallpaper (awww, WallpaperView) is, and fades only
+    // at home, right over it: zooming a half-faded copy laid a smaller second
+    // wallpaper over the real one for most of the way out.
+    property real fade: 0
+    property real zoom: 0
+    // t: anything of the editor on screen (0 the desktop as it is).
+    readonly property real t: Math.max(fade, zoom)
+    readonly property int fadeMs: Motion.fast
+    readonly property int zoomMs: Motion.emphasized
+    function animateEditor() {
+        enterAnim.stop(); leaveAnim.stop();
+        if (!Motion.enabled) { fade = zoom = editing ? 1 : 0; return; }
+        // From wherever an interrupted one left them: the part already done takes no time.
+        if (editing) { enterFade.duration = Math.round(fadeMs * (1 - fade)); enterZoom.duration = Math.round(zoomMs * (1 - zoom)); enterAnim.start(); }
+        else { leaveZoom.duration = Math.round(zoomMs * zoom); leaveFade.duration = Math.round(fadeMs * fade); leaveAnim.start(); }
+    }
+    SequentialAnimation {
+        id: enterAnim
+        NumberAnimation { id: enterFade; target: root; property: "fade"; to: 1; easing.type: Easing.OutCubic }
+        NumberAnimation { id: enterZoom; target: root; property: "zoom"; to: 1; easing.type: Easing.OutCubic }
+    }
+    SequentialAnimation {
+        id: leaveAnim
+        NumberAnimation { id: leaveZoom; target: root; property: "zoom"; to: 0; easing.type: Easing.OutCubic }
+        NumberAnimation { id: leaveFade; target: root; property: "fade"; to: 0; easing.type: Easing.OutCubic }
+    }
     readonly property bool hasSheet: focused_
     readonly property real sheetW: Math.round(Math.max(340, Math.min(420, width * 0.23)))
     readonly property real margin: Tokens.gap * 2
     readonly property var st: W.stageRect(bounds, sheetW, 0.72, hasSheet, margin)
 
     // Behind it all, opaque: the windows are gone while the desktop is edited.
+    // Only around a stage that has left home: at home the copy covers it all,
+    // and this one, blurred and dark, showed through the copy as it faded.
     Item {
         anchors.fill: parent
-        visible: root.t > 0.001
-        opacity: Math.min(1, root.t * 1.6)
+        visible: root.zoom > 0.001 && root.fade > 0.001
+        opacity: root.fade
         Rectangle { anchors.fill: parent; color: Colors.bg }
         MultiEffect {
             anchors.fill: parent
@@ -181,32 +231,38 @@ PanelWindow {
         id: stage
         width: root.width; height: root.height
         transformOrigin: Item.TopLeft
-        x: root.st.x * root.t
-        y: root.st.y * root.t
-        scale: 1 + (root.st.scale - 1) * root.t
+        x: root.st.x * root.zoom
+        y: root.st.y * root.zoom
+        scale: 1 + (root.st.scale - 1) * root.zoom
+        // What the glass widgets (the clock's digits) look through: the
+        // wallpaper where this stage draws it, scaled and moved with it. At
+        // home it is where the real wallpaper is.
+        Item { id: stageWall; anchors.fill: parent }
 
         // The desktop as it is, small: the wallpaper with rounded corners and a shadow.
         Rectangle { id: stageMask; anchors.fill: parent; radius: stageShadow.radius; visible: false; layer.enabled: true }
         Rectangle {
             id: stageShadow
             anchors.fill: parent
-            visible: root.t > 0.001
-            opacity: root.t
-            radius: Tokens.radiusPanel * 1.5 / Math.max(0.3, stage.scale)
+            visible: root.zoom > 0.001 && root.fade > 0.001
+            opacity: root.fade
+            // Square at home: the copy covers the real wallpaper edge to edge.
+            radius: Tokens.radiusPanel * 1.5 * root.zoom / Math.max(0.3, stage.scale)
             color: Colors.surface
             layer.enabled: visible
             layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 1; shadowOpacity: 0.55; shadowVerticalOffset: 18; shadowColor: "black" }
         }
         Item {
             anchors.fill: parent
-            visible: root.t > 0.001
-            opacity: root.t
+            visible: root.fade > 0.001
+            opacity: root.fade
             layer.enabled: visible
             layer.effect: MultiEffect { maskEnabled: true; maskSource: stageMask }
             ShaderEffectSource { anchors.fill: parent; sourceItem: wallGlass; live: true }
-            // A faint grid: where widgets snap.
+            // A faint grid: where widgets snap (on the stage, not at home).
             Canvas {
                 anchors.fill: parent
+                opacity: root.zoom
                 onPaint: {
                     const c = getContext("2d"), s = 88;
                     c.reset();
@@ -242,7 +298,7 @@ PanelWindow {
             visible: bandArea.rect !== null
             x: bandArea.rect ? bandArea.rect.x : 0; y: bandArea.rect ? bandArea.rect.y : 0
             width: bandArea.rect ? bandArea.rect.w : 0; height: bandArea.rect ? bandArea.rect.h : 0
-            radius: 8 / stage.scale
+            radius: Tokens.radiusButton / stage.scale
             color: Colors.alpha(Colors.accent, 0.14)
             border.width: 1.5 / stage.scale; border.color: Colors.accent
             z: 5
@@ -263,7 +319,7 @@ PanelWindow {
                 grid: root.grid
                 ui: 1 / Math.max(0.3, stage.scale)
                 others: root.items.filter(i => WidgetEditor.selection.indexOf(i.id) < 0 && i.id !== wid)
-                glassBackdrop: wallGlass
+                glassBackdrop: stageWall
                 glassSource: wallGlassTex
                 onPicked: additive => { WidgetEditor.select(wid, additive); keys.forceActiveFocus(); }
                 onDragMoved: (dx, dy) => root.dragTo(wid, dx, dy)
@@ -275,7 +331,8 @@ PanelWindow {
             }
         }
 
-        // A gallery card being dragged in: where it would land.
+        // A gallery card being dragged in: where it would land, tinted glass
+        // with an accent outline.
         Rectangle {
             id: ghost
             visible: root.editing && WidgetEditor.dragType !== "" && ghostPos !== null
@@ -285,9 +342,10 @@ PanelWindow {
             x: ghostPos ? ghostPos.x - width / 2 : 0
             y: ghostPos ? ghostPos.y - height / 2 : 0
             radius: Tokens.radiusPanel * 1.25
-            color: Colors.alpha(Colors.accent, 0.18)
+            color: "transparent"
             border.width: 2 / stage.scale; border.color: Colors.accent
             z: 6
+            ShellTint { anchors.fill: parent; z: -1; radius: parent.radius; group: "widgets"; rim: false; active: ghost.visible }
         }
     }
 
@@ -349,11 +407,11 @@ PanelWindow {
         id: sheetComponent
         EditorSheet {
             id: sheet
-            x: root.margin - (1 - root.t) * (width + root.margin)
+            x: root.margin - (1 - root.zoom) * (width + root.margin)
             y: root.margin
             width: root.sheetW
             height: root.height - 2 * root.margin
-            opacity: root.t
+            opacity: root.zoom
             screenName: root.screen.name
             barSpace: root.barSpace
             onCardDragged: p => {

@@ -55,13 +55,14 @@ Page {
                 required property var modelData
                 label: modelData.name
                 hint: modelData.managed ? "Not started: " + modelData.managed + "." : modelData.comment
-                leading: Quickshell.iconPath(modelData.icon || "application-x-executable", "application-x-executable")
+                leading: Apps.iconSource(modelData.icon)
+                leadingGlyph: "window"      // when the theme has no icon for it
                 Icon {
                     visible: entry.modelData.user && !entry.modelData.system
                     name: "trash"; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter
                     MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor; onClicked: page.run(["autostart", "remove", entry.modelData.id]) }
                 }
-                Toggle {
+                GlassSwitch {
                     anchors.verticalCenter: parent.verticalCenter
                     opacity: entry.modelData.managed ? 0.4 : 1
                     checked: entry.modelData.enabled && !entry.modelData.managed
@@ -72,8 +73,8 @@ Page {
         SettingRow {
             label: "Add an app"
             divider: startup.adding
-            Capsule { icon: startup.adding ? "close" : "add"; label: startup.adding ? "Close" : "Choose…"
-                      onClicked: { startup.adding = !startup.adding; startup.filter = ""; if (startup.adding) addField.takeFocus(); } }
+            GlassButton { icon: startup.adding ? "close" : "add"; label: startup.adding ? "Close" : "Choose…"
+                          onClicked: { startup.adding = !startup.adding; startup.filter = ""; if (startup.adding) addField.takeFocus(); } }
         }
         Column {
             visible: startup.adding
@@ -90,31 +91,40 @@ Page {
                     delegate: AppChip {
                         required property var modelData
                         app: modelData
-                        onPicked: { startup.adding = false; page.run(["autostart", "add", modelData.id]); }
+                        // Run first: closing the picker destroys this chip, and its
+                        // handler loses `page` and `modelData` midway.
+                        onPicked: { page.run(["autostart", "add", modelData.id]); startup.adding = false; }
                     }
                 }
             }
         }
     }
 
-    // An app to pick: its icon and name; the chosen one in the accent.
-    component AppChip: Rectangle {
+    // An app to pick: its icon and name on glass; the chosen one tinted.
+    component AppChip: Item {
         id: chip
         property var app: ({})
         property bool on: false
         signal picked()
-        height: Tokens.islandHeight * 1.15; radius: height / 2
+        height: Tokens.islandHeight * 1.15
         width: chipRow.implicitWidth + Tokens.padding * 1.2
-        color: on ? Colors.accent : Colors.alpha(Colors.text, cm.containsMouse ? 0.1 : 0.05)
-        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-        scale: cm.pressed ? 0.94 : 1
-        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+        scale: cm.pressed ? 0.97 : 1
+        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
+        Surface { anchors.fill: parent; group: "panels"; level: 1; radius: Tokens.radiusTile }
+        // The lift under the pointer, on clear glass.
+        Rectangle {
+            anchors.fill: parent; radius: Tokens.radiusTile
+            color: Colors.alpha(Colors.text, !chip.on && cm.containsMouse ? 0.06 : 0)
+            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        }
+        ShellTint { anchors.fill: parent; radius: Tokens.radiusTile; active: chip.on; hovered: cm.containsMouse }
         Row {
             id: chipRow
             anchors.centerIn: parent
             spacing: Tokens.gap / 2
-            IconImage { implicitSize: Tokens.iconSize; anchors.verticalCenter: parent.verticalCenter; source: Quickshell.iconPath(chip.app.icon || "application-x-executable", "application-x-executable") }
-            Label { text: chip.app.name || ""; role: chip.on ? "onAccent" : "text"; size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
+            IconImage { implicitSize: Tokens.iconSize; anchors.verticalCenter: parent.verticalCenter; source: Apps.iconSource(chip.app.icon)
+                        Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim } }
+            Label { text: chip.app.name || ""; size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
         }
         MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chip.picked() }
     }

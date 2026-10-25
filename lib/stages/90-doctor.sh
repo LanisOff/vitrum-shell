@@ -55,13 +55,15 @@ stage_doctor() {
 
   local fonts; fonts="$(fc-list 2>/dev/null)"
   local f
-  for f in "Inter" "JetBrains Mono" "Material Symbols Rounded"; do
+  for f in "Inter" "JetBrains Mono" "Phosphor-Light" "Phosphor-Fill"; do
     if grep -q "$f" <<<"$fonts"; then _chk "font: $f" ok; else _chk "font: $f" warn "not found by fontconfig"; fi
   done
   _chk_path "$HOME/.local/share/icons/Bibata-Modern-Classic" "cursor: Bibata Modern Classic" warn
 
   _doctor_session
   _doctor_kernel
+  _doctor_steam_theme
+  _doctor_vesktop_theme
 
   local missing=() p
   while IFS= read -r p; do pkg_installed "$p" || missing+=("${p%@*}"); done < <(packages_for required 2>/dev/null)
@@ -113,6 +115,80 @@ _doctor_init() {
   if [[ -n "${WAYLAND_DISPLAY:-}" && -z "${XDG_RUNTIME_DIR:-}" ]]; then
     _chk "XDG_RUNTIME_DIR" fail "unset in the session — elogind did not register the login (pam_elogind in /etc/pam.d/system-login)"
   fi
+}
+
+# The Steam theme, when the part is on (as components.json has it: vitrum
+# doctor runs before anything loads the choices, so they are read here, in a
+# subshell that leaves a run's own alone), from vitrum-steam-theme status.
+# Warnings only: Steam works either way. No Steam, nothing to say.
+_doctor_steam_theme() {
+  local on
+  on="$(components_load >/dev/null 2>&1; component_active steam_theme && echo 1)"
+  [[ "$on" == 1 ]] || return 0
+  if [[ ! -d "$HOME/.steam/steam/ubuntu12_32" && ! -d "$XDG_DATA_HOME/Steam/ubuntu12_32" ]]; then
+    [[ -d "$HOME/.var/app/com.valvesoftware.Steam" ]] && _chk "Steam theme" warn "Steam is the Flatpak, which Millennium does not support"
+    return 0
+  fi
+  local helper="$HOME/.local/bin/vitrum-steam-theme" st
+  if [[ ! -x "$helper" ]]; then _chk "Steam theme" warn "vitrum-steam-theme is missing — ./install.sh --only shell"; return 0; fi
+  # millennium installed active, each 1 or 0
+  st="$("$helper" status 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(*(int(bool(d.get(k))) for k in ("millennium","installed","active")))' 2>/dev/null)" || st=""
+  if [[ ! "$st" =~ ^[01]\ [01]\ [01]$ ]]; then _chk "Steam theme" warn "vitrum-steam-theme status failed — run it to see why"; return 0; fi
+  local mill inst act; read -r mill inst act <<<"$st"
+  if [[ "$mill" == 1 ]]; then _chk "Millennium" ok
+  else _chk "Millennium" warn "not installed, or Steam no longer loads it (a Steam update can drop the hook) — vitrum-steam-theme install"; fi
+  if [[ "$inst" == 0 ]]; then _chk "Steam theme" warn "not installed — vitrum-steam-theme install"
+  elif [[ "$act" == 1 ]]; then _chk "Steam theme: active" ok
+  elif _doc_steam_theme_off; then _chk "Steam theme: installed, switched off in Settings" ok
+  else _chk "Steam theme" warn "installed but not active — vitrum-steam-theme apply, then restart Steam"; fi
+}
+
+# _doc_steam_theme_off — steam.theme.enabled is false in your settings.
+_doc_steam_theme_off() {
+  have python3 || return 1
+  python3 - "$XDG_CONFIG_HOME/vitrum/settings.json" <<'PY' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+t = ((d.get("steam") or {}).get("theme") or {}) if isinstance(d, dict) else {}
+raise SystemExit(0 if isinstance(t, dict) and t.get("enabled") is False else 1)
+PY
+}
+
+# The Vesktop theme, read the same way as the Steam theme's, from
+# vitrum-vesktop-theme status. Warnings only; no Vesktop (native or the
+# Flatpak), nothing to say.
+_doctor_vesktop_theme() {
+  local on
+  on="$(components_load >/dev/null 2>&1; component_active vesktop_theme && echo 1)"
+  [[ "$on" == 1 ]] || return 0
+  vesktop_present || return 0
+  local helper="$HOME/.local/bin/vitrum-vesktop-theme" st
+  if [[ ! -x "$helper" ]]; then _chk "Vesktop theme" warn "vitrum-vesktop-theme is missing — ./install.sh --only shell"; return 0; fi
+  # installed active, each 1 or 0
+  st="$("$helper" status 2>/dev/null | python3 -c 'import json,sys; d=json.load(sys.stdin); print(*(int(bool(d.get(k))) for k in ("installed","active")))' 2>/dev/null)" || st=""
+  if [[ ! "$st" =~ ^[01]\ [01]$ ]]; then _chk "Vesktop theme" warn "vitrum-vesktop-theme status failed — run it to see why"; return 0; fi
+  local inst act; read -r inst act <<<"$st"
+  if [[ "$inst" == 0 ]]; then _chk "Vesktop theme" warn "not installed — vitrum-vesktop-theme install"
+  elif [[ "$act" == 1 ]]; then _chk "Vesktop theme: active" ok
+  elif _doc_vesktop_theme_off; then _chk "Vesktop theme: installed, switched off in Settings" ok
+  else _chk "Vesktop theme" warn "installed but not active — vitrum-vesktop-theme apply, then restart Vesktop"; fi
+}
+
+# _doc_vesktop_theme_off — vesktop.theme.enabled is false in your settings.
+_doc_vesktop_theme_off() {
+  have python3 || return 1
+  python3 - "$XDG_CONFIG_HOME/vitrum/settings.json" <<'PY' 2>/dev/null
+import json, sys
+try:
+    d = json.load(open(sys.argv[1], encoding="utf-8"))
+except Exception:
+    raise SystemExit(1)
+t = ((d.get("vesktop") or {}).get("theme") or {}) if isinstance(d, dict) else {}
+raise SystemExit(0 if isinstance(t, dict) and t.get("enabled") is False else 1)
+PY
 }
 
 # Kernel options: warnings, each naming what it costs. Without a readable config

@@ -9,7 +9,7 @@ import "../../lib/capture.js" as Lib
 /*
  * The capture overlay, one per screen: the frozen frame (live screen for
  * video), a dim outside the selection, the selection with handles and its
- * size, and a capsule toolbar —
+ * size, and a glass toolbar (the chosen mode tinted) —
  *
  *   [ area | window | screen ]  [ photo | video | text ]  [ delay ] ([ sound ][ mic ])  [ capture ] [ × ]
  *
@@ -56,7 +56,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: root.open && bar.visible ? bar : dot; radius: root.open && bar.visible ? bar.radius : 0 }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
 
     Item {
         id: content
@@ -150,7 +151,7 @@ PanelWindow {
             }
             Surface {
                 group: "overlay"; level: 1; outlined: false
-                width: sizeText.implicitWidth + 2 * Tokens.padding; height: Tokens.islandHeight * 0.9; radius: height / 2
+                width: sizeText.implicitWidth + 2 * Tokens.padding; height: Tokens.islandHeight * 0.9; radius: Tokens.radiusButton
                 x: Math.min(root.width - width, Math.max(0, (parent.width - width) / 2))
                 y: parent.y > height + Tokens.gap * 2 ? -height - Tokens.gap : parent.height + Tokens.gap
                 Label { id: sizeText; anchors.centerIn: parent; numeric: true; size: Tokens.textSmall
@@ -163,13 +164,13 @@ PanelWindow {
             id: bar
             visible: root.focused_ && !Capture.immediate
             group: "overlay"
-            radius: height / 2
+            radius: Tokens.radiusTile
             width: tools.implicitWidth + 2 * Tokens.padding
             height: Tokens.islandHeight * 1.5
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height - height - Tokens.islandHeight * 2.5
             scale: root.open ? 1 : 0.9
-            Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+            Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
             MouseArea { anchors.fill: parent }   // the toolbar is not part of the selection area
             Row {
                 id: tools
@@ -198,7 +199,7 @@ PanelWindow {
         Surface {
             visible: root.focused_ && Capture.mode === "area" && !root.hasSel && !area.pressed
             group: "overlay"; level: 1; outlined: false
-            width: hint.implicitWidth + 2 * Tokens.padding; height: Tokens.islandHeight; radius: height / 2
+            width: hint.implicitWidth + 2 * Tokens.padding; height: Tokens.islandHeight; radius: Tokens.radiusIsland
             anchors.horizontalCenter: parent.horizontalCenter
             y: parent.height * 0.12
             Label { id: hint; anchors.centerIn: parent; role: "dim"
@@ -266,7 +267,9 @@ PanelWindow {
 
     component Divider: Rectangle { width: 1; height: Tokens.islandHeight * 0.8; color: Colors.alpha(Colors.text, 0.15); anchors.verticalCenter: parent.verticalCenter }
 
-    component ToolButton: Rectangle {
+    // A toolbar button: clear glass with a faint lift under the pointer; on
+    // (`active`) or the main action (`accent`), tinted. Icons stay Colors.text.
+    component ToolButton: Item {
         id: tb
         property string icon: ""
         property string text: ""
@@ -277,21 +280,26 @@ PanelWindow {
         anchors.verticalCenter: parent.verticalCenter
         height: Tokens.islandHeight * 1.1
         width: Math.max(height, tbRow.implicitWidth + Tokens.padding * 1.5)
-        radius: height / 2
         opacity: enabled_ ? 1 : 0.4
-        color: accent ? Colors.accent : active ? Colors.alpha(Colors.accent, 0.25) : tbMouse.containsMouse ? Colors.alpha(Colors.text, 0.1) : "transparent"
-        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        Rectangle {
+            anchors.fill: parent
+            radius: Tokens.radiusButton
+            color: Colors.alpha(Colors.text, !tb.active && !tb.accent && tbMouse.containsMouse ? 0.1 : 0)
+            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        }
+        ShellTint { anchors.fill: parent; radius: Tokens.radiusButton; group: "overlay"; active: tb.active || tb.accent; hovered: tbMouse.containsMouse }
         Row {
             id: tbRow
             anchors.centerIn: parent
             spacing: 4
-            Icon { name: tb.icon; color: tb.accent ? Colors.onAccent : Colors.text; anchors.verticalCenter: parent.verticalCenter }
+            Icon { name: tb.icon; color: Colors.text; anchors.verticalCenter: parent.verticalCenter }
             Label { visible: tb.text.length > 0; text: tb.text; numeric: true; anchors.verticalCenter: parent.verticalCenter }
         }
         MouseArea { id: tbMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: if (tb.enabled_) tb.clicked() }
     }
 
-    // A segmented control: one capsule, a sliding highlight under the chosen option.
+    // A segmented control: one glass groove, the chosen option tinted; the
+    // tint slides to a new choice and sweeps once across it.
     component Segment: Rectangle {
         id: seg
         property var options: []
@@ -300,12 +308,14 @@ PanelWindow {
         readonly property real cell: Tokens.islandHeight * 1.1
         readonly property int current: Math.max(0, options.findIndex(o => o.v === value))
         anchors.verticalCenter: parent.verticalCenter
-        width: cell * options.length; height: cell; radius: height / 2
+        width: cell * options.length; height: cell; radius: Tokens.radiusButton
         color: Colors.alpha(Colors.text, 0.06)
-        Rectangle {
-            width: seg.cell; height: seg.cell; radius: height / 2
+        onCurrentChanged: chosen.sweep()
+        ShellTint {
+            id: chosen
+            width: seg.cell; height: seg.cell; radius: Tokens.radiusButton
+            group: "overlay"
             x: seg.current * seg.cell
-            color: Colors.accent
             Behavior on x { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
         }
         Row {
@@ -315,8 +325,7 @@ PanelWindow {
                     required property var modelData
                     required property int index
                     width: seg.cell; height: seg.cell
-                    Icon { anchors.centerIn: parent; name: modelData.icon; color: index === seg.current ? Colors.onAccent : Colors.text
-                           Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } } }
+                    Icon { anchors.centerIn: parent; name: modelData.icon; color: Colors.text }
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: seg.picked(modelData.v) }
                 }
             }

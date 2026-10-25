@@ -4,6 +4,7 @@ import QtQuick
 import Quickshell
 import Quickshell.Io
 import qs.services
+import "../lib/color.js" as Col
 
 /*
  * The colours, from ~/.local/share/vitrum/palette.json (written by
@@ -31,10 +32,29 @@ Singleton {
     readonly property color text:           _c("text", "#e6e8eb")
     readonly property color textDim:        _c("textDim", "#a3a9b1")
     readonly property color accent:         _c("accent", "#8ab4f8")
+    /// deprecated alias, kept for user widgets: text on a tint is Colors.text.
     readonly property color onAccent:       _c("onAccent", "#0b1f3f")
     readonly property color danger:         _c("danger", "#f28b82")
     readonly property color warning:        _c("warning", "#fdd663")
     readonly property color success:        _c("success", "#81c995")
+
+    /// Dichroic glass: the second hue of the tint, the accent turned
+    /// look.dichroic.shift degrees (−100 by default) at saturation 0.72,
+    /// lightness 0.74 in the dark and 0.42 in the light (lib/color.js). It
+    /// follows the accent, so a new wallpaper recolours it with no step.
+    /// vitrum-theme writes it into palette.json (the same maths, for niri's
+    /// focus ring too); computed here only when the file has none.
+    readonly property var dichroicShift: Settings.get("look.dichroic.shift", -100)
+    readonly property color accent2: _roles.accent2 ? _roles.accent2 : _hsla(Col.dichroic(accent.hslHue, dichroicShift, dark))
+
+    function _hsla(o) { return Qt.hsla(o.h, o.s, o.l, 1); }
+    /// The tint's second colour for a tint that starts at `c`: accent2 for the
+    /// accent; for any other colour (danger, warning, a tone) the same colour
+    /// turned −30° and a little lighter, so warnings stay red and amber.
+    function pair(c) {
+        if (Qt.colorEqual(c, accent)) return accent2;
+        return _hsla(Col.companion(c.hslHue, c.hslSaturation, c.hslLightness));
+    }
 
     function alpha(c, a) { return Qt.rgba(c.r, c.g, c.b, a); }
     /// The accent turned `degrees` round the colour wheel, at a widget plate's

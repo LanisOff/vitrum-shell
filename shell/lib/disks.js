@@ -4,6 +4,15 @@
 
 function _bool(v) { return v === true || v === "1" || v === 1; }
 
+// The mount point to show: lsblk's "mountpoint" is whichever btrfs subvolume
+// it met first (root showed as /var/tmp); the shortest of them all — / when
+// it is there — says what the volume is.
+function _mainMount(d) {
+    var all = (d.mountpoints || []).filter(function (m) { return !!m; });
+    if (!all.length) return d.mountpoint || "";
+    return all.slice().sort(function (a, b) { return a.length - b.length || (a < b ? -1 : a > b ? 1 : 0); })[0];
+}
+
 function _map(d, kind, parent) {
     return {
         kind: kind, name: d.name, path: d.path || ("/dev/" + d.name), parent: parent,
@@ -11,7 +20,7 @@ function _map(d, kind, parent) {
         model: String(d.model || "").trim(), vendor: String(d.vendor || "").trim(), serial: d.serial || "",
         size: parseInt(d.size) || 0, fstype: d.fstype || "",
         fsused: parseInt(d.fsused) || 0, fsavail: parseInt(d.fsavail) || 0, fssize: parseInt(d.fssize) || 0,
-        mountpoint: d.mountpoint || "", uuid: d.uuid || "",
+        mountpoint: _mainMount(d), uuid: d.uuid || "",
         partn: typeof d.partn === "number" ? d.partn : (parseInt(d.partn) || 0),
         // Every mount (btrfs subvolumes mount one partition several times; "mountpoint" names one).
         mountpoints: (d.mountpoints || [d.mountpoint]).filter(function (m) { return !!m; }),

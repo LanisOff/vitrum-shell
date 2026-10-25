@@ -23,7 +23,7 @@ Page {
         title: "Do not disturb"
         SettingRow {
             label: "Do not disturb"; hint: "Toasts stay quiet; the Notification Centre keeps everything."; divider: false
-            Toggle { checked: dndPage.dnd; onToggled: { Quickshell.execDetached(["vitrum-ipc", "notifications", "dnd"]); dndPage.dnd = !dndPage.dnd; reask.restart(); } }
+            GlassSwitch { checked: dndPage.dnd; onToggled: { Quickshell.execDetached(["vitrum-ipc", "notifications", "dnd"]); dndPage.dnd = !dndPage.dnd; reask.restart(); } }
         }
     }
 }

@@ -48,6 +48,39 @@ Item {
         if (t) save(items.concat([t]));
     }
 
+    // A tick box: a rounded square of glass; ticked, the tint lies in it under
+    // a check. Under the pointer an open one takes an accent outline.
+    component Check: Item {
+        id: check
+        property bool done: false
+        property bool hovered: false
+        /// The glyph size it stands in for: the box is a little smaller.
+        property int size: Tokens.textSize
+        width: Math.round(size * 0.82); height: width
+        Surface {
+            anchors.fill: parent
+            group: "widgets"
+            level: 1
+            radius: Tokens.radiusKnob
+            border.color: check.hovered && !check.done ? Colors.alpha(Colors.accent, 0.7) : Materials.border("widgets")
+        }
+        ShellTint {
+            anchors.fill: parent
+            radius: Tokens.radiusKnob
+            group: "widgets"
+            active: check.done
+            hovered: check.hovered
+        }
+        Icon {
+            anchors.centerIn: parent
+            name: "check"
+            size: Math.round(check.width * 0.8)
+            color: Colors.text
+            opacity: check.done ? 1 : 0
+            Behavior on opacity { enabled: Motion.enabled; EaseAnim {} }
+        }
+    }
+
     WidgetHeader {
         id: head
         visible: root.sizeClass !== "S"
@@ -76,12 +109,11 @@ Item {
                 anchors.centerIn: parent
                 width: Math.min(implicitWidth, parent.width)
                 spacing: 6
-                Icon {
+                Check {
                     id: firstBox
                     visible: root.open.length > 0
-                    name: "checkbox-blank"
                     size: Tokens.textSize + 2
-                    color: firstMouse.containsMouse ? Colors.accent : Colors.textDim
+                    hovered: firstMouse.containsMouse
                     anchors.verticalCenter: parent.verticalCenter
                 }
                 Label {
@@ -129,14 +161,13 @@ Item {
                 cursorShape: Qt.PointingHandCursor
                 onClicked: root.toggle(row.modelData.i)
             }
-            Icon {
+            Check {
                 id: box
                 x: 4
                 anchors.verticalCenter: parent.verticalCenter
-                name: row.modelData.done ? "checkbox" : "checkbox-blank"
-                filled: row.modelData.done
+                done: row.modelData.done
+                hovered: rowMouse.containsMouse
                 size: Tokens.textSize + 4
-                color: row.modelData.done ? Colors.accent : Colors.textDim
             }
             Label {
                 anchors { left: box.right; leftMargin: Tokens.gap * 0.6; right: del.left; rightMargin: 4; verticalCenter: parent.verticalCenter }
@@ -170,16 +201,16 @@ Item {
         }
     }
 
-    // ---- the add field.
-    Rectangle {
+    // ---- the add field: a strip of glass, outlined in the accent while typing.
+    Surface {
         id: field
         visible: root.sizeClass !== "S"
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
         height: visible ? Math.round(Tokens.islandHeight * 0.95) : 0
-        radius: Tokens.radiusInner
-        color: Colors.alpha(Colors.text, input.activeFocus ? 0.10 : 0.06)
-        border.width: input.activeFocus ? 1 : 0
-        border.color: Colors.alpha(Colors.accent, 0.6)
+        group: "widgets"
+        level: 1
+        radius: Tokens.radiusButton
+        border.color: input.activeFocus ? Colors.alpha(Colors.accent, 0.6) : Materials.border("widgets")
         Icon {
             id: plus
             x: Tokens.gap * 0.6
@@ -199,8 +230,8 @@ Item {
             font.family: Tokens.fontText
             font.pixelSize: Tokens.textSize
             color: Colors.text
-            selectionColor: Colors.accent
-            selectedTextColor: Colors.onAccent
+            selectionColor: Colors.alpha(Colors.accent, 0.45)
+            selectedTextColor: Colors.text
             selectByMouse: true
             clip: true
             readOnly: root.preview

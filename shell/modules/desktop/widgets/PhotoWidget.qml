@@ -31,6 +31,15 @@ Item {
     readonly property bool shuffle: options.shuffle !== false
 
     property var photos: []
+    readonly property bool empty: !root.preview && root.listed && root.photos.length === 0
+    readonly property string hintLine: root.sizeClass === "S" ? "No photos" : "No photos in " + root.folderOption
+    // The wallpaper stands in while there is no photo to show.
+    readonly property bool standIn: root.preview || root.photos.length === 0
+    readonly property string wallUrl: {
+        const p = Wallpaper.pathFor(Screen.name);
+        if (!p) return "";
+        return "file://" + (/\.(mp4|webm|mkv|mov|avi)$/i.test(p) ? Wallpaper.posterOf(p) : p);
+    }
     property bool listed: false
     property int index: -1
 
@@ -109,32 +118,17 @@ Item {
         visible: false
         layer.enabled: true
 
-        // Gallery card: a sample "photo", in the accent's family.
-        Rectangle {
+        // Nothing to show yet (the gallery card, an empty or unread folder):
+        // the screen's own wallpaper, a real picture rather than a drawing.
+        Image {
             anchors.fill: parent
-            visible: root.preview
-            gradient: Gradient {
-                GradientStop { position: 0; color: Colors.ink(200) }
-                GradientStop { position: 0.6; color: Colors.ink(320) }
-                GradientStop { position: 1; color: Colors.ink(20) }
-            }
-            Rectangle {
-                width: parent.height * 0.34; height: width; radius: width / 2
-                x: parent.width * 0.66; y: parent.height * 0.18
-                color: Qt.rgba(1, 1, 1, 0.55)
-            }
-            Rectangle {
-                width: parent.width * 1.4; height: parent.height * 0.9; radius: height / 2
-                x: -parent.width * 0.35; y: parent.height * 0.62
-                color: Colors.alpha(Colors.ink(140), 0.85)
-            }
-            Rectangle {
-                width: parent.width; height: parent.height * 0.8; radius: height / 2
-                x: parent.width * 0.3; y: parent.height * 0.74
-                color: Colors.alpha(Colors.ink(160), 0.95)
-            }
+            visible: root.standIn
+            source: root.wallUrl
+            fillMode: Image.PreserveAspectCrop
+            asynchronous: true
+            sourceSize.width: photo.width
+            sourceSize.height: photo.height
         }
-
         Image {
             id: layerA
             anchors.fill: parent
@@ -173,12 +167,51 @@ Item {
         maskSource: mask
         maskThresholdMin: 0.5
         maskSpreadAtMin: 1.0
-        visible: root.preview || root.photos.length > 0
+        visible: root.standIn || root.photos.length > 0
     }
 
-    WidgetEmpty {
-        visible: !root.preview && root.listed && root.photos.length === 0
-        icon: "photo"
-        text: "No photos in " + root.folderOption
+    // Empty: the wallpaper dimmed, and the hint on a plate of its own.
+    Rectangle {
+        anchors.fill: photo
+        radius: Tokens.radiusPanel * 1.25
+        visible: root.empty
+        color: Colors.alpha(Colors.bg, Colors.dark ? 0.5 : 0.4)
+    }
+    Surface {
+        anchors.centerIn: parent
+        visible: root.empty
+        group: "widgets"; level: 2
+        radius: Tokens.radiusTile
+        // Sized from the text itself: the row and the plate can't measure each other.
+        TextMetrics { id: hintText; text: root.hintLine; font.family: Tokens.fontText; font.pixelSize: Tokens.textSmall }
+        width: Math.min(root.width - 2 * Tokens.gap,
+                        Math.max(hintText.advanceWidth + Tokens.iconSize + Tokens.gap * 0.6, openBtn.visible ? openBtn.implicitWidth : 0) + 2 * Tokens.padding)
+        height: hint.implicitHeight + 2 * Tokens.padding
+        Column {
+            id: hint
+            anchors.centerIn: parent
+            width: parent.width - 2 * Tokens.padding
+            spacing: Tokens.gap * 0.8
+            Row {
+                anchors.horizontalCenter: parent.horizontalCenter
+                spacing: Tokens.gap * 0.6
+                Icon { name: "photo"; color: Colors.accent2; anchors.verticalCenter: parent.verticalCenter }
+                Label {
+                    anchors.verticalCenter: parent.verticalCenter
+                    width: Math.min(implicitWidth, hint.width - Tokens.iconSize - Tokens.gap * 0.6)
+                    text: root.hintLine
+                    size: Tokens.textSmall
+                }
+            }
+            GlassButton {
+                id: openBtn
+                anchors.horizontalCenter: parent.horizontalCenter
+                visible: root.sizeClass !== "S"
+                icon: "folder"; label: "Open folder"
+                labelSize: Tokens.textSmall + 1
+                group: "widgets"
+                onClicked: Quickshell.execDetached(["sh", "-c", "mkdir -p \"$1\" && xdg-open \"$1\"", "_", root.folder])
+            }
+        }
     }
 }

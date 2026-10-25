@@ -1,4 +1,4 @@
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { load, eq, ok, root } from "./lib.mjs";
 const P = load("settings-panes.js");
@@ -51,3 +51,33 @@ eq(hit("dock", ""), true, "empty query: everything");
 eq(P.find("mouse")[0].id, "input", "mouse → Mouse & touchpad");
 eq(P.find("sensitivity")[0].id, "input", "sensitivity → Mouse & touchpad");
 eq(P.panes.findIndex(x => x.id === "input"), P.panes.findIndex(x => x.id === "keyboard") + 1, "right after Keyboard");
+
+// The tint's second hue lives in Appearance: by a word (Spotlight) and by the key's label (the app).
+for (const q of ["tint", "dichroic", "hue", "second colour"]) eq(P.find(q, 3)[0].id, "appearance", `${q} → Appearance`);
+eq(P.matches(P.panes.find(p => p.id === "appearance"), "second hue", ["look.dichroic.shift"], () => "Second hue"), true, "the Second hue row → Appearance");
+
+// The Steam theme lives with the games in Power & performance: by a word
+// (Spotlight), by its keys (the app's search), and its rows are in PowerPane.
+for (const q of ["steam", "millennium", "steam theme"]) eq(P.find(q, 3)[0].id, "power", `${q} → Power & performance`);
+const power = P.panes.find(p => p.id === "power");
+for (const k of ["steam.theme.enabled", "steam.theme.sync"]) {
+    ok(power.keys.some(pre => k === pre || k.startsWith(pre + ".")), `${k} under Power's keys`);
+    ok(readFileSync(join(root, "apps/settings/panes/PowerPane.qml"), "utf8").includes(`key: "${k}"`), `${k} has a row in PowerPane`);
+}
+eq(P.matches(power, "follow vitrum", ["steam.theme.sync"], () => "Follow vitrum's colours"), true, "the Follow colours row → Power & performance");
+ok(!readFileSync(join(root, "apps/settings/panes/PowerPane.qml"), "utf8").includes("steam.theme.opacity"), "no Panel opacity row: Steam's panels have fixed alphas");
+
+// The Vesktop theme lives in Appearance, after the toolkit colouring: by a
+// word (Spotlight), by its keys (the app's search), and its rows are in
+// AppearancePane. There is no opacity: Vesktop gets the look, not glass.
+for (const q of ["vesktop", "discord", "vencord", "vesktop theme"]) eq(P.find(q, 3)[0].id, "appearance", `${q} → Appearance`);
+const appearance = P.panes.find(p => p.id === "appearance");
+const appearanceQml = readFileSync(join(root, "apps/settings/panes/AppearancePane.qml"), "utf8");
+for (const k of ["vesktop.theme.enabled", "vesktop.theme.sync"]) {
+    ok(appearance.keys.some(pre => k === pre || k.startsWith(pre + ".")), `${k} under Appearance's keys`);
+    ok(appearanceQml.includes(`key: "${k}"`), `${k} has a row in AppearancePane`);
+}
+ok(!appearanceQml.includes("vesktop.theme.opacity"), "no Vesktop opacity row");
+ok(appearanceQml.indexOf('title: "Vesktop theme"') > appearanceQml.indexOf('key: "toolkits.gtk"'), "the Vesktop section after the toolkit rows");
+eq(P.matches(appearance, "follow vitrum", ["vesktop.theme.sync"], () => "Follow vitrum's colours"), true, "the sync row → Appearance");
+eq(P.matches(power, "vesktop", ["vesktop.theme.sync"], () => "Follow vitrum's colours"), false, "not Power's");

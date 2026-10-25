@@ -86,6 +86,13 @@ I18N_RU['%s exists — Quickshell will ignore named configs while it is there; m
 I18N_RU['the QML will not load — fix the above, or run with --skip shell to install the rest']='QML не загрузится — исправьте ошибки выше или запустите с --skip shell, чтобы установить остальное'
 I18N_RU['vitrum-theme failed — the shell falls back to its built-in palette']='vitrum-theme завершился с ошибкой — оболочка возьмёт встроенную палитру'
 
+# The shell stage: the Steam theme, through vitrum-steam-theme.
+I18N_RU['%s is missing — the Steam theme is not installed']='нет %s — тема для Steam не установлена'
+I18N_RU['the Steam theme could not be installed (the reason is above) — Steam keeps its own look; vitrum-steam-theme install tries again']='тему для Steam установить не удалось (причина выше) — у Steam остаётся своё оформление; vitrum-steam-theme install попробует снова'
+# The Vesktop theme, through vitrum-vesktop-theme.
+I18N_RU['%s is missing — the Vesktop theme is not installed']='нет %s — тема для Vesktop не установлена'
+I18N_RU['the Vesktop theme could not be installed (the reason is above) — Vesktop keeps its own look; vitrum-vesktop-theme install tries again']='тему для Vesktop установить не удалось (причина выше) — у Vesktop остаётся своё оформление; vitrum-vesktop-theme install попробует снова'
+
 # ----------------------------------------------------------- terminal -----
 
 I18N_RU['vitrum-theme failed — run it again by hand to see why']='vitrum-theme завершился с ошибкой — запустите его вручную, чтобы увидеть причину'
@@ -150,6 +157,8 @@ I18N_RU['Video wallpapers']='Видеообои'
 I18N_RU['Phone (KDE Connect)']='Телефон (KDE Connect)'
 I18N_RU['tmux, themed, with plugins']='tmux в оформлении vitrum, с плагинами'
 I18N_RU['Game mode + HUD (gamemode, MangoHud)']='Игровой режим и HUD (gamemode, MangoHud)'
+I18N_RU['Steam theme (Millennium)']='Тема для Steam (Millennium)'
+I18N_RU['Vesktop theme (Discord)']='Тема Vesktop (Discord)'
 I18N_RU['Mic noise filter, VPN, sensors, mixer, archives']='Шумоподавление микрофона, VPN, датчики, микшер, архивы'
 I18N_RU['Command-line tools: eza, bat, fzf, zoxide, delta']='Консольные утилиты: eza, bat, fzf, zoxide, delta'
 I18N_RU['File manager: Dolphin']='Файловый менеджер: Dolphin'
@@ -169,6 +178,8 @@ I18N_RU['Live wallpapers through mpvpaper. Static ones work either way.']='Жи�
 I18N_RU['Notifications from the phone, its battery, a shared clipboard and files. Pulls in part of KDE Frameworks.']='Уведомления с телефона, его заряд, общий буфер обмена и файлы. Тянет за собой часть KDE Frameworks.'
 I18N_RU["tmux with a vitrum status bar and its plugins. Without the author's keys it keeps its own (Ctrl+b)."]='tmux со строкой состояния vitrum и плагинами. Без клавиш автора у него остаются свои (Ctrl+b).'
 I18N_RU['Game mode with its HUD: gamemode and MangoHud.']='Игровой режим и его HUD: gamemode и MangoHud.'
+I18N_RU["Steam theme: vitrum's look for Steam via Millennium, follows your colours."]='Тема для Steam: оформление vitrum в Steam через Millennium, следует за вашими цветами.'
+I18N_RU["Vesktop theme: vitrum's glass for Discord (Vesktop), follows your colours."]='Тема Vesktop: стекло vitrum для Discord (Vesktop), следует вашим цветам.'
 I18N_RU['The microphone noise filter, WireGuard and OpenVPN, hardware sensors, a sound mixer (pavucontrol), cava and Ark for archives.']='Шумоподавление микрофона, WireGuard и OpenVPN, датчики оборудования, микшер (pavucontrol), cava и Ark для архивов.'
 I18N_RU['Better ls, cat, find and cd: eza, bat, fzf and zoxide, with delta for git diffs.']='Замена ls, cat, find и cd: eza, bat, fzf и zoxide, а для git diff — delta.'
 I18N_RU['Dolphin, themed like the rest of the desktop.']='Dolphin в том же оформлении, что и весь рабочий стол.'
@@ -215,6 +226,8 @@ I18N_RU['Login screen']='Экран входа'
 I18N_RU['Boot splash']='Заставка при загрузке'
 I18N_RU['Phone']='Телефон'
 I18N_RU['Game mode']='Игровой режим'
+I18N_RU['Steam theme']='Тема для Steam'
+I18N_RU['Vesktop theme']='Тема Vesktop'
 I18N_RU['Mic filter, VPN, sensors']='Шумоподавление, VPN, датчики'
 I18N_RU["the author's tmux keys"]='клавиши tmux от автора'
 I18N_RU['tmux autostart']='автозапуск tmux'

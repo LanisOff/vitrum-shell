@@ -7,5 +7,4 @@ StatusIcon {
     shown: Vpn.active
     icon: "vpn"
     tint: Colors.accent
-    filled: true
 }

@@ -21,6 +21,8 @@ stage_shell() {
   _shell_launchers
   _shell_remove_tahoe_leftovers
   _shell_steam_hud
+  _shell_steam_theme
+  _shell_vesktop_theme
   _shell_example_widget
   _shell_restart
   stage_done
@@ -49,6 +51,59 @@ unset SDL_VIDEODRIVER
 exec $real "\$@"
 EOF
   [[ "$DRY_RUN" == "1" ]] || chmod +x "$f"
+}
+
+# The Steam theme (steam_theme, which needs games): vitrum-steam-theme install
+# puts Millennium in where Steam has none (an existing one, from the AUR or
+# upstream's script, is left as it is), copies the theme and applies it. Each
+# run does the same, so an update brings new theme files. No Steam yet is no
+# failure: the theme goes in with vitrum-steam-theme install once it is there.
+_shell_steam_theme() {
+  component_active steam_theme || return 0
+  step "Steam theme (Millennium)"
+  if [[ ! -d "$HOME/.steam/steam/ubuntu12_32" && ! -d "$XDG_DATA_HOME/Steam/ubuntu12_32" ]]; then
+    if [[ -d "$HOME/.var/app/com.valvesoftware.Steam" ]]; then
+      info "Steam is the Flatpak here, which Millennium does not support — Steam keeps its own look"
+    else
+      info "Steam is not installed, or has not been started once yet — the theme goes in later with: vitrum-steam-theme install"
+    fi
+    return 0
+  fi
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would run: vitrum-steam-theme install --yes"; return 0; fi
+  local helper="$HOME/.local/bin/vitrum-steam-theme" rc=0
+  if [[ ! -x "$helper" ]]; then warn '%s is missing — the Steam theme is not installed' "$helper"; return 0; fi
+  # In the installer's terminal: an AUR build or sudo shows its own output.
+  "$helper" install --yes || rc=$?
+  case "$rc" in
+    0) ok "Steam theme installed — Steam shows it from its next start" ;;
+    2) info "the Steam theme needs your terminal (the AUR, or sudo's password) — run: vitrum-steam-theme install" ;;
+    *) warn 'the Steam theme could not be installed (the reason is above) — Steam keeps its own look; vitrum-steam-theme install tries again' ;;
+  esac
+  return 0
+}
+
+# The Vesktop theme (vesktop_theme): vitrum-vesktop-theme install copies the
+# theme into the Vesktop that is there, native or the Flatpak, switches it on
+# in Vencord and applies it. Each run does the same, so an update brings new
+# theme files. vitrum installs no Vesktop: none yet is no failure, the theme
+# goes in later with vitrum-vesktop-theme install.
+_shell_vesktop_theme() {
+  component_active vesktop_theme || return 0
+  step "Vesktop theme"
+  if ! vesktop_present; then
+    info "Vesktop is not installed — the theme goes in later with: vitrum-vesktop-theme install"
+    return 0
+  fi
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would run: vitrum-vesktop-theme install --yes"; return 0; fi
+  local helper="$HOME/.local/bin/vitrum-vesktop-theme" rc=0
+  if [[ ! -x "$helper" ]]; then warn '%s is missing — the Vesktop theme is not installed' "$helper"; return 0; fi
+  "$helper" install --yes || rc=$?
+  case "$rc" in
+    0) ok "Vesktop theme installed — Vesktop shows it from its next start" ;;
+    2) info "the Vesktop theme needs your terminal — run: vitrum-vesktop-theme install" ;;
+    *) warn 'the Vesktop theme could not be installed (the reason is above) — Vesktop keeps its own look; vitrum-vesktop-theme install tries again' ;;
+  esac
+  return 0
 }
 
 # Your own QML widgets live in ~/.config/vitrum/widgets; an example goes in
@@ -127,6 +182,13 @@ _shell_theme_tool() {
   install_file "$VITRUM_DIR/tools/vitrum-thumbs" "$HOME/.local/bin/vitrum-thumbs" 0755
   # the launcher's Games tab
   install_file "$VITRUM_DIR/tools/vitrum-steam" "$HOME/.local/bin/vitrum-steam" 0755
+  # the Steam theme (Millennium), for the installer and Settings, with the
+  # theme's files it installs from
+  install_file "$VITRUM_DIR/tools/vitrum-steam-theme" "$HOME/.local/bin/vitrum-steam-theme" 0755
+  install_tree "$VITRUM_DIR/assets/steam/vitrum" "$XDG_DATA_HOME/vitrum/steam/vitrum"
+  # the Vesktop theme, the same way: its helper and the theme it installs from
+  install_file "$VITRUM_DIR/tools/vitrum-vesktop-theme" "$HOME/.local/bin/vitrum-vesktop-theme" 0755
+  install_tree "$VITRUM_DIR/assets/vesktop" "$XDG_DATA_HOME/vitrum/vesktop"
   # the phone, through KDE Connect
   install_file "$VITRUM_DIR/tools/vitrum-phone" "$HOME/.local/bin/vitrum-phone" 0755
   # the clipboard history (text kept for good, images up to clipboard.images)

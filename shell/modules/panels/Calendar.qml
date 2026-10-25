@@ -16,8 +16,8 @@ Column {
     Row {
         width: parent.width
         Label { text: Qt.formatDate(root.month, "MMMM yyyy"); size: Tokens.textLarge; font.weight: Font.DemiBold; width: parent.width - 2 * Tokens.islandHeight }
-        Capsule { icon: "chevron"; rotation: 180; implicitWidth: Tokens.islandHeight; onClicked: root.month = new Date(root.month.getFullYear(), root.month.getMonth() - 1, 1) }
-        Capsule { icon: "chevron"; implicitWidth: Tokens.islandHeight; onClicked: root.month = new Date(root.month.getFullYear(), root.month.getMonth() + 1, 1) }
+        GlassButton { icon: "chevron"; rotation: 180; implicitWidth: Tokens.islandHeight; onClicked: root.month = new Date(root.month.getFullYear(), root.month.getMonth() - 1, 1) }
+        GlassButton { icon: "chevron"; implicitWidth: Tokens.islandHeight; onClicked: root.month = new Date(root.month.getFullYear(), root.month.getMonth() + 1, 1) }
     }
 
     Grid {
@@ -31,16 +31,17 @@ Column {
         Repeater {
             // 6 weeks starting on the locale's first weekday
             model: 42
-            delegate: Rectangle {
+            // Today is tinted glass; its number stays the text colour.
+            delegate: Item {
                 required property int index
                 readonly property int lead: (root.month.getDay() - Qt.locale().firstDayOfWeek + 7) % 7
                 readonly property date day: new Date(root.month.getFullYear(), root.month.getMonth(), index - lead + 1)
                 readonly property bool inMonth: day.getMonth() === root.month.getMonth()
                 readonly property bool isToday: day.toDateString() === root.today.toDateString()
-                width: root.cell; height: root.cell; radius: width / 2
-                color: isToday ? Colors.accent : "transparent"
+                width: root.cell; height: root.cell
+                ShellTint { anchors.fill: parent; radius: Tokens.radiusButton; active: parent.isToday }
                 Label { anchors.centerIn: parent; text: parent.day.getDate(); numeric: true
-                        role: parent.isToday ? "onAccent" : parent.inMonth ? "text" : "dim"; opacity: parent.inMonth ? 1 : 0.5 }
+                        role: parent.inMonth ? "text" : "dim"; opacity: parent.inMonth ? 1 : 0.5 }
             }
         }
     }

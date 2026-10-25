@@ -143,6 +143,17 @@ Singleton {
         return null;
     }
 
+    /// An app icon's image source that never shows Qt's missing texture (the
+    /// magenta and black squares): the named icon, or the theme's generic
+    /// executable, or "" when the theme has neither. On "" the caller draws
+    /// the "window" line glyph (Icon) in its place. A path (Icon=/…/x.png)
+    /// is taken as a file.
+    function iconSource(name) {
+        const n = String(name || "");
+        if (n.startsWith("/")) return "file://" + n;
+        return (n && Quickshell.iconPath(n, true)) || Quickshell.iconPath("application-x-executable", true);
+    }
+
     function iconFor(appId, fallback) {
         const a = forAppId(appId);
         return a ? a.icon : (fallback || "application-x-executable");

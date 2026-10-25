@@ -2,6 +2,7 @@
 import json
 import re
 import sys
+import subprocess
 import tempfile
 import unittest
 from pathlib import Path
@@ -227,13 +228,28 @@ class Components(unittest.TestCase):
     def test_reload_sources_only_the_colours_and_skips_tmux_when_off(self):
         calls = []
         real = R.subprocess.run
-        R.subprocess.run = lambda cmd, **kw: calls.append(cmd)
+        vitrum_server = {"on": True}
+
+        def fake(cmd, **kw):
+            calls.append(cmd)
+            out = "#8ab4f8\n" if vitrum_server["on"] and cmd[:2] == ["tmux", "show-options"] else ""
+            return subprocess.CompletedProcess(cmd, 0, stdout=out, stderr="")
+        R.subprocess.run = fake
         try:
-            R.reload_running(Path("/cfg"), {"tmux": True})
-            self.assertIn(["tmux", "source-file", "/cfg/tmux/vitrum.conf"], calls)
-            calls.clear()
-            R.reload_running(Path("/cfg"), {"tmux": False})
-            self.assertFalse([c for c in calls if c[0] == "tmux"])
+            with tempfile.TemporaryDirectory() as t:
+                cfg = Path(t)
+                (cfg / "tmux").mkdir()
+                (cfg / "tmux/vitrum.conf").write_text("# colours\n")
+                R.reload_running(cfg, {"tmux": True})
+                self.assertIn(["tmux", "source-file", str(cfg / "tmux/vitrum.conf")], calls)
+                calls.clear()
+                R.reload_running(cfg, {"tmux": False})
+                self.assertFalse([c for c in calls if c[0] == "tmux"])
+                # A tmux server that is not running vitrum's colours is never touched.
+                calls.clear()
+                vitrum_server["on"] = False
+                R.reload_running(cfg, {"tmux": True})
+                self.assertFalse([c for c in calls if c[:2] == ["tmux", "source-file"]])
         finally:
             R.subprocess.run = real
 
@@ -360,13 +376,16 @@ class KdeColours(unittest.TestCase):
             self.assertFalse((home / ".config/kdeglobals").exists())
             self.assertFalse((home / ".local/share/color-schemes/Vitrum.colors").exists())
 
-    def test_setting_off_leaves_gtk_alone(self):
+    def test_setting_off_empties_gtk_colours(self):
+        # Off: vitrum.css is emptied, so gtk.css's import brings no palette
+        # (not the last one, frozen, that no longer follows light and dark).
         with tempfile.TemporaryDirectory() as t:
             home = Path(t)
             R.render_all(palette("dark"), "dark", {"toolkits": {"gtk": False}}, templates=ROOT / "config",
                          config=home / ".config", data=home / ".local/share/vitrum")
-            self.assertFalse((home / ".config/gtk-3.0/vitrum.css").exists())
-            self.assertFalse((home / ".config/gtk-4.0/vitrum.css").exists())
+            for v in ("gtk-3.0", "gtk-4.0"):
+                css = (home / ".config" / v / "vitrum.css").read_text()
+                self.assertNotIn("@define-color", css)
 
     def test_gtk_on_by_default(self):
         with tempfile.TemporaryDirectory() as t:
@@ -459,6 +478,48 @@ class Fastfetch(unittest.TestCase):
             self.assertNotIn("Error", r.stdout + r.stderr)
             self.assertEqual(r.returncode, 0, r.stdout + r.stderr)
 
+    def rendered(self, t):
+        cfg = Path(t) / "cfg"
+        R.render_all(palette("dark"), "dark", {}, templates=ROOT / "config", config=cfg,
+                     data=Path(t) / "share/vitrum", base=True)
+        return cfg / "fastfetch/config.jsonc"
+
+    def test_long_lines_are_cut_not_wrapped_under_the_logo(self):
+        # fastfetch 2.65 made line wrap the default: in half the screen a long
+        # line went on at column 1, under the logo, and pushed the rest down.
+        # flatpak's two counts made Packages the longest line of all.
+        import json
+        with tempfile.TemporaryDirectory() as t:
+            lines = self.rendered(t).read_text(encoding="utf-8").splitlines()
+            conf = json.loads("\n".join(l for l in lines if not l.lstrip().startswith("//")))
+            self.assertIs(conf["display"]["disableLinewrap"], True)
+            packages = [m for m in conf["modules"] if isinstance(m, dict) and m.get("type") == "packages"]
+            self.assertEqual([m.get("combined") for m in packages], [True])
+
+    @unittest.skipUnless(__import__("shutil").which("fastfetch"), "fastfetch not installed")
+    def test_fastfetch_turns_line_wrap_off_in_a_terminal(self):
+        import os, pty, select, struct, fcntl, termios, subprocess
+        with tempfile.TemporaryDirectory() as t:
+            conf = self.rendered(t)
+            master, slave = pty.openpty()
+            fcntl.ioctl(slave, termios.TIOCSWINSZ, struct.pack("HHHH", 24, 60, 0, 0))
+            env = {k: v for k, v in os.environ.items() if k != "NO_COLOR"}
+            p = subprocess.Popen(["fastfetch", "--config", str(conf), "--logo-type", "none", "-s", "os:kernel"],
+                                 stdin=slave, stdout=slave, stderr=slave, env=env)
+            os.close(slave)
+            out = b""
+            while select.select([master], [], [], 10)[0]:
+                try:
+                    chunk = os.read(master, 65536)
+                except OSError:
+                    break
+                if not chunk:
+                    break
+                out += chunk
+            p.wait(timeout=30); os.close(master)
+            self.assertIn(b"\x1b[?7l", out)   # off while it prints
+            self.assertIn(b"\x1b[?7h", out)   # and back on after
+
 
 class FastfetchLogo(unittest.TestCase):
     """Gentoo builds fastfetch without ImageMagick, so "auto" cannot show the
@@ -479,9 +540,9 @@ class FastfetchLogo(unittest.TestCase):
             (t / "bin").mkdir()
             stub = t / "bin/fastfetch"; stub.write_text("#!/bin/sh\necho \"args: $*\"\n"); stub.chmod(0o755)
             env = {"PATH": f"{t}/bin:/usr/bin:/bin", "HOME": str(t)}
-            def run(extra):
-                return subprocess.run([__import__("shutil").which("fish"), "--no-config", "-i", "-c", f"source {abbr}; fastfetch --x"],
-                                      env={**env, **extra}, capture_output=True, text=True, timeout=30).stdout
+            def run(extra, args="--x"):
+                return subprocess.run([__import__("shutil").which("fish"), "--no-config", "-i", "-c", f"source {abbr}; fastfetch {args}"],
+                                      env={**env, "COLUMNS": "160", **extra}, capture_output=True, text=True, timeout=30).stdout
             logos = t / "data/vitrum/fastfetch"
             # Not made yet (no python3 at install): fastfetch as it is.
             self.assertIn("args: --x", run({"KITTY_WINDOW_ID": "1"}))
@@ -491,6 +552,53 @@ class FastfetchLogo(unittest.TestCase):
             self.assertIn(f"--logo {logos}/logo.tmux --logo-type raw", run({"KITTY_WINDOW_ID": "1", "TMUX": "/tmp/tmux-1/default,1,0"}))
             self.assertIn("args: --x", run({}))
             self.assertNotIn("kitty-direct", run({"KITTY_WINDOW_ID": "1", "TMUX": "x"}))
+
+    @unittest.skipUnless(__import__("shutil").which("fish"), "fish not installed")
+    def test_fish_fits_the_logo_to_the_terminal_width(self):
+        """In half the screen (about 90 columns) fastfetch's lines wrapped
+        under the logo. The logo leaves the values about 42 columns: the vitrum
+        mark from 90, the distribution's art from 120 and its small art from
+        90; below, none. A logo of the caller's own is passed through."""
+        import subprocess
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t:
+            t = Path(t)
+            with mock.patch.dict("os.environ", {"XDG_DATA_HOME": str(t / "data")}):
+                subs = R.substitutions(R.terminal_colours(palette("dark"), "dark"), "dark", {}, "/bin/fish", config=t / "cfg")
+            abbr = t / "abbr.fish"
+            abbr.write_text(R.render((ROOT / "config/fish/conf.d/10-vitrum-abbr.fish.in").read_text(encoding="utf-8"), subs))
+            (t / "bin").mkdir()
+            stub = t / "bin/fastfetch"; stub.write_text("#!/bin/sh\necho \"args: $*\"\n"); stub.chmod(0o755)
+            def run(cols, extra=None, args="--x"):
+                env = {"PATH": f"{t}/bin:/usr/bin:/bin", "HOME": str(t), "COLUMNS": str(cols), **(extra or {})}
+                out = subprocess.run([__import__("shutil").which("fish"), "--no-config", "-i", "-c", f"source {abbr}; fastfetch {args}"],
+                                     env=env, capture_output=True, text=True, timeout=30).stdout
+                return out.strip().removeprefix("args: ")
+            kitty = {"KITTY_WINDOW_ID": "1"}
+            # The distribution's logo (no logo.kitty), or any terminal but kitty.
+            for extra in (kitty, None):
+                self.assertEqual(run(160, extra), "--x")
+                self.assertEqual(run(120, extra), "--x")
+                self.assertEqual(run(119, extra), "--logo-type small --logo  --x")
+                self.assertEqual(run(90, extra), "--logo-type small --logo  --x")
+                self.assertEqual(run(89, extra), "--logo-type none --x")
+                self.assertEqual(run(60, extra), "--logo-type none --x")
+            # The vitrum mark, drawn by kitty: 30 cells and padding beside 42 columns.
+            logos = t / "data/vitrum/fastfetch"; logos.mkdir(parents=True)
+            (logos / "logo.kitty").write_text("k"); (logos / "logo.tmux").write_text("t")
+            for cols in (160, 100, 90):
+                self.assertTrue(run(cols, kitty).startswith(f"--logo {logos}/logo.kitty --logo-type raw"), cols)
+            self.assertTrue(run(90, {**kitty, "TMUX": "x"}).startswith(f"--logo {logos}/logo.tmux"))
+            for cols in (89, 80, 70, 60):
+                self.assertEqual(run(cols, kitty), "--logo-type none --x", cols)
+                self.assertEqual(run(cols, {**kitty, "TMUX": "x"}), "--logo-type none --x", cols)
+            # A logo of the caller's own, at any width.
+            for args in ("-l arch", "--logo arch", "--logo-type builtin", "--logo=arch", "--kitty-direct x.png", "--file x.txt"):
+                for cols in (160, 100, 60):
+                    self.assertEqual(run(cols, kitty, args), args, (args, cols))
+            # Other logo options are not a logo of one's own.
+            self.assertTrue(run(160, kitty, "--logo-padding-top 0").startswith(f"--logo {logos}/logo.kitty"))
+            self.assertEqual(run(60, kitty, "--logo-padding-top 0"), "--logo-type none --logo-padding-top 0")
 
 
 class TerminalBars(unittest.TestCase):

@@ -6,8 +6,8 @@ import qs.theme
 import qs.components
 
 /*
- * On-screen display: a capsule at the top centre, under the bar, on the
- * focused screen. Volume, microphone, brightness, keyboard layout — shown
+ * On-screen display: a glass island at the top centre, under the bar, on
+ * the focused screen; the value is a tinted meter. Volume, microphone, brightness, keyboard layout — shown
  * when the value changes, gone 1.2 s after the last change.
  */
 PanelWindow {
@@ -45,7 +45,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("osd", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: pill.opacity > 0.05 ? shape : dot; radius: pill.radius }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Item { id: shape; x: pill.x; y: pill.y; width: pill.width; height: pill.height }
 
     readonly property real value: kind === "volume" ? Audio.volume : kind === "mic" ? Audio.micVolume
@@ -59,7 +60,7 @@ PanelWindow {
         group: "osd"
         width: parent.width
         height: Tokens.islandHeight
-        radius: height / 2
+        radius: Tokens.radiusIsland
         y: root.showing ? 2 : -height
         opacity: root.showing ? 1 : 0
         Behavior on y { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
@@ -70,16 +71,11 @@ PanelWindow {
             anchors.leftMargin: Tokens.padding; anchors.rightMargin: Tokens.padding
             spacing: Tokens.gap
             Icon { name: root.iconName; anchors.verticalCenter: parent.verticalCenter; color: Colors.accent }
-            Item {
+            Meter {
                 visible: root.kind !== "layout"
                 width: parent.width - Tokens.iconSize * 4.5 - 2 * Tokens.gap
-                height: 6; anchors.verticalCenter: parent.verticalCenter
-                Rectangle { anchors.fill: parent; radius: 3; color: Colors.alpha(Colors.text, 0.15) }
-                Rectangle {
-                    height: parent.height; radius: 3; color: Colors.accent
-                    width: parent.width * Math.max(0, Math.min(1, root.value))
-                    Behavior on width { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
-                }
+                anchors.verticalCenter: parent.verticalCenter
+                value: root.value
             }
             Label {
                 anchors.verticalCenter: parent.verticalCenter

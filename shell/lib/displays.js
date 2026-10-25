@@ -57,6 +57,17 @@ function transformOf(o) {
     return t === "Normal" ? "normal" : t;
 }
 
+// The rotation chosen among Normal, 90°, 180° and 270°: the one set here, else
+// niri's. A mirrored transform ("flipped", "flipped-90"…, from a hand-written
+// output block) is none of them: "". Except winit's output (a nested niri):
+// niri reports Flipped180 for its upright picture (it draws with GL's y axis
+// up and flips that back), and nothing set says otherwise, so that is normal.
+function rotationOf(o, e) {
+    var t = (e && e.transform) || transformOf(o);
+    if (!(e && e.transform) && o && o.name === "winit" && t === "flipped-180") return "normal";
+    return /^(normal|90|180|270)$/.test(t) ? t : "";
+}
+
 // The size a screen takes in the layout: its mode over its scale, turned with it.
 function logicalSize(o, e) {
     e = e || {};

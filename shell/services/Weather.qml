@@ -39,6 +39,8 @@ Singleton {
 
     function refresh() {
         if (!enabled || !located) return;
+        if (fetch.running) { _again = true; return; }    // asked again when this one ends
+        fetched = root.request;
         loading = true;
         error = "";
         // The same API on a second host: some ISPs (Russian ones among them)
@@ -66,6 +68,7 @@ Singleton {
         onExited: code => {
             root.loading = false;
             if (code !== 0 && !root.ready) root.error = "Could not reach the weather service";
+            if (root._again) { root._again = false; if (root.request !== root.fetched) root.refresh(); }
         }
     }
 
@@ -131,6 +134,13 @@ Singleton {
     }
 
     onEnabledChanged: if (enabled) refresh()
+    // Another place or other units: asked again once the fields settle (a
+    // latitude typed before its longitude is not a place to ask about).
+    readonly property string request: latitude + "," + longitude + "," + metric
+    onRequestChanged: if (enabled) refreshLater.restart()
+    Timer { id: refreshLater; interval: 1500; onTriggered: if (root.request !== root.fetched) root.refresh() }
+    property string fetched: ""     // the query last asked
+    property bool _again: false
 
     // --------------------------------------------------------- geolocation --
 

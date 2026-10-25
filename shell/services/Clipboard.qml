@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../lib/clip.js" as Lib
 
 /*
  * Clipboard history, backed by cliphist.
@@ -25,26 +26,47 @@ Singleton {
         // list is lazy, and searching a few thousand lines is instant.
         // Longer previews than cliphist's 100 characters: search sees more of each.
         command: ["sh", "-c", "cliphist -preview-width 400 list 2>/dev/null"]
-        stdout: StdioCollector {
-            onStreamFinished: {
-                const out = [];
-                for (const line of text.split("\n")) {
-                    if (!line) continue;
-                    const tab = line.indexOf("\t");
-                    if (tab < 0) continue;
-                    const id = line.substring(0, tab);
-                    const preview = line.substring(tab + 1);
-                    out.push({
-                        id: id,
-                        preview: preview,
-                        // cliphist marks binary entries with this shape.
-                        isImage: /^\[\[ binary data .* (png|jpe?g|gif|webp|bmp) /i.test(preview)
-                    });
-                }
-                root.entries = out;
-            }
-        }
+        // cliphist marks binary entries "[[ binary data … png … ]]" (lib/clip.js).
+        stdout: StdioCollector { onStreamFinished: root.entries = Lib.parseList(text) }
         onExited: code => { if (code !== 0) root.available = false; }
+    }
+
+    // ------------------------------------------------------- recent ---
+    // The newest few, for the desktop widget: listed again whenever the
+    // selection changes (wl-paste --watch; vitrum-clip has stored it a moment
+    // later), and only while a widget subscribes and no game is on.
+    property var recent: []           // the newest recentCount, as entries
+    readonly property int recentCount: 12
+    property int watchers: 0
+    function watch()   { watchers++; recentLister.running = true; }
+    function unwatch() { watchers = Math.max(0, watchers - 1); }
+    Process {
+        id: selectionWatch
+        running: root.watchers > 0 && !GameMode.active
+        // The offer is read and dropped (a picture as well): only the change matters.
+        command: ["wl-paste", "--watch", "sh", "-c", "cat > /dev/null; echo changed"]
+        stdout: SplitParser { onRead: recentLater.restart() }
+        onRunningChanged: if (running) recentLater.restart()
+    }
+    Timer { id: recentLater; interval: 500; onTriggered: recentLister.running = true }
+    Process {
+        id: recentLister
+        command: ["sh", "-c", "cliphist -preview-width 400 list 2>/dev/null | head -n \"$1\"", "_", String(root.recentCount)]
+        stdout: StdioCollector { onStreamFinished: root.recent = Lib.parseList(text, root.recentCount) }
+    }
+    /// Decode these pictures one after another (the widget's thumbnails).
+    function wantImages(list) {
+        _queue = (list || []).filter(e => e && e.isImage && !decoded[e.id] && !failed[e.id]).map(e => e.id);
+        _nextImage();
+    }
+    property var _queue: []
+    function _nextImage() {
+        if (decoder.running) return;
+        while (_queue.length && (decoded[_queue[0]] || failed[_queue[0]])) _queue = _queue.slice(1);
+        if (!_queue.length) return;
+        const id = _queue[0];
+        _queue = _queue.slice(1);
+        requestPreview({ id: id, isImage: true });
     }
 
     // ------------------------------------------------------- previews ---
@@ -79,6 +101,7 @@ Singleton {
             const d = Object.assign({}, ok ? root.decoded : root.failed);
             d[wanted] = ok ? root.cacheDir + "/" + wanted + ".img" : true;
             if (ok) root.decoded = d; else root.failed = d;
+            Qt.callLater(root._nextImage);
         }
     }
     Process {
@@ -98,6 +121,7 @@ Singleton {
     function remove(entry) {
         Quickshell.execDetached(["sh", "-c", "printf '%s\\t%s' " + _q(entry.id) + " " + _q(entry.preview) + " | cliphist delete"]);
         entries = entries.filter(e => e.id !== entry.id);
+        recent = recent.filter(e => e.id !== entry.id);
         _forget(entry.id);
     }
 
@@ -107,6 +131,7 @@ Singleton {
         proc.command = ["cliphist", "wipe"];
         proc.running = true;
         entries = [];
+        recent = [];
     }
 
     function search(query) {
@@ -119,6 +144,17 @@ Singleton {
 
     Process {
         id: proc
+        onExited: root.refresh()
+    }
+
+    // A smaller clipboard.images takes effect now, not at the next picture
+    // copied (vitrum-clip trims only when it stores one).
+    readonly property int imageCap: Settings.get("clipboard.images", 500)
+    onImageCapChanged: if (Settings.ready) pruneLater.restart()
+    Timer { id: pruneLater; interval: 1500; onTriggered: pruner.running = true }
+    Process {
+        id: pruner
+        command: ["vitrum-clip", "prune"]
         onExited: root.refresh()
     }
 }

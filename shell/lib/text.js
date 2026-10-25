@@ -16,5 +16,6 @@ function _2(n) { return n < 10 ? "0" + n : String(n); }
 function clockParts(d, h24) {
     var h = d.getHours(), ampm = "";
     if (!h24) { ampm = h >= 12 ? "PM" : "AM"; h = h % 12; if (h === 0) h = 12; }
-    return { hh: _2(h), mm: _2(d.getMinutes()), ss: _2(d.getSeconds()), ampm: ampm };
+    // 12-hour time has no leading zero (4:03 PM), as everywhere else in the shell.
+    return { hh: h24 ? _2(h) : String(h), mm: _2(d.getMinutes()), ss: _2(d.getSeconds()), ampm: ampm };
 }

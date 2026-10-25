@@ -47,6 +47,11 @@ Singleton {
     property bool keybinds: false
     /// The welcome tour (the installer's marker, or vitrum-ipc welcome open).
     property bool welcome: false
+    /// The open tour's step (vitrum-ipc welcome step), and a move asked for from
+    /// outside: next / back by ±1, or a jump to a step (welcome next|back|go <n>).
+    property int welcomeStep: 0
+    signal welcomeMove(int delta)
+    signal welcomeGo(int step)
     /// A screen-share request from vitrum-portal: { id, types, multiple, app }, or null.
     property var screencastRequest: null
     signal screencastShareRequested(int index)      // vitrum-ipc debug screencastshare (tests)

@@ -17,8 +17,11 @@ PanelWindow {
     id: root
     required property var modelData
     screen: modelData
-    readonly property string path: Lib.pathFor(Wallpaper.conf, screen.name, Wallpaper.home)
-    readonly property bool active: Wallpaper.shellDraws && path !== "" && !(Wallpaper.live && Lib.isVideo(path) && !!Wallpaper.installed.mpvpaper)
+    readonly property string picked: Lib.pathFor(Wallpaper.conf, screen.name, Wallpaper.home)
+    readonly property bool playing: Wallpaper.videoOn(screen.name)
+    // A video that does not play shows its first frame (Wallpaper makes it).
+    readonly property string path: Lib.isVideo(picked) && !playing ? (Wallpaper.stills[picked] || "") : picked
+    readonly property bool active: Wallpaper.shellDraws && path !== "" && !playing
 
     visible: active
     anchors { top: true; bottom: true; left: true; right: true }

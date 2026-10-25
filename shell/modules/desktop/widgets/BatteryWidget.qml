@@ -36,8 +36,8 @@ Item {
         return "On battery";
     }
 
-    // A lightning bolt, sized by its width like the shape it replaced.
-    component Bolt: Icon { name: "bolt"; filled: true; size: Math.max(8, width) }
+    // A lightning bolt (a line icon, like the rest), sized by its width.
+    component Bolt: Icon { name: "bolt"; size: Math.max(8, width) }
 
     WidgetHeader {
         id: head
@@ -61,6 +61,7 @@ Item {
         readonly property real d: Math.max(48, Math.min(root.width, root.height - Tokens.textSmall - Tokens.gap * 0.4 - 4) * 0.92)
         Meter {
             id: ring
+            group: "widgets"
             anchors.horizontalCenter: parent.horizontalCenter
             kind: "circular"
             width: parent.d; height: parent.d
@@ -122,6 +123,7 @@ Item {
         }
         Meter {
             id: bar
+            group: "widgets"
             anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
             kind: "linear"
             thickness: 8

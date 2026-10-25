@@ -62,6 +62,14 @@ eq(d.transformOf({ logical: { transform: "270" } }), "270", "270");
 eq(d.transformOf({ logical: { transform: "Flipped90" } }), "flipped-90", "flipped-90");
 eq(d.transformOf({ logical: null }), "normal", "off: normal");
 
+// The rotation chip lit: set here, else niri's; a mirrored one lights none.
+eq(d.rotationOf({ name: "DP-1", logical: { transform: "Normal" } }, {}), "normal", "rotation: niri's normal");
+eq(d.rotationOf({ name: "DP-1", logical: { transform: "Normal" } }, { transform: "90" }), "90", "rotation: the one set");
+eq(d.rotationOf({ name: "DP-1", logical: { transform: "Flipped90" } }, {}), "", "rotation: mirrored is none");
+eq(d.rotationOf({ name: "DP-1", logical: { transform: "Flipped180" } }), "", "rotation: flipped-180 on a real screen");
+eq(d.rotationOf({ name: "winit", logical: { transform: "Flipped180" } }, {}), "normal", "rotation: winit's upright");
+eq(d.rotationOf({ name: "winit", logical: { transform: "Flipped180" } }, { transform: "270" }), "270", "rotation: winit, one set");
+
 const out1 = { current_mode: 0, modes: [m(2560, 1440, 144000)], logical: { x: 0, y: 0, width: 2048, height: 1152, scale: 1.25, transform: "Normal" } };
 eq(JSON.stringify(d.logicalSize(out1)), JSON.stringify({ w: 2048, h: 1152 }), "mode over scale");
 eq(JSON.stringify(d.logicalSize(out1, { transform: "90", scale: 1 })), JSON.stringify({ w: 1440, h: 2560 }), "turned");

@@ -18,7 +18,9 @@ BarModule {
     readonly property bool h24: Settings.get("clock.h24", true)
     readonly property bool secs: Settings.get("clock.seconds", false)
     property bool showTitle: false
-    readonly property string mode: (showTitle || UiState.debugHoverTitle) && Niri.focusedWindow ? "title" : Media.active ? "media" : "clock"
+    // The focused window's title on hover (bar.modules.context.title).
+    readonly property bool titleOn: Settings.get("bar.modules.context.title", true)
+    readonly property string mode: titleOn && (showTitle || UiState.debugHoverTitle) && Niri.focusedWindow ? "title" : Media.active ? "media" : "clock"
 
     // The island springs to this (one spring: the island's). Hovering only
     // ever widens it: an island that shrank under the pointer would lose the
@@ -51,7 +53,8 @@ BarModule {
         visible: opacity > 0
         Behavior on opacity { id: clockFade; enabled: Motion.enabled; Swap { to: clockFade.targetValue } }
         readonly property var p: TextLib.clockParts(root.now, root.h24)
-        Label { text: Qt.formatDate(root.now, "ddd d MMM"); role: "dim" }
+        // Softer than the time, but the text colour: "dim" faded out on a light island over a bright wallpaper.
+        Label { text: Qt.formatDate(root.now, "ddd d MMM"); color: Colors.alpha(Colors.text, 0.78) }
         Label { text: clock.p.hh + ":" + clock.p.mm + (root.secs ? ":" + clock.p.ss : "") + (clock.p.ampm ? " " + clock.p.ampm : ""); numeric: true; font.weight: Font.DemiBold }
     }
     Row {
@@ -79,7 +82,8 @@ BarModule {
         Rectangle { width: 1; height: Tokens.islandHeight * 0.45; color: Colors.alpha(Colors.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
         Label {
             anchors.verticalCenter: parent.verticalCenter
-            text: clock.p.hh + ":" + clock.p.mm + (clock.p.ampm ? " " + clock.p.ampm : "")
+            // Seconds too, when asked for (clock.seconds): a player is on most of the time.
+            text: clock.p.hh + ":" + clock.p.mm + (root.secs ? ":" + clock.p.ss : "") + (clock.p.ampm ? " " + clock.p.ampm : "")
             numeric: true; font.weight: Font.DemiBold
         }
     }

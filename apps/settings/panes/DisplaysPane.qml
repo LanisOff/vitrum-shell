@@ -106,7 +106,8 @@ Page {
             readonly property real offY: (height - spanH * k) / 2
             Repeater {
                 model: page.layout
-                delegate: Rectangle {
+                // A screen: a pane of tinted glass, ringed in the accent while held.
+                delegate: Item {
                     id: scr
                     required property var modelData
                     property real dx: 0
@@ -116,16 +117,22 @@ Page {
                     y: canvas.offY + (modelData.y - canvas.minY) * canvas.k + dy
                     width: modelData.w * canvas.k - 3
                     height: modelData.h * canvas.k - 3
-                    radius: Tokens.radiusInner / 2
                     z: drag.pressed ? 2 : 1
-                    color: drag.pressed ? Colors.alpha(Colors.accent, 0.35) : Colors.alpha(Colors.accent, drag.containsMouse ? 0.24 : 0.16)
-                    border.width: 2; border.color: Colors.accent
-                    Behavior on x { enabled: Motion.enabled && !drag.pressed; SpringAnim { token: Motion.bouncy } }
-                    Behavior on y { enabled: Motion.enabled && !drag.pressed; SpringAnim { token: Motion.bouncy } }
+                    Behavior on x { enabled: Motion.enabled && !drag.pressed; SpringAnim { token: Motion.smooth } }
+                    Behavior on y { enabled: Motion.enabled && !drag.pressed; SpringAnim { token: Motion.smooth } }
+                    Surface { anchors.fill: parent; group: "panels"; level: 1; radius: Tokens.radiusButton }
+                    ShellTint { anchors.fill: parent; radius: Tokens.radiusButton; hovered: drag.containsMouse }
+                    Rectangle {
+                        anchors.fill: parent; radius: Tokens.radiusButton
+                        color: "transparent"
+                        border.width: 2; border.color: Colors.accent
+                        opacity: drag.pressed ? 1 : 0
+                        Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
+                    }
                     Column {
                         anchors.centerIn: parent
                         width: parent.width - Tokens.gap
-                        Icon { visible: scr.primary; name: "star"; filled: true; color: Colors.accent; anchors.horizontalCenter: parent.horizontalCenter; size: Tokens.iconSize * 0.9 }
+                        Icon { visible: scr.primary; name: "star"; color: Colors.text; anchors.horizontalCenter: parent.horizontalCenter; size: Tokens.iconSize * 0.9 }
                         Label { text: scr.modelData.name; width: parent.width; horizontalAlignment: Text.AlignHCenter; font.weight: Font.DemiBold; size: Tokens.textSmall + 1 }
                         Label { text: scr.modelData.w + " × " + scr.modelData.h; width: parent.width; horizontalAlignment: Text.AlignHCenter; role: "dim"; size: Tokens.textSmall; numeric: true }
                     }
@@ -174,7 +181,7 @@ Page {
             SettingRow {
                 label: "Use this screen"
                 hint: sec.mirror ? "Showing the same picture as " + sec.mirror : ""
-                Toggle {
+                GlassSwitch {
                     checked: !sec.off
                     // Never the last screen that is on.
                     opacity: !sec.off && page.outs.filter(o => !page.isOff(o)).length < 2 ? 0.4 : 1
@@ -198,7 +205,7 @@ Page {
             SettingRow {
                 visible: sec.on_ && page.outs.length > 1
                 label: "Main screen"; hint: "Where the session starts and new windows go first"
-                Toggle { checked: !!sec.e.primary; onToggled: page.setPrimary(sec.e.primary ? "" : sec.modelData.name) }
+                GlassSwitch { checked: !!sec.e.primary; onToggled: page.setPrimary(sec.e.primary ? "" : sec.modelData.name) }
             }
             SettingRow {
                 visible: !sec.off
@@ -242,14 +249,17 @@ Page {
                 }
             }
             SettingRow {
+                id: rotRow
                 visible: sec.on_
                 label: "Rotation"
+                readonly property string rot: D.rotationOf(sec.modelData, sec.e)
+                hint: rot ? "" : "Mirrored now (" + (sec.e.transform || D.transformOf(sec.modelData)) + "). A choice here turns it without the mirror."
                 Repeater {
                     model: [{ v: "normal", t: "Normal" }, { v: "90", t: "90°" }, { v: "180", t: "180°" }, { v: "270", t: "270°" }]
                     delegate: Chip_ {
                         required property var modelData
                         text: modelData.t
-                        on: (sec.e.transform || D.transformOf(sec.modelData)) === modelData.v
+                        on: rotRow.rot === modelData.v
                         onPicked: page.edit(sec.modelData.name, { transform: modelData.v })
                     }
                 }
@@ -259,13 +269,11 @@ Page {
                 label: "Scale"; divider: !D.vrrSupported(sec.modelData)
                 Repeater {
                     model: [1, 1.25, 1.5, 1.75, 2]
-                    delegate: Rectangle {
+                    delegate: Chip_ {
                         required property real modelData
-                        readonly property bool on: Math.abs((sec.e.scale || D.scaleOf(sec.modelData)) - modelData) < 0.01
-                        height: Tokens.islandHeight; radius: height / 2; width: sl.implicitWidth + Tokens.padding
-                        color: on ? Colors.accent : Colors.alpha(Colors.text, 0.06)
-                        Label { id: sl; anchors.centerIn: parent; text: Math.round(modelData * 100) + "%"; role: parent.on ? "onAccent" : "text"; size: Tokens.textSmall; numeric: true }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: page.edit(sec.modelData.name, { scale: modelData }) }
+                        text: Math.round(modelData * 100) + "%"
+                        on: Math.abs((sec.e.scale || D.scaleOf(sec.modelData)) - modelData) < 0.01
+                        onPicked: page.edit(sec.modelData.name, { scale: modelData })
                     }
                 }
             }
@@ -276,13 +284,11 @@ Page {
                 label: "Variable refresh rate"; divider: false
                 Repeater {
                     model: [{ v: "off", t: "Off" }, { v: "on-demand", t: "In games" }, { v: "on", t: "Always" }]
-                    delegate: Rectangle {
+                    delegate: Chip_ {
                         required property var modelData
-                        readonly property bool on: (sec.e.vrr || "off") === modelData.v
-                        height: Tokens.islandHeight; radius: height / 2; width: vl.implicitWidth + Tokens.padding
-                        color: on ? Colors.accent : Colors.alpha(Colors.text, 0.06)
-                        Label { id: vl; anchors.centerIn: parent; text: modelData.t; role: parent.on ? "onAccent" : "text"; size: Tokens.textSmall }
-                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: page.edit(sec.modelData.name, { vrr: modelData.v }) }
+                        text: modelData.t
+                        on: (sec.e.vrr || "off") === modelData.v
+                        onPicked: page.edit(sec.modelData.name, { vrr: modelData.v })
                     }
                 }
             }
@@ -300,34 +306,30 @@ Page {
         visible: revert.running
         spacing: Tokens.gap
         Label { text: "Keep these settings? Going back in " + page.secondsLeft + " s."; anchors.verticalCenter: parent.verticalCenter }
-        Rectangle {
-            height: Tokens.islandHeight * 1.2; radius: height / 2; width: kl.implicitWidth + Tokens.padding * 2; color: Colors.accent
-            Label { id: kl; anchors.centerIn: parent; text: "Keep"; role: "onAccent"; font.weight: Font.DemiBold }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: revert.stop() }
-        }
-        Rectangle {
-            height: Tokens.islandHeight * 1.2; radius: height / 2; width: rl.implicitWidth + Tokens.padding * 2; color: Colors.alpha(Colors.text, 0.06)
-            Label { id: rl; anchors.centerIn: parent; text: "Go back" }
-            MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: { revert.stop(); page.edits = page.before; page.save(true); } }
-        }
+        GlassButton { label: "Keep"; primary: true; height: Tokens.islandHeight * 1.2; onClicked: revert.stop() }
+        GlassButton { label: "Go back"; height: Tokens.islandHeight * 1.2; onClicked: { revert.stop(); page.edits = page.before; page.save(true); } }
     }
-    Rectangle {
+    GlassButton {
         visible: page.dirty && !revert.running
-        height: Tokens.islandHeight * 1.2; radius: height / 2; width: al.implicitWidth + Tokens.padding * 2
-        color: Colors.accent
-        Label { id: al; anchors.centerIn: parent; text: "Apply"; role: "onAccent"; font.weight: Font.DemiBold }
-        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: page.save() }
+        label: "Apply"; primary: true; height: Tokens.islandHeight * 1.2
+        onClicked: page.save()
     }
-    // A choice chip: the picked one in the accent.
-    component Chip_: Rectangle {
+    // A choice chip on glass: the picked one tinted.
+    component Chip_: Item {
         id: chip
         property string text: ""
         property bool on: false
         signal picked()
-        height: Tokens.islandHeight; radius: height / 2; width: cl.implicitWidth + Tokens.padding * 1.2
-        color: on ? Colors.accent : Colors.alpha(Colors.text, cm.containsMouse ? 0.1 : 0.06)
-        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-        Label { id: cl; anchors.centerIn: parent; text: chip.text; role: chip.on ? "onAccent" : "text"; size: Tokens.textSmall; numeric: true }
+        height: Tokens.islandHeight; width: cl.implicitWidth + Tokens.padding * 1.2
+        Surface { anchors.fill: parent; group: "panels"; level: 1; radius: Tokens.radiusTile }
+        // The lift under the pointer, on clear glass.
+        Rectangle {
+            anchors.fill: parent; radius: Tokens.radiusTile
+            color: Colors.alpha(Colors.text, !chip.on && cm.containsMouse ? 0.06 : 0)
+            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        }
+        ShellTint { anchors.fill: parent; radius: Tokens.radiusTile; active: chip.on; hovered: cm.containsMouse }
+        Label { id: cl; anchors.centerIn: parent; text: chip.text; size: Tokens.textSmall; numeric: true }
         MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chip.picked() }
     }
 }

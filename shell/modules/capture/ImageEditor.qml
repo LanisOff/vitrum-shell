@@ -222,7 +222,7 @@ PanelWindow {
         anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: Tokens.islandHeight * 1.5 }
         width: bar.implicitWidth + 2 * Tokens.padding
         height: Tokens.islandHeight * 1.5
-        radius: height / 2
+        radius: Tokens.radiusTile
         MouseArea { anchors.fill: parent }
         Row {
             id: bar
@@ -231,7 +231,8 @@ PanelWindow {
             Repeater {
                 model: [{ t: "arrow", i: "arrow", tip: "Arrow (A)" }, { t: "rect", i: "rect", tip: "Box (R)" }, { t: "text", i: "text", tip: "Text (T)" },
                         { t: "marker", i: "brush", tip: "Marker (M)" }, { t: "blur", i: "blur", tip: "Blur (B)" }, { t: "crop", i: "crop", tip: "Crop (C)" }]
-                Capsule { required property var modelData; icon: modelData.i; active: root.tool === modelData.t; onClicked: root.tool = modelData.t }
+                // The chosen tool is tinted.
+                GlassButton { required property var modelData; group: "overlay"; icon: modelData.i; primary: root.tool === modelData.t; onClicked: root.tool = modelData.t }
             }
             Rectangle { width: 1; height: Tokens.islandHeight * 0.6; color: Colors.alpha(Colors.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
             Repeater {
@@ -246,12 +247,12 @@ PanelWindow {
                     MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: root.ink = modelData }
                 }
             }
-            Capsule { label: root.stroke <= 3 ? "Thin" : root.stroke <= 5 ? "Medium" : "Thick"; onClicked: root.stroke = root.stroke <= 3 ? 5 : root.stroke <= 5 ? 8 : 3 }
+            GlassButton { group: "overlay"; label: root.stroke <= 3 ? "Thin" : root.stroke <= 5 ? "Medium" : "Thick"; onClicked: root.stroke = root.stroke <= 3 ? 5 : root.stroke <= 5 ? 8 : 3 }
             Rectangle { width: 1; height: Tokens.islandHeight * 0.6; color: Colors.alpha(Colors.text, 0.2); anchors.verticalCenter: parent.verticalCenter }
-            Capsule { icon: "undo"; onClicked: root.undo() }
-            Capsule { icon: "copy"; label: "Copy"; onClicked: root.copy() }
-            Capsule { icon: "save"; label: "Save"; active: true; onClicked: root.save() }
-            Capsule { icon: "close"; onClicked: Capture.editDone("", false) }
+            GlassButton { group: "overlay"; icon: "undo"; onClicked: root.undo() }
+            GlassButton { group: "overlay"; icon: "copy"; label: "Copy"; onClicked: root.copy() }
+            GlassButton { group: "overlay"; icon: "save"; label: "Save"; primary: true; onClicked: root.save() }
+            GlassButton { group: "overlay"; icon: "close"; onClicked: Capture.editDone("", false) }
         }
     }
 }

@@ -1,0 +1,113 @@
+#!/usr/bin/env python3
+"""vitrum-steam-theme — vitrum's theme for Steam, through Millennium.
+
+  vitrum-steam-theme status      one line of JSON: {"millennium", "installed",
+                                 "active", "steamRunning", "themeDir"}
+  vitrum-steam-theme apply       write the theme's colours from vitrum's palette
+                                 and settings (steam.theme.*), and switch the
+                                 theme on or off in Millennium; installs nothing
+  vitrum-steam-theme install     Millennium if it is missing, the theme, then apply
+  vitrum-steam-theme reinstall   the same, with Millennium's install run again and
+                                 the theme's files replaced
+  vitrum-steam-theme remove      switch the theme off and delete it (Millennium stays)
+
+  --yes   no questions from the AUR helper (the installer passes it)
+
+Exit 0 on success; 1 with a short message on stderr on failure; 2 when it
+needs the user's terminal (Millennium from the AUR, or a password for sudo).
+Steam reads the theme when it starts: a change made while it runs shows
+after a restart of Steam (new colours also show in open windows within a
+few seconds).
+"""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+# Installed layout: ~/.local/bin/vitrum-steam-theme with the package in ~/.local/share/vitrum/lib.
+HERE = Path(__file__).resolve().parent
+for candidate in (HERE, HERE.parent / "share" / "vitrum" / "lib",
+                  Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "vitrum" / "lib"):
+    if (candidate / "vitrum_theme" / "__init__.py").is_file():
+        sys.path.insert(0, str(candidate))
+        break
+
+import vitrum_theme as vt  # noqa: E402
+from vitrum_theme import steam  # noqa: E402
+
+NEEDS_TERMINAL = ("in a terminal", "your password")
+
+
+def fail(msg: str) -> int:
+    print(f"vitrum-steam-theme: {msg}", file=sys.stderr)
+    return 2 if any(k in msg for k in NEEDS_TERMINAL) else 1
+
+
+def note(msg: str) -> None:
+    print(f"vitrum-steam-theme: {msg}", file=sys.stderr)
+
+
+def load():
+    settings, warnings = vt.load_settings(vt.CONFIG / "vitrum" / "settings.json")
+    for w in warnings:
+        note(f"warning: {w}")
+    pal_file = vt.DATA_HOME / "vitrum" / "palette.json"
+    try:
+        doc = json.loads(pal_file.read_text(encoding="utf-8"))
+        palette, source = doc["palette"], doc.get("source", "")
+        if not isinstance(palette, dict) or "dark" not in palette:
+            raise ValueError
+    except (OSError, ValueError, KeyError, TypeError):
+        # No palette yet (vitrum-theme never ran): work it out the same way.
+        path = settings["wallpaper"]["path"] or next(iter(settings["wallpaper"]["perOutput"].values()), "")
+        palette, source = vt.resolve_palette(settings, Path(os.path.expanduser(path)) if path else None)
+    return settings, vt.with_accent2(palette, settings), source
+
+
+def cmd_apply() -> int:
+    settings, palette, source = load()
+    changed = steam.apply(settings, palette, sync_colours=steam.theme_flag(settings, "sync"),
+                          enforce=True, note=source)
+    if changed and steam.steam_running():
+        note("Steam is running: restart it to load the change (the colours also show in open windows)")
+    return 0
+
+
+def cmd_install(reinstall: bool, yes: bool) -> int:
+    if not steam.steam_dir().is_dir():
+        return fail("Steam is not installed, or has not been started once yet: start it once, then run this again")
+    how = steam.install_millennium(reinstall=reinstall, yes=yes, say=note)
+    if how in ("aur", "release", "linked"):
+        note(f"Millennium is set up ({how})")
+    steam.install_theme(replace=reinstall)
+    steam.record_component(True)
+    cmd_apply()
+    return 0
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="vitrum-steam-theme", description="vitrum's theme for Steam (Millennium)")
+    ap.add_argument("command", choices=["status", "apply", "install", "reinstall", "remove"])
+    ap.add_argument("--yes", action="store_true", help="no questions from the AUR helper")
+    a = ap.parse_args(argv)
+    try:
+        if a.command == "status":
+            print(json.dumps(steam.status()))
+            return 0
+        if a.command == "apply":
+            return cmd_apply()
+        if a.command in ("install", "reinstall"):
+            return cmd_install(a.command == "reinstall", a.yes)
+        if a.command == "remove":
+            steam.remove_theme()
+            return 0
+    except steam.SteamThemeError as e:
+        return fail(str(e))
+    except OSError as e:
+        return fail(f"{e.strerror or e}: {e.filename or ''}".strip(": "))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

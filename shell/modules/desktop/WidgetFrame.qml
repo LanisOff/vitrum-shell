@@ -65,10 +65,10 @@ Surface {
     border.color: editing && selected ? Colors.accent : editing ? Colors.alpha(Colors.text, 0.35) : Materials.border("widgets")
     z: selected ? 2 : 1
 
-    // Appears with a small pop.
+    // Settles in from a little smaller, damped (no overshoot).
     scale: 0.92; opacity: 0
     Component.onCompleted: { scale = 1; opacity = 1; UiState.widgetFramesMade++; }
-    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
     Behavior on opacity { enabled: Motion.enabled; EaseAnim {} }
 
     // The file that shows it (W.widgetFile); none for a missing type.
@@ -141,13 +141,17 @@ Surface {
         visible: frame.editing && mover.containsMouse && !frame.selected
         color: Colors.alpha(Colors.text, 0.06)
     }
+    // The handles: small glass beads on the frame's corners. The resize one
+    // is tinted, as the selection's; the close one turns danger under the pointer.
     Rectangle {
         id: grip
         visible: frame.editing && frame.selected
-        width: 20 * frame.ui; height: width; radius: width / 2
+        width: 20 * frame.ui; height: width; radius: Tokens.radiusKnob * frame.ui
         anchors { right: parent.right; bottom: parent.bottom; margins: -7 * frame.ui }
-        color: Colors.accent
-        Icon { anchors.centerIn: parent; name: "resize"; size: 12 * frame.ui; color: Colors.onAccent; rotation: 90 }
+        color: Materials.fill("overlay", 2, Screen.name)
+        border.width: Tokens.hairline * frame.ui; border.color: Materials.border("overlay")
+        ShellTint { anchors.fill: parent; radius: parent.radius; group: "overlay"; active: frame.editing && frame.selected }
+        Icon { anchors.centerIn: parent; name: "resize"; size: 12 * frame.ui; color: Colors.text; rotation: 90 }
         MouseArea {
             anchors.fill: parent; anchors.margins: -6 * frame.ui
             cursorShape: Qt.SizeFDiagCursor
@@ -163,11 +167,12 @@ Surface {
     }
     Rectangle {
         visible: frame.editing && (frame.selected || mover.containsMouse)
-        width: 24 * frame.ui; height: width; radius: width / 2
+        width: 24 * frame.ui; height: width; radius: Tokens.radiusKnob * frame.ui
         anchors { right: parent.right; top: parent.top; margins: -9 * frame.ui }
-        color: closeMouse.containsMouse ? Colors.danger : Materials.fill("overlay", 2, Screen.name)
+        color: Materials.fill("overlay", 2, Screen.name)
         border.width: Tokens.hairline * frame.ui; border.color: Materials.border("overlay")
-        Icon { anchors.centerIn: parent; name: "close"; size: 14 * frame.ui; color: closeMouse.containsMouse ? "white" : Colors.text }
+        ShellTint { anchors.fill: parent; radius: parent.radius; group: "overlay"; tint: Colors.danger; active: closeMouse.containsMouse }
+        Icon { anchors.centerIn: parent; name: "close"; size: 14 * frame.ui; color: Colors.text }
         MouseArea { id: closeMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: frame.removed() }
     }
 

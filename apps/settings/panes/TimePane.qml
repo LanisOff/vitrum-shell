@@ -20,12 +20,7 @@ Page {
         SettingText { key: "weather.longitude"; label: "Longitude"; numeric: true; fieldWidth: Tokens.islandHeight * 4 }
         SettingRow {
             label: "Find my location"; hint: Weather.locating ? "Looking…" : "From your IP address (approximate)."
-            Rectangle {
-                height: Tokens.islandHeight * 1.05; radius: height / 2; width: dl.implicitWidth + Tokens.padding * 1.6
-                color: Colors.alpha(Colors.text, 0.06)
-                Label { id: dl; anchors.centerIn: parent; text: "Detect" }
-                MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Weather.detectLocation() }
-            }
+            GlassButton { label: "Detect"; onClicked: Weather.detectLocation() }
         }
         SettingChoice { key: "weather.units"; names: ({ metric: "Metric", imperial: "Imperial" }); divider: false }
     }

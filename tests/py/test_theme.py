@@ -84,11 +84,40 @@ class Palette(unittest.TestCase):
         self.assertGreaterEqual(vt.contrast(g["dark"]["text"], g["dark"]["surface"]), 4.5)
         self.assertGreaterEqual(vt.contrast(g["dark"]["onAccent"], g["dark"]["accent"]), 4.5)
 
+    def test_accent2_is_the_accent_turned(self):
+        # Dichroic glass: the accent's hue + look.dichroic.shift (−100 by
+        # default), saturation 0.72, lightness 0.74 dark / 0.42 light — the
+        # same maths as shell/lib/color.js dichroic().
+        import colorsys
+        def hls(c):
+            return colorsys.rgb_to_hls(*(int(c[i:i + 2], 16) / 255 for i in (1, 3, 5)))
+        pink = "#f2b3e7"
+        h0 = hls(pink)[0]
+        for dark, light in ((True, 0.74), (False, 0.42)):
+            h, l, s = hls(vt.accent2(pink, -100, dark))
+            self.assertAlmostEqual(((h - h0) * 360) % 360, 260, delta=1.5)
+            self.assertAlmostEqual(l, light, delta=0.01)
+            self.assertAlmostEqual(s, 0.72, delta=0.02)
+        # a grey accent counts as hue 0
+        self.assertEqual(vt.accent2("#808080", -100, True), vt.accent2("#ff0000", -100, True))
+        self.assertEqual(vt.dichroic_shift({}), -100.0)
+        self.assertEqual(vt.dichroic_shift({"look": {"dichroic": {"shift": 40}}}), 40.0)
+        self.assertEqual(vt.dichroic_shift({"look": {"dichroic": {"shift": 999}}}), 180.0)
+        for bad in ("50", True, None, float("nan")):
+            self.assertEqual(vt.dichroic_shift({"look": {"dichroic": {"shift": bad}}}), -100.0)
+
+    def test_palette_carries_accent2_in_both_schemes(self):
+        s, _ = vt.load_settings(Path("/nonexistent"))
+        s["look"] = {"dichroic": {"shift": 60}}
+        p, _ = vt.resolve_palette(s, None)
+        for scheme in ("dark", "light"):
+            self.assertEqual(p[scheme]["accent2"], vt.accent2(p[scheme]["accent"], 60, scheme == "dark"))
+
     def test_missing_wallpaper_falls_back_to_preset(self):
         s, _ = vt.load_settings(Path("/nonexistent"))
         s["palette"]["source"] = "wallpaper"
         p, note = vt.resolve_palette(s, Path("/no/such/wallpaper.png"))
-        self.assertEqual(p, vt.guard(vt.palette_from_preset(s["palette"]["preset"])))
+        self.assertEqual(p, vt.with_accent2(vt.guard(vt.palette_from_preset(s["palette"]["preset"])), s))
         self.assertIn("preset", note)
 
     def test_video_wallpaper_uses_poster(self):
@@ -133,6 +162,13 @@ class BadShapes(unittest.TestCase):
         self.assertIn('app-id="^foot$"', k)
         self.assertNotIn("kitty", k)
 
+    def test_window_material_app_ids_match_exactly_and_stay_valid_kdl(self):
+        s = self.settings(windows__materials=[{"appId": "org.kde.dolphin", "material": "glass"},
+                                              {"appId": 'foo(bar"', "material": "clear"}])
+        k = vt.effects_kdl(s)
+        self.assertIn('app-id="^org\\\\.kde\\\\.dolphin$"', k)
+        self.assertIn('app-id="^foo\\\\(bar\\"$"', k)
+
     def test_missing_matugen_or_ffmpeg_falls_back(self):
         def boom(*a, **kw):
             raise FileNotFoundError("matugen")
@@ -172,8 +208,8 @@ class Kdl(unittest.TestCase):
         s = self.settings(materials__groups={"bar": "glass"}, density="regular")
         k = vt.effects_kdl(s, caps={"shapedGlass": True})
         bar = k.split('match namespace="^vitrum-bar$"')[1].split("layer-rule")[0]
-        self.assertIn("geometry-corner-radius 17", bar)
-        self.assertIn("shape-fillet 17.0", bar)
+        self.assertIn("geometry-corner-radius 11", bar)
+        self.assertIn("shape-fillet 11.0", bar)
         launcher = k.split('match namespace="^vitrum-launcher$"')[1].split("layer-rule")[0]
         self.assertNotIn("shape-fillet", launcher)
 
@@ -187,9 +223,9 @@ class Kdl(unittest.TestCase):
         self.assertNotIn("xray true", bar)
 
     def test_shaped_glass_on_the_launcher(self):
-        # Glass on the launcher: its capsule, category buttons and results melt
-        # into one drop too, every piece rounded to half the capsule's height.
-        for density, r in (("compact", 24), ("regular", 27), ("comfortable", 30)):
+        # Glass on the launcher: its search field, category buttons and results
+        # melt into one drop too, every piece rounded like a tile (radiusLauncher).
+        for density, r in (("compact", 12), ("regular", 13), ("comfortable", 14)):
             s = self.settings(materials__groups={"bar": "glass", "launcher": "glass"}, density=density)
             launcher = vt.effects_kdl(s, caps={"shapedGlass": True}).split('match namespace="^vitrum-launcher$"')[1].split("layer-rule")[0]
             self.assertIn(f"geometry-corner-radius {r}", launcher)
@@ -205,7 +241,8 @@ class Kdl(unittest.TestCase):
         self.assertNotIn("shape-fillet", vt.effects_kdl(self.settings(materials__groups={"bar": "frosted"}), caps={"shapedGlass": True}))
 
     def test_island_radius_follows_density(self):
-        for density, r in (("compact", 15), ("regular", 17), ("comfortable", 19)):
+        # Tokens.radiusIsland: 10 at compact, scaled like the panel radius.
+        for density, r in (("compact", 10), ("regular", 11), ("comfortable", 12)):
             s = self.settings(materials__groups={"bar": "glass"}, density=density)
             self.assertIn(f"geometry-corner-radius {r}", vt.effects_kdl(s, caps={"shapedGlass": True}))
 
@@ -304,6 +341,20 @@ class Kdl(unittest.TestCase):
         self.assertGreater(look.index(rule), look.index("match is-focused=false"))
         self.assertIn("opacity 1.0", look[look.index(rule):].split("}")[0])
 
+    def test_steam_toasts_sit_bottom_right(self):
+        # Steam's notification toasts are windows titled notificationtoasts_N_…;
+        # niri would float them in the middle. Bottom-right, no focus, not dimmed
+        # (after the unfocused rule, so it wins), the card's radius.
+        look = vt.look_kdl(self.settings(), vt.palette_from_preset("graphite"), "dark")
+        match = 'match app-id="^steam$" title="^notificationtoasts_"'
+        self.assertIn(match, look)
+        self.assertGreater(look.index(match), look.index("match is-focused=false"))
+        rule = look[look.index(match):].split("}")[0]
+        for line in ("open-floating true", "open-focused false",
+                     'default-floating-position x=24 y=24 relative-to="bottom-right"',
+                     "geometry-corner-radius 12", "opacity 1.0"):
+            self.assertIn(line, rule)
+
     def test_games_get_vrr_with_the_users_list(self):
         # The same games as the shell's game mode: Steam, gamescope and games.extra
         # (substrings of the app id or title, any case), escaped for the regex and KDL.
@@ -323,7 +374,9 @@ class Kdl(unittest.TestCase):
     def test_animations_reduce_and_speed(self):
         self.assertIn("off", vt.animations_kdl(self.settings(motion__reduce=True)))
         self.assertIn("slowdown 0.5", vt.animations_kdl(self.settings(motion__speed=2.0)))
-        self.assertIn("damping-ratio=0.75 stiffness=520", vt.animations_kdl(self.settings()))
+        # Every spring niri gets is critically damped (no bounce), as the shell's.
+        self.assertNotRegex(vt.animations_kdl(self.settings()), r"damping-ratio=0\.")
+        self.assertEqual(vt.SPRINGS, {"snappy": (1.0, 900), "smooth": (1.0, 600)})
         # KDL: a float property must be written as a float (1.0, not 1)
         self.assertIn("damping-ratio=1.0 stiffness=900", vt.animations_kdl(self.settings()))
         self.assertNotRegex(vt.animations_kdl(self.settings()), r"damping-ratio=\d+ ")
@@ -333,6 +386,12 @@ class Kdl(unittest.TestCase):
         pal = vt.guard(vt.palette_from_preset("graphite"))
         self.assertIn("opacity 0.92", vt.look_kdl(self.settings(), pal, "dark"))
         self.assertIn("relative-to=\"workspace-view\"", vt.look_kdl(self.settings(windows__focus="gradient"), pal, "dark"))
+        # The gradient ring is dichroic: accent → accent2 (from the palette, or
+        # computed when a palette has none).
+        grad = vt.look_kdl(self.settings(windows__focus="gradient"), vt.with_accent2(pal, self.settings()), "dark")
+        a2 = vt.accent2(pal["dark"]["accent"], -100, True)
+        self.assertIn(f'active-gradient from="{pal["dark"]["accent"]}" to="{a2}"', grad)
+        self.assertIn(f'to="{a2}"', vt.look_kdl(self.settings(windows__focus="gradient"), pal, "dark"))
         self.assertIn('xcursor-theme "Bibata-Modern-Classic"', vt.look_kdl(self.settings(), pal, "dark"))
 
     def test_write_if_changed(self):
@@ -505,6 +564,51 @@ class BindsAndInput(unittest.TestCase):
         self.assertIn("accel-speed -1.00", pad)
         self.assertNotIn("natural-scroll", pad); self.assertNotIn("        tap\n", pad)
 
+    # Settings → Keyboard → Layouts. niri replaces a whole included xkb block, so
+    # the generated one carries config.kdl's options (the switching keys).
+    CONFIG_XKB = (
+        'input {\n    keyboard {\n        // xkb { layout "fr" }\n        xkb {\n'
+        '            layout "us,ru"\n            options "grp:alt_shift_toggle,compose:ralt"\n        }\n'
+        '        repeat-delay 400\n    }\n}\n')
+
+    def test_no_layouts_leaves_config_kdl_alone(self):
+        from vitrum_theme import niri_input as N
+        out = N.input_kdl(vt.load_settings(Path("/nonexistent"))[0], N.xkb_from_kdl(self.CONFIG_XKB))
+        self.assertNotIn("keyboard", out)
+        self.assertNotIn("xkb", out)
+
+    def test_layouts_reach_niri_with_configs_options(self):
+        from vitrum_theme import niri_input as N
+        out = N.input_kdl({"keyboard": {"layouts": ["us", "ru", "de"]}}, N.xkb_from_kdl(self.CONFIG_XKB))
+        self.assertIn('    keyboard {\n        xkb {\n            layout "us,ru,de"\n'
+                      '            options "grp:alt_shift_toggle,compose:ralt"\n        }\n    }\n', out)
+        self.assertNotIn("variant", out)
+        self.assertIn("mouse {", out)   # the pointer sections stay
+
+    def test_layout_variants_and_cleaning(self):
+        from vitrum_theme import niri_input as N
+        out = N.input_kdl({"keyboard": {"layouts": ["us", "de(nodeadkeys)", 'x"; spawn', 7, "us", "ru", "fr", "it"]}}, None)
+        self.assertIn('layout "us,de,ru,fr"', out)
+        self.assertIn('variant ",nodeadkeys,,"', out)
+        self.assertNotIn("options", out)
+        self.assertNotIn("spawn", out)
+
+    def test_xkb_from_kdl(self):
+        from vitrum_theme import niri_input as N
+        self.assertEqual(N.xkb_from_kdl(self.CONFIG_XKB), {"layout": "us,ru", "options": "grp:alt_shift_toggle,compose:ralt"})
+        self.assertIsNone(N.xkb_from_kdl("input { }"))
+        self.assertIsNone(N.xkb_from_kdl('/* xkb { layout "fr" } */'))
+        with_model = N.xkb_from_kdl('xkb {\n model "pc105"\n layout "us"\n}')
+        self.assertEqual(N.keyboard_kdl({"keyboard": {"layouts": ["de"]}}, with_model).count('model "pc105"'), 1)
+
+    def test_layouts_setting_loads_without_warnings(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "s.json"
+            p.write_text(json.dumps({"keyboard": {"layouts": ["us", "de(nodeadkeys)"]}}))
+            s, warnings = vt.load_settings(p)
+            self.assertEqual(warnings, [])
+            self.assertEqual(s["keyboard"], {"perApp": True, "layouts": ["us", "de(nodeadkeys)"]})
+
     def test_settings_types_survive_load(self):
         with tempfile.TemporaryDirectory() as tmp:
             p = Path(tmp) / "s.json"
@@ -572,3 +676,21 @@ class BindsAndInput(unittest.TestCase):
         self.assertNotIn("Mod+ ", out)
         self.assertNotIn("+Q ", out.replace("Shift+Q ", "").replace("Mod+Q ", ""))
 
+
+
+class CursorTheme(unittest.TestCase):
+    """Settings → Fonts & icons → Cursor theme reaches GTK's settings.ini too."""
+
+    def test_rewrites_the_cursor_line_in_both_settings_ini(self):
+        import tempfile
+        from unittest import mock
+        with tempfile.TemporaryDirectory() as t, mock.patch("subprocess.run"):
+            cfg = Path(t)
+            for v in ("gtk-3.0", "gtk-4.0"):
+                (cfg / v).mkdir()
+                (cfg / v / "settings.ini").write_text("[Settings]\ngtk-cursor-theme-name=Adwaita\ngtk-cursor-theme-size=24\n")
+            vt.set_cursor_theme("Bibata-Modern-Ice", config=cfg)
+            for v in ("gtk-3.0", "gtk-4.0"):
+                text = (cfg / v / "settings.ini").read_text()
+                self.assertIn("gtk-cursor-theme-name=Bibata-Modern-Ice", text)
+                self.assertIn("gtk-cursor-theme-size=24", text)

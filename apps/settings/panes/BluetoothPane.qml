@@ -22,12 +22,12 @@ Page {
         SettingRow {
             label: "Bluetooth"
             hint: Bluetooth.powered && Bluetooth.adapter ? "This computer is “" + Bluetooth.adapter.name + "”" : ""
-            Toggle { checked: Bluetooth.powered; onToggled: Bluetooth.setPowered(!Bluetooth.powered) }
+            GlassSwitch { checked: Bluetooth.powered; onToggled: Bluetooth.setPowered(!Bluetooth.powered) }
         }
         SettingRow {
             visible: Bluetooth.powered
             label: "Visible to other devices"; hint: "While on, phones and computers nearby can find this one to pair."; divider: false
-            Toggle { checked: Bluetooth.discoverable; onToggled: Bluetooth.setDiscoverable(!Bluetooth.discoverable) }
+            GlassSwitch { checked: Bluetooth.discoverable; onToggled: Bluetooth.setDiscoverable(!Bluetooth.discoverable) }
         }
     }
     Section {
@@ -47,8 +47,8 @@ Page {
                     name: "trash"; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter
                     MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor; onClicked: forget.ask(modelData) }
                 }
-                Capsule { label: modelData.connected ? "Disconnect" : "Connect"; active: !modelData.connected; anchors.verticalCenter: parent.verticalCenter
-                          onClicked: Bluetooth.toggle(modelData) }
+                GlassButton { label: modelData.connected ? "Disconnect" : "Connect"; primary: !modelData.connected; anchors.verticalCenter: parent.verticalCenter
+                              onClicked: Bluetooth.toggle(modelData) }
             }
         }
     }
@@ -65,8 +65,8 @@ Page {
                 device: modelData
                 divider: index < Bluetooth.nearby.length - 1
                 hint: modelData.pairing ? "Pairing…" : ""
-                Capsule { label: modelData.pairing ? "Cancel" : "Pair"; active: !modelData.pairing; anchors.verticalCenter: parent.verticalCenter
-                          onClicked: modelData.pairing ? modelData.cancelPair() : Bluetooth.pair(modelData) }
+                GlassButton { label: modelData.pairing ? "Cancel" : "Pair"; primary: !modelData.pairing; anchors.verticalCenter: parent.verticalCenter
+                              onClicked: modelData.pairing ? modelData.cancelPair() : Bluetooth.pair(modelData) }
             }
         }
     }

@@ -4,7 +4,7 @@ import qs.theme
 import qs.components
 import "root:/lib/keybinds.js" as KB
 
-// One combination: modifier chips, then one key pressed alone (niri takes a
+// One combination: modifier buttons (tinted while held in the combination), then one key pressed alone (niri takes a
 // bound combination before this window sees it; a single key it never takes).
 Column {
     id: ed
@@ -28,21 +28,23 @@ Column {
         spacing: Tokens.gap * 0.6
         Repeater {
             model: [{ id: "super", text: "Super" }, { id: "ctrl", text: "Ctrl" }, { id: "alt", text: "Alt" }, { id: "shift", text: "Shift" }]
-            delegate: Capsule {
+            delegate: GlassButton {
                 required property var modelData
                 label: modelData.text
-                active: !!ed.mods[modelData.id]
+                primary: !!ed.mods[modelData.id]
                 onClicked: { const m = Object.assign({}, ed.mods); m[modelData.id] = !m[modelData.id]; ed.mods = m; }
             }
         }
-        Rectangle {
+        // The key catcher: a glass field, tinted while it listens for a key.
+        Surface {
             id: catcher
-            height: Tokens.islandHeight * 1.05; radius: height / 2
+            height: Tokens.islandHeight * 1.05; radius: Tokens.radiusButton
             width: Math.max(Tokens.islandHeight * 4, keyLabel.implicitWidth + Tokens.padding * 2)
-            color: catcher.activeFocus ? Colors.alpha(Colors.accent, 0.2) : Colors.alpha(Colors.text, 0.06)
-            border.width: catcher.activeFocus ? 2 : 0
-            border.color: Colors.accent
+            group: "panels"; level: 1
+            border.width: catcher.activeFocus ? 2 : Tokens.hairline
+            border.color: catcher.activeFocus ? Colors.accent : Materials.border(group)
             focus: true
+            ShellTint { anchors.fill: parent; radius: parent.radius; active: catcher.activeFocus }
             Label { id: keyLabel; anchors.centerIn: parent; text: catcher.activeFocus ? "Press a key" : (ed.key ? KB.keyCaps(ed.key).join(" ") : "Choose a key"); role: catcher.activeFocus ? "text" : "dim" }
             MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: catcher.forceActiveFocus() }
             Keys.onPressed: event => {
@@ -61,9 +63,9 @@ Column {
     }
     Row {
         spacing: Tokens.gap
-        Capsule { label: "Save"; active: true; visible: !!ed.keys && ed.modOk && !ed.clash; onClicked: ed.saved(ed.keys) }
-        Capsule { label: "Swap"; visible: ed.modOk && !!ed.clash && ed.clash.own === undefined && ed.selfDefault.length > 0; onClicked: ed.swapped(ed.keys, ed.clash) }
-        Capsule { label: "Cancel"; onClicked: ed.cancelled() }
+        GlassButton { label: "Save"; primary: true; visible: !!ed.keys && ed.modOk && !ed.clash; onClicked: ed.saved(ed.keys) }
+        GlassButton { label: "Swap"; visible: ed.modOk && !!ed.clash && ed.clash.own === undefined && ed.selfDefault.length > 0; onClicked: ed.swapped(ed.keys, ed.clash) }
+        GlassButton { label: "Cancel"; onClicked: ed.cancelled() }
     }
     Component.onCompleted: catcher.forceActiveFocus()
 }

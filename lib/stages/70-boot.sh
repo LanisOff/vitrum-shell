@@ -58,8 +58,8 @@ _boot_sddm() {
   # install, not cp: the greeter runs as the sddm user and must be able to read it whatever our umask.
   run sudo install -d -m 755 "$SDDM_THEME"
   run sudo install -m 644 "$VITRUM_DIR/assets/sddm/vitrum/Main.qml" "$VITRUM_DIR/assets/sddm/vitrum/metadata.desktop" "$SDDM_THEME/"
-  # The shell's own glass (plain QtQuick) and its compiled shader, as they are.
-  run sudo install -m 644 "$VITRUM_DIR/shell/components/Glass.qml" "$VITRUM_DIR/shell/components/glass.frag.qsb" "$SDDM_THEME/"
+  # The shell's own glass and its tint (plain QtQuick) and the glass's compiled shader, as they are.
+  run sudo install -m 644 "$VITRUM_DIR/shell/components/Glass.qml" "$VITRUM_DIR/shell/components/Tint.qml" "$VITRUM_DIR/shell/components/glass.frag.qsb" "$SDDM_THEME/"
 
   # The desktop's wallpaper (an image; a video gives no background).
   local wall bg=""
@@ -110,19 +110,26 @@ _boot_sddm_dropin() {  # _boot_sddm_dropin wayland|x11
 # niri for the greeter: every window fullscreen (one per screen), no
 # decorations or animations to speak of, and the user's keyboard layouts so the
 # password is typed in the layout it was set in.
+# Settings → Keyboard → Layouts writes them into generated/input.kdl, which wins.
 _boot_greeter_kdl() {
-  local layout="us" options=""
+  local layout="us" variant="" options="" g
   local f="$XDG_CONFIG_HOME/vitrum/niri/config.kdl"
+  _xkb_value() { sed -n 's/^[[:space:]]*'"$1"'[[:space:]]*"\([^"]*\)".*/\1/p' "$2" | head -n 1; }
   if [[ -f "$f" ]]; then
-    layout="$(sed -n 's/^[[:space:]]*layout[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | head -n 1)"
-    options="$(sed -n 's/^[[:space:]]*options[[:space:]]*"\([^"]*\)".*/\1/p' "$f" | head -n 1)"
+    layout="$(_xkb_value layout "$f")"; variant="$(_xkb_value variant "$f")"; options="$(_xkb_value options "$f")"
   fi
+  g="$XDG_CONFIG_HOME/vitrum/niri/generated/input.kdl"
+  if [[ -f "$g" && -n "$(_xkb_value layout "$g")" ]]; then
+    layout="$(_xkb_value layout "$g")"; variant="$(_xkb_value variant "$g")"
+  fi
+  local vline=""
+  [[ -n "$variant" ]] && vline=$'\n            variant "'"$variant"'"'
   cat <<EOF
 // The SDDM greeter's compositor. Written by the vitrum installer.
 input {
     keyboard {
         xkb {
-            layout "${layout:-us}"
+            layout "${layout:-us}"${vline}
             options "${options}"
         }
     }
@@ -187,7 +194,8 @@ try:
     d = json.load(open(sys.argv[1]))["palette"]["dark"]
 except Exception:
     d = {}
-for key in ("bg", "surface", "text", "textDim", "accent", "onAccent", "danger"):
+# accent2: the tint's second hue (Main.qml computes it when a palette has none).
+for key in ("bg", "surface", "text", "textDim", "accent", "accent2", "danger"):
     if isinstance(d.get(key), str) and d[key].startswith("#"):
         print(f"{key}={d[key]}")
 PY

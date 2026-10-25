@@ -57,7 +57,8 @@ Singleton {
     // ---------------------------------------------------- applying ---
 
     property var applied: ({})       // output → "kind:path" last applied
-    Connections { target: Settings; function onValuesChanged() { Qt.callLater(root.applyAll); } }
+    // wallpaper.live.pauseWhenCovered takes effect at once, not at the next window change.
+    Connections { target: Settings; function onValuesChanged() { Qt.callLater(root.applyAll); Qt.callLater(root.updatePause); } }
     Connections { target: Quickshell; function onScreensChanged() { Qt.callLater(root.applyAll); } }
     onShellDrawsChanged: Qt.callLater(applyAll)
 
@@ -66,17 +67,23 @@ Singleton {
         const next = {};
         for (const s of Quickshell.screens) {
             const out = s.name, p = pathFor(out);
-            const kind = !p ? "none" : videoOn(out) ? "video" : shellDraws ? "shell" : "awww";
-            const key = kind + ":" + p;
+            // A video that does not play (live wallpapers off, or no mpvpaper)
+            // shows its first frame: awww cannot show a video file, and the
+            // shell's own view cannot either, so picking one changed nothing.
+            const kind = !p ? "none" : videoOn(out) ? "video" : Lib.isVideo(p) ? "still" : shellDraws ? "shell" : "awww";
+            const key = kind + ":" + p + (kind === "still" && shellDraws ? ":shell" : "");
             next[out] = key;
             if (applied[out] === key) continue;
             if (kind === "video") { startVideo(out, p); if (installed.awww) posterUnder(out, p); }
             else stopVideo(out);
-            if (kind === "awww") {
-                const o = origin && origin.output === out ? origin : null;
-                const first = applied[out] === undefined;      // at startup: no transition
-                awww(Lib.awwwArgs(p, out, first ? "none" : transition, o, 0.9));
-            }
+            const o = origin && origin.output === out ? origin : null;
+            const first = applied[out] === undefined;          // at startup: no transition
+            const t = first ? "none" : transition;
+            if (kind === "awww") awww(Lib.awwwArgs(p, out, t, o, 0.9));
+            if (kind === "still") withPoster(p, poster => {
+                if (shellDraws) { const s = Object.assign({}, stills); s[p] = poster; stills = s; }
+                else awww(Lib.awwwArgs(poster, out, t, o, 0.9));
+            });
         }
         applied = next;
         origin = null;
@@ -97,12 +104,24 @@ Singleton {
     // player starts (every shell start, every login) that frame shows, not
     // whatever picture awww held before — the old wallpaper flashed.
     readonly property string posters: (Quickshell.env("XDG_CACHE_HOME") || home + "/.cache") + "/vitrum/posters"
+    function posterOf(path) { return posters + "/" + Qt.md5(path) + ".png"; }
     function posterUnder(output, path) {
-        const poster = posters + "/" + Qt.md5(path) + ".png";
+        const poster = posterOf(path);
         run(["sh", "-c", 'p="$1"; poster="$2"; shift 2; mkdir -p "${poster%/*}"; ' +
              '[ -s "$poster" ] || ffmpeg -y -loglevel error -ss 0 -i "$p" -frames:v 1 "$poster" || exit 0; ' +
              'awww query >/dev/null 2>&1 || exit 0; exec "$@"', "_", path, poster].concat(Lib.awwwArgs(poster, output, "none", null, 0.1)));
     }
+
+    /// A video's first frame, made once (cached with posterUnder's): then(poster).
+    function withPoster(path, then) {
+        const poster = posterOf(path);
+        const p = oneShot.createObject(root, { command: ["sh", "-c",
+            '[ -s "$2" ] || { mkdir -p "${2%/*}" && ffmpeg -y -loglevel error -ss 0 -i "$1" -frames:v 1 "$2"; }', "_", path, poster] });
+        p.exited.connect(code => { Qt.callLater(() => p.destroy()); if (code === 0) then(poster); });
+        p.running = true;
+    }
+    /// video → its first frame, for the shell's own view (WallpaperView).
+    property var stills: ({})
 
     property var players: ({})       // output → { proc, socket, paused }
     Component { id: playerProc; Process {} }

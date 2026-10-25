@@ -67,7 +67,8 @@ Column {
     Label { visible: opener.children.values.length === 0; text: "Nothing in this menu"; role: "dim"; leftPadding: Tokens.padding }
 
     // One menu row: an icon (theme glyph or the entry's own image), the text,
-    // and an indicator at the far end. The hovered row is an accent capsule.
+    // and an indicator at the far end. The hovered row lifts a little, a
+    // faint light on the glass (radius Tokens.radiusButton, no accent fill).
     component Row_: Rectangle {
         id: row
         property string icon: ""
@@ -79,10 +80,10 @@ Column {
         signal clicked()
         width: root.width
         height: Tokens.islandHeight
-        radius: height / 2
+        radius: Tokens.radiusButton
         opacity: enabled ? 1 : 0.45
-        color: hit.containsMouse && enabled ? Colors.alpha(Colors.accent, 0.22) : "transparent"
-        Behavior on color { enabled: Motion.enabled; ColorAnim {} }
+        color: Colors.alpha(Colors.text, hit.containsMouse && enabled ? (hit.pressed ? 0.12 : 0.08) : 0)
+        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
         Row {
             anchors { left: parent.left; leftMargin: Tokens.padding; verticalCenter: parent.verticalCenter }
             spacing: Tokens.gap

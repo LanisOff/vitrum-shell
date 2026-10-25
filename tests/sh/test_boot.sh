@@ -10,7 +10,7 @@ _load_boot() {
   stub rsvg-convert 'for a; do o="$a"; done; : > "$o"'
   stub magick 'for a; do o="$a"; done; : > "$o"'
   mkdir -p "$XDG_DATA_HOME/vitrum" "$XDG_CONFIG_HOME/vitrum"
-  printf '{"source":"preset","palette":{"dark":{"bg":"#101112","surface":"#202122","text":"#eeeeee","textDim":"#aaaaaa","accent":"#123456","onAccent":"#ffffff","danger":"#ff0000"}}}' \
+  printf '{"source":"preset","palette":{"dark":{"bg":"#101112","surface":"#202122","text":"#eeeeee","textDim":"#aaaaaa","accent":"#123456","accent2":"#654321","onAccent":"#ffffff","danger":"#ff0000"}}}' \
     > "$XDG_DATA_HOME/vitrum/palette.json"
 }
 _theme() { echo "$VITRUM_SYSROOT/usr/share/sddm/themes/vitrum"; }
@@ -21,10 +21,15 @@ test_sddm_theme_installed_selected_and_coloured() {
   [[ -f "$(_theme)/Main.qml" && -f "$(_theme)/metadata.desktop" ]]
   # The shell's glass, as it is, and its compiled shader.
   [[ -f "$(_theme)/Glass.qml" && -f "$(_theme)/glass.frag.qsb" ]]
+  # The tint (dichroic glass), plain QtQuick next to Glass.qml.
+  [[ -f "$(_theme)/Tint.qml" ]]
   # The greeter reads the user's login folder (login.json) with XMLHttpRequest.
   assert_contains "$(cat "$VITRUM_SYSROOT/etc/sddm.conf.d/zz-vitrum.conf")" "QML_XHR_ALLOW_FILE_READ=1"
   c="$(cat "$(_theme)/theme.conf")"
   assert_contains "$c" "accent=#123456"
+  assert_contains "$c" "accent2=#654321"
+  # Text on the tint is the text colour: nothing reads onAccent any more.
+  [[ "$c" != *onAccent* ]]
   assert_contains "$c" "bg=#101112"
   assert_contains "$c" "background="
   assert_contains "$(cat "$VITRUM_SYSROOT/etc/sddm.conf.d/zz-vitrum.conf")" "Current=vitrum"
@@ -127,6 +132,20 @@ test_sddm_greeter_runs_on_niri() {
   assert_contains "$g" 'layout "us,ru"'
   assert_contains "$g" 'options "grp:alt_shift_toggle"'
   assert_contains "$g" "open-fullscreen true"
+}
+# Layouts set in Settings → Keyboard (generated/input.kdl) reach the greeter;
+# the switching keys stay config.kdl's.
+test_sddm_greeter_takes_the_layouts_from_settings() {
+  _load_boot; stub sddm; WANT_SDDM=1; WANT_PLYMOUTH=0
+  mkdir -p "$VITRUM_SYSROOT/usr/local/bin"; printf '#!/bin/sh\n' > "$VITRUM_SYSROOT/usr/local/bin/niri"; chmod +x "$VITRUM_SYSROOT/usr/local/bin/niri"
+  mkdir -p "$XDG_CONFIG_HOME/vitrum/niri/generated"
+  printf 'input {\n    keyboard {\n        xkb {\n            layout "us,ru"\n            options "grp:alt_shift_toggle"\n        }\n    }\n}\n' > "$XDG_CONFIG_HOME/vitrum/niri/config.kdl"
+  printf 'input {\n    keyboard {\n        xkb {\n            layout "us,de"\n            variant ",nodeadkeys"\n            options "grp:alt_shift_toggle"\n        }\n    }\n    mouse {\n    }\n}\n' > "$XDG_CONFIG_HOME/vitrum/niri/generated/input.kdl"
+  stage_boot >/dev/null
+  g="$(cat "$VITRUM_SYSROOT/etc/sddm/vitrum-greeter.kdl")"
+  assert_contains "$g" 'layout "us,de"'
+  assert_contains "$g" 'variant ",nodeadkeys"'
+  assert_contains "$g" 'options "grp:alt_shift_toggle"'
 }
 test_sddm_stays_on_x11_without_niri() {
   _load_boot; stub sddm; WANT_SDDM=1; WANT_PLYMOUTH=0

@@ -115,7 +115,7 @@ PanelWindow {
             group: "overlay"
             anchors { top: lens.bottom; topMargin: Tokens.gap; horizontalCenter: lens.horizontalCenter }
             width: row.implicitWidth + 2 * Tokens.padding; height: Tokens.islandHeight
-            radius: height / 2
+            radius: Tokens.radiusIsland
             Row {
                 id: row
                 anchors.centerIn: parent
@@ -132,7 +132,7 @@ PanelWindow {
         group: "overlay"
         anchors { horizontalCenter: parent.horizontalCenter; bottom: parent.bottom; bottomMargin: Tokens.islandHeight * 2 }
         width: hist.implicitWidth + 2 * Tokens.padding; height: Tokens.islandHeight * 1.4
-        radius: height / 2
+        radius: Tokens.radiusTile
         Row {
             id: hist
             anchors.centerIn: parent

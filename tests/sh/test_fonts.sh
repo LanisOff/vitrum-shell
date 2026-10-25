@@ -56,7 +56,17 @@ test_stage_fonts_writes_vitrum_fontconfig_and_drops_tahoe() {
   # Apple's emoji first, Noto's for anything it lacks.
   assert_contains "$conf" "<family>emoji</family><prefer><family>Apple Color Emoji</family><family>Noto Color Emoji</family>"
   [[ ! -e "$XDG_CONFIG_HOME/fontconfig/conf.d/50-niri-tahoe.conf" ]]
-  assert_eq "$(sort "$HOME/fetched" | tr '\n' ' ')" "apple-emoji bibata material-symbols "
+  assert_eq "$(sort "$HOME/fetched" | tr '\n' ' ')" "apple-emoji bibata phosphor-fill phosphor-light "
+}
+# Material Symbols, the icon font before Phosphor, leaves with its stamp.
+test_stage_fonts_removes_material_symbols() {
+  stub fc-cache
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/assets.sh"; source "$VITRUM_DIR/lib/stages/20-fonts.sh"
+  fetch_asset() { :; }
+  mkdir -p "$HOME/.local/share/fonts/vitrum" "$VITRUM_STATE/assets"
+  touch "$HOME/.local/share/fonts/vitrum/MaterialSymbolsRounded.ttf" "$VITRUM_STATE/assets/material-symbols.sha256"
+  stage_fonts >/dev/null
+  [[ ! -e "$HOME/.local/share/fonts/vitrum/MaterialSymbolsRounded.ttf" && ! -e "$VITRUM_STATE/assets/material-symbols.sha256" ]]
 }
 test_font_cache_failure_carries_fc_cache_reason() {
   stub fc-cache 'echo "/home/u/.cache/fontconfig: failed to write cache" >&2; exit 1'

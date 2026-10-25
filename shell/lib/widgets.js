@@ -13,7 +13,7 @@
 //               default, choices: [{ value, label }], min, max, step, hint,
 //               hidden: kept in options but not in the form (a note's text) }
 function _c(v, l) { return { value: v, label: l }; }
-var HOURS = [_c("24", "24-hour"), _c("12", "12-hour")];
+var HOURS = [_c("auto", "As in Date & time"), _c("24", "24-hour"), _c("12", "12-hour")];
 var COLORS = [_c("accent", "Accent"), _c("0", "Red"), _c("60", "Yellow"), _c("120", "Green"),
               _c("180", "Cyan"), _c("240", "Blue"), _c("300", "Magenta")];
 
@@ -21,7 +21,7 @@ var CATALOG = {
     // ---- time and weather
     clock: { name: "Clock", icon: "clock", category: "time", sizes: ["S", "M", "L"], def: "M", bare: true, options: [
         { key: "style", label: "Style", type: "choice", default: "glass", choices: [_c("glass", "Glass digits"), _c("digital", "On a plate")] },
-        { key: "hours", label: "Hours", type: "choice", default: "24", choices: HOURS },
+        { key: "hours", label: "Hours", type: "choice", default: "auto", choices: HOURS },
         { key: "seconds", label: "Seconds", type: "bool", default: false },
         { key: "date", label: "Date", type: "bool", default: true }] },
     analog: { name: "Analog clock", icon: "clock", category: "time", sizes: ["S", "L"], def: "S", options: [
@@ -30,7 +30,7 @@ var CATALOG = {
         { key: "color", label: "Hand colour", type: "color", default: "accent", choices: COLORS }] },
     worldclock: { name: "World clocks", icon: "world", category: "time", sizes: ["S", "M", "L"], def: "M", options: [
         { key: "zones", label: "Time zones", type: "list", default: ["Europe/London", "America/New_York", "Asia/Tokyo"], hint: "IANA names, e.g. Europe/Berlin" },
-        { key: "hours", label: "Hours", type: "choice", default: "24", choices: HOURS }] },
+        { key: "hours", label: "Hours", type: "choice", default: "auto", choices: HOURS }] },
     calendar: { name: "Calendar", icon: "calendar", category: "time", sizes: ["S", "L"], def: "L", options: [
         { key: "firstDay", label: "Week starts on", type: "choice", default: "1", choices: [_c("1", "Monday"), _c("0", "Sunday")] },
         { key: "weekNumbers", label: "Week numbers", type: "bool", default: false }] },
@@ -103,7 +103,48 @@ var CATALOG = {
         { key: "title", label: "Title", type: "text", default: "Apps" },
         { key: "apps", label: "Apps", type: "list", default: [], hint: "Desktop file names; empty: the most used" }] },
     steam: { name: "Steam games", icon: "gamepad", category: "apps", sizes: ["M", "L", "XL"], def: "M", interactive: true, options: [
-        { key: "count", label: "Games", type: "number", default: 4, min: 2, max: 8, step: 1 }] }
+        { key: "count", label: "Games", type: "number", default: 4, min: 2, max: 8, step: 1 }] },
+    // ---- new in 0.5.0: system & apps
+    processes: { name: "Top processes", icon: "processes", category: "system", sizes: ["M", "L"], def: "M", options: [
+        { key: "by", label: "Sort by", type: "choice", default: "cpu", choices: [_c("cpu", "Processor"), _c("memory", "Memory")] },
+        { key: "count", label: "Processes", type: "number", default: 5, min: 3, max: 8, step: 1 },
+        { key: "group", label: "Add up processes of one name", type: "bool", default: true }] },
+    screentime: { name: "Screen time", icon: "hourglass", category: "apps", sizes: ["M", "L"], def: "M", options: [
+        { key: "count", label: "Apps", type: "number", default: 5, min: 2, max: 8, step: 1 }] },
+    clipboard: { name: "Clipboard", icon: "clipboard", category: "productivity", sizes: ["M", "L"], def: "M", interactive: true, options: [
+        { key: "images", label: "Pictures", type: "bool", default: true }] },
+    screenshots: { name: "Screenshots", icon: "screenshot", category: "media", sizes: ["M", "L", "XL"], def: "L", interactive: true, options: [
+        { key: "times", label: "When each was taken", type: "bool", default: true }] },
+    colors: { name: "Colour history", icon: "palette", category: "productivity", sizes: ["S", "M"], def: "M", interactive: true, options: [
+        { key: "upper", label: "Hex in capitals", type: "bool", default: true }] },
+    // ---- new in 0.5.0: media & info
+    mixer: { name: "Mixer", icon: "mixer", category: "media", sizes: ["M", "L"], def: "M", interactive: true, options: [
+        { key: "output", label: "Output volume too", type: "bool", default: false }] },
+    airquality: { name: "Air quality", icon: "leaf", category: "time", sizes: ["S", "M"], def: "S", options: [
+        { key: "pollutants", label: "PM2.5 and PM10", type: "bool", default: true }] },
+    headlines: { name: "Headlines", icon: "news", category: "media", sizes: ["M", "L"], def: "L", interactive: true, options: [
+        { key: "feeds", label: "Feeds", type: "list", default: ["https://feeds.arstechnica.com/arstechnica/index", "https://www.theverge.com/rss/index.xml"], hint: "RSS or Atom URLs" },
+        { key: "source", label: "Name the source", type: "bool", default: true }] },
+    wallpapers: { name: "Wallpapers", icon: "image", category: "media", sizes: ["S", "M"], def: "M", interactive: true, options: [] },
+    netinfo: { name: "Network info", icon: "ip", category: "system", sizes: ["S", "M"], def: "M", interactive: true, options: [
+        { key: "publicIp", label: "Public IP", type: "choice", default: "click", choices: [_c("off", "Off"), _c("click", "When clicked"), _c("auto", "Ask ipify.org now and then")] }] },
+    // ---- new in 0.5.0: time & productivity
+    agenda: { name: "Agenda", icon: "event", category: "time", sizes: ["S", "M", "L"], def: "M", options: [
+        { key: "days", label: "Days to show", type: "number", default: 2, min: 1, max: 14, step: 1, hint: "Today first: 2 is today and tomorrow" },
+        { key: "allDay", label: "All-day events", type: "bool", default: true },
+        { key: "folder", label: "Calendars folder", type: "folder", default: "~/.local/share/vitrum/calendars", hint: ".ics files, or a folder per calendar (vdirsyncer)" }] },
+    stopwatch: { name: "Stopwatch", icon: "stopwatch", category: "productivity", sizes: ["S", "M", "L"], def: "S", interactive: true, options: [
+        { key: "tenths", label: "Tenths of a second", type: "bool", default: true },
+        { key: "since", label: "Started at", type: "number", default: 0, hidden: true },
+        { key: "acc", label: "Time run", type: "number", default: 0, hidden: true },
+        { key: "laps", label: "Laps", type: "list", default: [], hidden: true }] },
+    habits: { name: "Habits", icon: "habit", category: "productivity", sizes: ["S", "M", "L"], def: "M", interactive: true, options: [
+        { key: "habits", label: "Habits", type: "list", default: ["Read", "Walk", "Water"], hint: "Click a habit to rename it; it keeps its days" },
+        { key: "streak", label: "Streak", type: "bool", default: true },
+        { key: "marks", label: "Days done", type: "list", default: [], hidden: true }] },
+    moon: { name: "Moon", icon: "moon", category: "time", sizes: ["S", "M"], def: "S", options: [
+        { key: "next", label: "Next full and new moon", type: "bool", default: true },
+        { key: "hemisphere", label: "Seen from", type: "choice", default: "auto", choices: [_c("auto", "Where the weather is"), _c("north", "The north"), _c("south", "The south")] }] },
 };
 var MISSING = { name: "Missing widget", icon: "help", category: "custom", sizes: ["S", "M"], def: "S", options: [], missing: true };
 
@@ -468,7 +509,13 @@ var FILES = {
     shortcuts: "Shortcuts", battery: "Battery", monitor: "Monitor", analog: "Analog", worldclock: "WorldClock",
     sun: "Sun", todo: "Todo", timer: "Timer", countdown: "Countdown", gpu: "Gpu", disks: "Disks", netspeed: "NetSpeed",
     devices: "Devices", updates: "Updates", toggles: "Toggles", visualizer: "Visualizer", photo: "Photo",
-    quote: "Quote", appfolder: "AppFolder", steam: "Steam"
+    quote: "Quote", appfolder: "AppFolder", steam: "Steam",
+    // ---- new in 0.5.0: system & apps
+    processes: "Processes", screentime: "ScreenTime", clipboard: "Clipboard", screenshots: "Screenshots", colors: "Colors",
+    // ---- new in 0.5.0: media & info
+    mixer: "Mixer", airquality: "AirQuality", headlines: "Headlines", wallpapers: "Wallpapers", netinfo: "NetInfo",
+    // ---- new in 0.5.0: time & productivity
+    agenda: "Agenda", stopwatch: "Stopwatch", habits: "Habits", moon: "Moon",
 };
 function widgetFile(type) {
     var t = String(type || "");

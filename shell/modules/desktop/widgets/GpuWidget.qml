@@ -63,12 +63,12 @@ Item {
         anchors.centerIn: parent
         spacing: Tokens.gap * 0.6
         Meter {
+            group: "widgets"
             anchors.horizontalCenter: parent.horizontalCenter
             kind: "circular"
             width: Math.min(root.width, root.height) * 0.68; height: width
             value: root.load
             trailing: Math.round(root.load * 100) + "%"
-            color: Colors.accent
         }
         Label {
             anchors.horizontalCenter: parent.horizontalCenter
@@ -102,10 +102,10 @@ Item {
         }
         values: root.series
         max: 1
-        color: Colors.accent
     }
     // No graph: the load as a bar, along the bottom (L: above the temperature).
     Meter {
+        group: "widgets"
         visible: root.ready && root.sizeClass !== "S" && !root.graph
         anchors {
             left: parent.left; right: parent.right
@@ -113,11 +113,11 @@ Item {
             bottomMargin: root.tall ? Tokens.gap * 1.5 : 0
         }
         value: root.load
-        color: Colors.accent
     }
     // ---- L: the temperature, orange once it runs hot.
     Meter {
         id: tempBar
+        group: "widgets"
         visible: root.ready && root.tall
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
         label: "Temperature"

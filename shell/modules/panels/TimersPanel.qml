@@ -23,8 +23,8 @@ Column {
                     Label { text: Lib.format(Timers.leftOf(modelData)); size: Tokens.textTitle; numeric: true; font.weight: Font.DemiBold }
                     Label { text: modelData.kind === "pomodoro" ? modelData.label + " · round " + modelData.round : modelData.label; role: "dim" }
                 }
-                Capsule { id: pause; icon: modelData.paused ? "play" : "pause"; anchors.verticalCenter: parent.verticalCenter; onClicked: Timers.togglePause(modelData.id) }
-                Capsule { id: stop; icon: "close"; anchors.verticalCenter: parent.verticalCenter; onClicked: Timers.cancel(modelData.id) }
+                GlassButton { id: pause; icon: modelData.paused ? "play" : "pause"; anchors.verticalCenter: parent.verticalCenter; onClicked: Timers.togglePause(modelData.id) }
+                GlassButton { id: stop; icon: "close"; anchors.verticalCenter: parent.verticalCenter; onClicked: Timers.cancel(modelData.id) }
             }
         }
     }

@@ -43,6 +43,11 @@ Scope {
         target: "welcome"
         function open(): void { UiState.closeAll(); UiState.welcome = true; }
         function close(): void { UiState.welcome = false; }
+        /// The next step (on the last one: done), the one before, or step n (from 0).
+        function next(): void { UiState.welcomeMove(1); }
+        function back(): void { UiState.welcomeMove(-1); }
+        function go(step: int): void { UiState.welcomeGo(step); }
+        function step(): int { return UiState.welcome ? UiState.welcomeStep : -1; }
     }
     IpcHandler {
         target: "picker"

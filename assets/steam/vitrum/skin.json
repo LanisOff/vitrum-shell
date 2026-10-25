@@ -1,0 +1,20 @@
+{
+    "name": "vitrum",
+    "author": "vitrum",
+    "description": "vitrum's look for Steam: a solid window in the desktop's palette, glass layers on it, lit glass for what is on, vitrum's radii, Inter. Kept in sync by vitrum-theme; change it in vitrum's Settings, not in these files.",
+    "version": "1.0.0",
+    "tags": ["vitrum", "Glass", "Dynamic", "Dark"],
+    "UseDefaultPatches": false,
+    "Patches": [
+        {
+            "MatchRegexString": "^(?!Steam Big Picture Mode$|QuickAccess_|MainMenu_|SP BPM|OverlayBrowser_|OverlayTab).",
+            "TargetCss": ["colors.css", "base.css", "steam.css"],
+            "TargetJs": "live.js"
+        },
+        {
+            "MatchRegexString": ".friendsui-container",
+            "TargetCss": ["colors.css", "base.css", "steam.css", "friends.css"],
+            "TargetJs": "live.js"
+        }
+    ]
+}

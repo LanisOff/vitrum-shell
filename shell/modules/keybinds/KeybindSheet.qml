@@ -40,7 +40,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: root.open || card.opacity > 0 ? shape : dot; radius: Tokens.radiusPanel }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Item { id: shape; x: card.x + (card.width - card.width * card.scale) / 2; y: card.y + (card.height - card.height * card.scale) / 2; width: card.width * card.scale; height: card.height * card.scale }
 
     // ------------------------------------------------------------- data ---
@@ -125,7 +126,7 @@ PanelWindow {
                 anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                 width: Math.min(Tokens.islandHeight * 10, parent.width * 0.5)
                 height: parent.height
-                radius: height / 2
+                radius: Tokens.radiusTile
                 Row {
                     anchors { fill: parent; leftMargin: Tokens.padding; rightMargin: Tokens.padding }
                     spacing: Tokens.gap

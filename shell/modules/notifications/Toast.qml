@@ -5,13 +5,15 @@ import qs.services
 import qs.theme
 import qs.components
 
-// One notification card: icon, app, summary, body, actions; swipe right or × to dismiss; hover holds it.
+// One notification card: icon, app, summary, body, actions; swipe it off its edge or × to dismiss; hover holds it.
 Surface {
     id: root
     required property var item
     property int count: 1                      // how many from this app are stacked under it
     readonly property bool critical: item.urgency === 2
     property bool replying: false
+    /// The screen edge it sits at: 1 right, -1 left. It slides in from that edge and is swiped off over it.
+    property int side: 1
     readonly property Region region: Region { item: root; radius: root.radius }
     group: "notifications"
     radius: Tokens.radiusPanel
@@ -20,20 +22,24 @@ Surface {
     border.color: critical ? Colors.danger : Materials.border("notifications")
 
     // Slide in from the edge; swipe out.
-    property real offset: width + Tokens.gap
-    x: offset + swipe
+    property real offset: side * (width + Tokens.gap)
+    x: offset + side * swipe
     Component.onCompleted: offset = 0
     Behavior on offset { enabled: Motion.enabled; NumberAnimation { duration: Motion.emphasized; easing.type: Easing.OutQuint } }
     opacity: 1 - Math.min(1, swipe / width)
 
+    // The card is the app's: its newest gets the full time (restarted when
+    // one arrives), and when it is up the app's older ones go with it — else
+    // the next one surfaced after a timer that had already fired, and stayed.
     Timer {
+        id: expire
         running: !root.critical && !hover.hovered && !drag.active && !fly.running && !root.replying
         interval: Notifs.timeout * 1000
-        onTriggered: Notifs.dismissPopup(root.item.id)
+        onTriggered: Notifs.dismissApp(root.item.appName)
     }
     HoverHandler { id: hover }
 
-    // Swiped to the right only. The distance is read in the window's frame:
+    // Swiped toward its edge only (`side`). The distance is read in the window's frame:
     // the card moves under the pointer, and its own translation chased itself
     // (the card lagged and never got to the threshold). Let go past a third of
     // the width or flicked, it flies off at the flick's speed; else back.
@@ -45,8 +51,8 @@ Surface {
         target: null
         yAxis.enabled: false
         onCentroidChanged: if (active) {
-            root.swipe = Math.max(0, centroid.scenePosition.x - centroid.scenePressPosition.x);
-            root.flick = centroid.velocity.x;
+            root.swipe = Math.max(0, root.side * (centroid.scenePosition.x - centroid.scenePressPosition.x));
+            root.flick = root.side * centroid.velocity.x;
         }
         onActiveChanged: {
             if (active) { settle.stop(); return; }
@@ -60,8 +66,11 @@ Surface {
         fly.start();
     }
     // The card stays for the app's next one (Toasts keeps cards by app): it slides back in.
-    onItemChanged: if (swipe > 0 && !drag.active) { fly.stop(); settle.start(); }
-    NumberAnimation { id: settle; target: root; property: "swipe"; to: 0; duration: Motion.standard; easing.type: Easing.OutBack; easing.overshoot: 0.8 }
+    onItemChanged: {
+        if (swipe > 0 && !drag.active) { fly.stop(); settle.start(); }
+        if (expire.running) expire.restart();
+    }
+    NumberAnimation { id: settle; target: root; property: "swipe"; to: 0; duration: Motion.standard; easing.type: Easing.OutCubic }
     NumberAnimation { id: fly; target: root; property: "swipe"; to: root.away; easing.type: Easing.OutQuad
                       onFinished: Notifs.dismissPopup(root.item.id) }
     TapHandler { onTapped: Notifs.activate(root.item) }
@@ -91,7 +100,9 @@ Surface {
                 spacing: Tokens.gap / 2
                 Repeater {
                     model: (root.item.actions || []).filter(a => a.identifier !== "default")
-                    Capsule { required property var modelData; label: modelData.text; onClicked: Notifs.invoke(root.item, modelData.identifier) }
+                    // The first action is the main one: tinted; the rest clear glass.
+                    GlassButton { required property var modelData; required property int index; group: "notifications"; primary: index === 0
+                                  label: modelData.text; onClicked: Notifs.invoke(root.item, modelData.identifier) }
                 }
             }
             // A reply, right here (apps that take one: Telegram, KDE Connect).
@@ -99,7 +110,7 @@ Surface {
                 visible: root.item.canReply === true
                 width: parent.width
                 height: Tokens.islandHeight
-                radius: height / 2
+                radius: Tokens.radiusButton
                 color: Colors.alpha(Colors.text, replyInput.activeFocus ? 0.12 : 0.07)
                 Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
                 TextInput {

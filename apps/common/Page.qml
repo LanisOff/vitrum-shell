@@ -28,6 +28,43 @@ Flickable {
     }
     Component.onCompleted: enter()
 
+    // Typing must never go into a field you cannot see. A text field (a
+    // TextInput or TextEdit) loses the keyboard on a press anywhere outside it
+    // — empty page or another control — and once the page scrolls it fully out
+    // of view; SettingText saves when it loses it. The page takes the keyboard
+    // then (Escape still reaches the window).
+    function _typing() {
+        const f = page.Window.activeFocusItem;
+        return f && f.cursorRectangle !== undefined ? f : null;
+    }
+    function _inside(f) { let a = f; while (a && a !== page) a = a.parent; return a === page; }
+    function _release(pressAt) {
+        const f = _typing();
+        if (!f) return;
+        if (pressAt) {
+            const p = f.mapFromItem(catcher, pressAt.x, pressAt.y);
+            if (p.x >= 0 && p.y >= 0 && p.x <= f.width && p.y <= f.height) return;
+        } else {
+            if (!_inside(f)) return;
+            const y = f.mapToItem(page, 0, 0).y;
+            if (y + f.height > 0 && y < page.height) return;
+        }
+        page.forceActiveFocus();
+    }
+    onContentYChanged: _release(null)
+
+    // Over the whole content: sees every press first and hands it on (not
+    // accepted, so the control under it gets the press and a drag still
+    // scrolls; no hover, no wheel, no cursor of its own).
+    MouseArea {
+        id: catcher
+        z: 1000
+        width: page.width
+        height: Math.max(page.height, page.contentHeight)
+        acceptedButtons: Qt.AllButtons
+        onPressed: m => { page._release(Qt.point(m.x, m.y)); m.accepted = false; }
+    }
+
     Column {
         id: col
         x: Tokens.padding * 2
@@ -45,7 +82,7 @@ Flickable {
     }
     ParallelAnimation {
         id: headIn
-        NumberAnimation { target: slide; property: "x"; to: 0; duration: Motion.emphasized; easing.type: Easing.OutBack; easing.overshoot: 1.8 }
+        NumberAnimation { target: slide; property: "x"; to: 0; duration: Motion.emphasized; easing.type: Easing.OutQuint }
         NumberAnimation { target: head; property: "opacity"; to: 1; duration: Motion.standard; easing.type: Easing.OutCubic }
     }
 }

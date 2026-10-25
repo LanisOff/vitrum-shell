@@ -37,7 +37,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("dialogs", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: root.open || card.opacity > 0.05 ? shape : dot; radius: Tokens.radiusPanel }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Item { id: shape; x: card.x; y: card.y; width: card.width; height: card.height }
 
     Rectangle {

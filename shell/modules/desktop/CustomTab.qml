@@ -46,13 +46,13 @@ Item {
                 model: CustomWidgets.scripts
                 delegate: Rectangle {
                     required property var modelData
-                    width: lists.width; height: Tokens.islandHeight * 2.1; radius: 18
+                    width: lists.width; height: Tokens.islandHeight * 2.1; radius: Tokens.radiusTile
                     color: Colors.alpha(Colors.text, Colors.dark ? 0.055 : 0.04)
                     Row {
                         anchors { left: parent.left; leftMargin: Tokens.gap; verticalCenter: parent.verticalCenter }
                         spacing: Tokens.gap
-                        Rectangle { width: Tokens.islandHeight; height: width; radius: width / 2; color: Colors.alpha(Colors.accent, 0.2); anchors.verticalCenter: parent.verticalCenter
-                                    Icon { anchors.centerIn: parent; name: modelData.icon || "code"; color: Colors.accent; filled: true } }
+                        Item { width: Tokens.islandHeight; height: width; anchors.verticalCenter: parent.verticalCenter
+                               Icon { anchors.centerIn: parent; name: modelData.icon || "code"; color: Colors.accent2 } }
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
                             width: lists.width - Tokens.islandHeight * 4.6
@@ -65,11 +65,11 @@ Item {
                         spacing: 2
                         SmallButton { icon: "add"; onClicked: WidgetEditor.addType("script:" + modelData.id, tab.screenName, tab.barSpace) }
                         SmallButton { icon: "edit"; onClicked: tab.editing = Object.assign({}, modelData) }
-                        SmallButton { icon: "trash"; onClicked: CustomWidgets.deleteScript(modelData.id) }
+                        SmallButton { icon: "trash"; onClicked: { WidgetEditor.dropType("script:" + modelData.id); CustomWidgets.deleteScript(modelData.id); } }
                     }
                 }
             }
-            Pill { icon: "add"; text: "New script widget"; filled: true; onClicked: tab.newScript() }
+            GlassButton { icon: "add"; label: "New script widget"; primary: true; height: Tokens.islandHeight * 1.1; onClicked: tab.newScript() }
 
             Item { width: 1; height: Tokens.gap }
             Label { text: "QML widgets"; font.weight: Font.DemiBold }
@@ -80,12 +80,12 @@ Item {
                 delegate: Rectangle {
                     required property string modelData
                     readonly property var m: CustomWidgets.qml[modelData]
-                    width: lists.width; height: Tokens.islandHeight * 1.8; radius: 18
+                    width: lists.width; height: Tokens.islandHeight * 1.8; radius: Tokens.radiusTile
                     color: Colors.alpha(Colors.text, Colors.dark ? 0.055 : 0.04)
                     Row {
                         anchors { left: parent.left; leftMargin: Tokens.gap; verticalCenter: parent.verticalCenter }
                         spacing: Tokens.gap
-                        Icon { name: m.icon; color: Colors.accent; filled: true; anchors.verticalCenter: parent.verticalCenter }
+                        Icon { name: m.icon; color: Colors.accent2; anchors.verticalCenter: parent.verticalCenter }
                         Column {
                             anchors.verticalCenter: parent.verticalCenter
                             Label { text: m.name; font.weight: Font.Medium }
@@ -98,8 +98,8 @@ Item {
             }
             Row {
                 spacing: Tokens.gap
-                Pill { icon: "folder"; text: "Open folder"; onClicked: Quickshell.execDetached(["sh", "-c", 'mkdir -p "$1" && exec xdg-open "$1"', "_", CustomWidgets.dir]) }
-                Pill { icon: "refresh"; text: "Reload"; onClicked: CustomWidgets.reload() }
+                GlassButton { icon: "folder"; label: "Open folder"; height: Tokens.islandHeight * 1.1; onClicked: Quickshell.execDetached(["sh", "-c", 'mkdir -p "$1" && exec xdg-open "$1"', "_", CustomWidgets.dir]) }
+                GlassButton { icon: "refresh"; label: "Reload"; height: Tokens.islandHeight * 1.1; onClicked: CustomWidgets.reload() }
             }
         }
     }
@@ -132,7 +132,7 @@ Item {
             Label { text: "Command"; font.weight: Font.Medium }
             Rectangle {
                 width: parent.width; height: Math.max(Tokens.islandHeight * 2.4, cmd.contentHeight + Tokens.gap * 2)
-                radius: Tokens.radiusInner; color: Colors.alpha(Colors.text, 0.07)
+                radius: Tokens.radiusButton; color: Colors.alpha(Colors.text, 0.07)
                 border.width: cmd.activeFocus ? 2 : 0; border.color: Colors.accent
                 TextEdit {
                     id: cmd
@@ -150,7 +150,7 @@ Item {
                 width: parent.width; spacing: 6
                 Repeater {
                     model: tab.templates
-                    delegate: Choice { required property var modelData; text: modelData.l; on: tab.editing && tab.editing.template === modelData.v; onClicked: tab.put("template", modelData.v) }
+                    delegate: GlassChoice { required property var modelData; label: modelData.l; chosen: !!tab.editing && tab.editing.template === modelData.v; onClicked: tab.put("template", modelData.v) }
                 }
             }
             Label { text: "Every"; font.weight: Font.Medium }
@@ -158,8 +158,8 @@ Item {
                 width: parent.width; spacing: 6
                 Repeater {
                     model: [1, 2, 5, 10, 30, 60, 300, 900]
-                    delegate: Choice { required property int modelData; text: modelData < 60 ? modelData + " s" : modelData / 60 + " min"
-                                       on: tab.editing && Number(tab.editing.interval) === modelData; onClicked: tab.put("interval", modelData) }
+                    delegate: GlassChoice { required property int modelData; label: modelData < 60 ? modelData + " s" : modelData / 60 + " min"
+                                            chosen: !!tab.editing && Number(tab.editing.interval) === modelData; onClicked: tab.put("interval", modelData) }
                 }
             }
             Label { text: "Icon"; font.weight: Font.Medium }
@@ -167,21 +167,20 @@ Item {
                 width: parent.width; spacing: 4
                 Repeater {
                     model: tab.icons
-                    delegate: Rectangle {
+                    delegate: GlassChoice {
                         required property string modelData
-                        readonly property bool on: tab.editing && tab.editing.icon === modelData
-                        width: Tokens.islandHeight; height: width; radius: width / 2
-                        color: on ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22) : icMouse.containsMouse ? Colors.alpha(Colors.text, 0.08) : "transparent"
-                        Icon { anchors.centerIn: parent; name: modelData; color: on ? Colors.accent : Colors.text }
-                        MouseArea { id: icMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: tab.put("icon", modelData) }
+                        icon: modelData; outlined: false
+                        chosen: !!tab.editing && tab.editing.icon === modelData
+                        onClicked: tab.put("icon", modelData)
                     }
                 }
             }
             Row {
                 spacing: Tokens.gap
-                Pill { text: "Back"; onClicked: tab.editing = null }
-                Pill {
-                    text: "Save"; filled: true
+                GlassButton { label: "Back"; height: Tokens.islandHeight * 1.1; onClicked: tab.editing = null }
+                GlassButton {
+                    label: "Save"; primary: true
+                    height: Tokens.islandHeight * 1.1
                     onClicked: {
                         // What the fields hold now, committed or not.
                         const e = Object.assign({}, tab.editing);
@@ -195,46 +194,16 @@ Item {
         }
     }
 
-    component SmallButton: Rectangle {
-        id: sb
-        property string icon: ""
-        signal clicked()
-        width: Tokens.islandHeight * 1.05; height: width; radius: width / 2
-        color: sbMouse.containsMouse ? Colors.alpha(Colors.text, 0.12) : "transparent"
-        Icon { anchors.centerIn: parent; name: sb.icon }
-        MouseArea { id: sbMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: sb.clicked() }
-    }
-    component Pill: Rectangle {
-        id: pl
-        property string icon: ""
-        property string text: ""
-        property bool filled: false
-        signal clicked()
-        height: Tokens.islandHeight * 1.1; radius: height / 2
-        width: plRow.implicitWidth + Tokens.padding * 2
-        color: filled ? Colors.accent : plMouse.containsMouse ? Colors.alpha(Colors.accent, 0.3) : Colors.alpha(Colors.accent, Colors.dark ? 0.2 : 0.14)
-        Row { id: plRow; anchors.centerIn: parent; spacing: 6
-              Icon { visible: pl.icon !== ""; name: pl.icon; color: pl.filled ? Colors.onAccent : Colors.text; anchors.verticalCenter: parent.verticalCenter }
-              Label { text: pl.text; font.weight: Font.Medium; role: pl.filled ? "onAccent" : "text"; anchors.verticalCenter: parent.verticalCenter } }
-        MouseArea { id: plMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: pl.clicked() }
-    }
-    component Choice: Rectangle {
-        id: ch
-        property string text: ""
-        property bool on: false
-        signal clicked()
-        height: Tokens.islandHeight; radius: Tokens.radiusInner
-        width: chLabel.implicitWidth + Tokens.padding * 1.2
-        color: on ? Colors.alpha(Colors.accent, Colors.dark ? 0.32 : 0.22) : chMouse.containsMouse ? Colors.alpha(Colors.text, 0.08) : "transparent"
-        border.width: on ? 0 : Tokens.hairline; border.color: Colors.alpha(Colors.text, 0.25)
-        Label { id: chLabel; anchors.centerIn: parent; text: ch.text; size: Tokens.textSmall + 1 }
-        MouseArea { id: chMouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: ch.clicked() }
+    // A row's quiet icon button: glass without a rim.
+    component SmallButton: GlassButton {
+        width: Tokens.islandHeight * 1.05; height: width
+        outlined: false
     }
     component Field: Rectangle {
         id: fld
         property alias text: input.text
         signal committed(string value)
-        height: Tokens.islandHeight * 1.1; radius: Tokens.radiusInner
+        height: Tokens.islandHeight * 1.1; radius: Tokens.radiusButton
         color: Colors.alpha(Colors.text, 0.07)
         border.width: input.activeFocus ? 2 : 0; border.color: Colors.accent
         TextInput {

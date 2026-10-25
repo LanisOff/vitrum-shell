@@ -4,6 +4,8 @@
 //  by the installer to @VITRUM_STATE@/fastfetch/logo.png; fastfetch falls back
 //  to ASCII when it is missing), or the distribution's own when the installer
 //  was told so. kitty shows the image; a TTY gets text.
+//  In fish, `fastfetch` fits the logo to the terminal: a narrow one (half the
+//  screen, a tmux split) gets a smaller logo or none (conf.d/10-vitrum-abbr.fish).
 // ===========================================================================
 {
   "$schema": "https://github.com/fastfetch-cli/fastfetch/raw/dev/doc/json_schema.json",
@@ -17,6 +19,9 @@
   },
 
   "display": {
+    // A line longer than the terminal is cut at its edge, not wrapped to the
+    // next row under the logo (fastfetch 2.65 made wrapping the default).
+    "disableLinewrap": true,
     "separator": "  ",
     "key": { "width": 13 },
     "color": {
@@ -50,7 +55,9 @@
     { "type": "host",     "key": "\uf108  Host" },
     { "type": "kernel",   "key": "\uf085  Kernel" },
     { "type": "uptime",   "key": "\uf017  Uptime" },
-    { "type": "packages", "key": "\uf487  Packages" },
+    // flatpak-system and flatpak-user counted as one flatpak: the line fits
+    // beside the logo in half the screen.
+    { "type": "packages", "key": "\uf487  Packages", "combined": true },
     { "type": "shell",    "key": "\uf489  Shell" },
 
     "break",

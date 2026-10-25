@@ -65,6 +65,7 @@ Item {
         readonly property real d: Math.max(48, Math.min(root.width, root.height - Tokens.textSmall - Tokens.gap * 0.4 - 4) * 0.92)
         Meter {
             id: big
+            group: "widgets"
             anchors.horizontalCenter: parent.horizontalCenter
             kind: "circular"
             width: parent.d; height: parent.d
@@ -126,6 +127,7 @@ Item {
                     width: ringGrid.cellW
                     spacing: 4
                     Meter {
+                        group: "widgets"
                         anchors.horizontalCenter: parent.horizontalCenter
                         kind: "circular"
                         width: Math.max(32, area.ringFit.d); height: width
@@ -160,6 +162,7 @@ Item {
                 model: root.bars ? root.gauges : []
                 delegate: Meter {
                     required property var modelData
+                    group: "widgets"
                     width: (barGrid.width - (area.barCols - 1) * barGrid.columnSpacing) / area.barCols
                     kind: "linear"
                     thickness: area.barThick

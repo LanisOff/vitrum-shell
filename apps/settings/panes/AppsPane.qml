@@ -58,19 +58,25 @@ Page {
                     hint: kind.modelData.apps.length === 0 ? "No installed app handles this."
                           : kind.modelData.mixed ? "Some of these open in another app; pick one for all of them." : ""
                     divider: kind.expanded || kind.index < page.data_.defaults.length - 1
-                    Rectangle {
+                    // The current app, a glass button that opens the choices.
+                    Surface {
                         visible: kind.modelData.apps.length > 0
                         anchors.verticalCenter: parent.verticalCenter
-                        height: Tokens.islandHeight * 1.1; radius: height / 2
+                        height: Tokens.islandHeight * 1.1
                         width: pickRow.implicitWidth + Tokens.padding * 1.2
-                        color: Colors.alpha(Colors.text, pm.containsMouse || kind.expanded ? 0.1 : 0.06)
-                        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+                        group: "panels"; level: 1; radius: Tokens.radiusButton
+                        Rectangle {
+                            anchors.fill: parent; radius: parent.radius
+                            color: Colors.alpha(Colors.text, pm.containsMouse || kind.expanded ? 0.06 : 0)
+                            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+                        }
                         Row {
                             id: pickRow
                             anchors.centerIn: parent
                             spacing: Tokens.gap / 2
                             IconImage { visible: !!kind.current; implicitSize: Tokens.iconSize; anchors.verticalCenter: parent.verticalCenter
-                                        source: kind.current ? Quickshell.iconPath(kind.current.icon || "application-x-executable", "application-x-executable") : "" }
+                                        source: kind.current ? Apps.iconSource(kind.current.icon) : ""
+                                        Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim } }
                             Label { text: kind.current ? kind.current.name : "Not set"; role: kind.current ? "text" : "dim"; anchors.verticalCenter: parent.verticalCenter }
                             Icon { name: "chevron"; size: Tokens.iconSize * 0.8; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter
                                    rotation: kind.expanded ? 90 : 0; Behavior on rotation { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } } }
@@ -92,7 +98,9 @@ Page {
                             required property var modelData
                             app: modelData
                             on: modelData.id === kind.modelData.current
-                            onPicked: { page.open_ = ""; page.run(["default", kind.modelData.kind, modelData.id]); }
+                            // Run first: closing the choices destroys this chip, and its
+                            // handler loses `page` and `modelData` midway.
+                            onPicked: { page.run(["default", kind.modelData.kind, modelData.id]); page.open_ = ""; }
                         }
                     }
                 }
@@ -100,24 +108,31 @@ Page {
         }
     }
 
-    // An app to pick: its icon and name; the chosen one in the accent.
-    component AppChip: Rectangle {
+    // An app to pick: its icon and name on glass; the chosen one tinted.
+    component AppChip: Item {
         id: chip
         property var app: ({})
         property bool on: false
         signal picked()
-        height: Tokens.islandHeight * 1.15; radius: height / 2
+        height: Tokens.islandHeight * 1.15
         width: chipRow.implicitWidth + Tokens.padding * 1.2
-        color: on ? Colors.accent : Colors.alpha(Colors.text, cm.containsMouse ? 0.1 : 0.05)
-        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-        scale: cm.pressed ? 0.94 : 1
-        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+        scale: cm.pressed ? 0.97 : 1
+        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
+        Surface { anchors.fill: parent; group: "panels"; level: 1; radius: Tokens.radiusTile }
+        // The lift under the pointer, on clear glass.
+        Rectangle {
+            anchors.fill: parent; radius: Tokens.radiusTile
+            color: Colors.alpha(Colors.text, !chip.on && cm.containsMouse ? 0.06 : 0)
+            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        }
+        ShellTint { anchors.fill: parent; radius: Tokens.radiusTile; active: chip.on; hovered: cm.containsMouse }
         Row {
             id: chipRow
             anchors.centerIn: parent
             spacing: Tokens.gap / 2
-            IconImage { implicitSize: Tokens.iconSize; anchors.verticalCenter: parent.verticalCenter; source: Quickshell.iconPath(chip.app.icon || "application-x-executable", "application-x-executable") }
-            Label { text: chip.app.name || ""; role: chip.on ? "onAccent" : "text"; size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
+            IconImage { implicitSize: Tokens.iconSize; anchors.verticalCenter: parent.verticalCenter; source: Apps.iconSource(chip.app.icon)
+                        Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim } }
+            Label { text: chip.app.name || ""; size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
         }
         MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: chip.picked() }
     }

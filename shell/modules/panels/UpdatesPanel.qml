@@ -27,11 +27,10 @@ Column {
                     : Packages.state.done + " installed"
             }
             Label { width: parent.width; text: Packages.state.current; role: "dim"; elide: Text.ElideMiddle }
-            Rectangle {
+            Meter {
                 visible: !Packages.logless
-                width: parent.width; height: 6; radius: 3; color: Colors.alpha(Colors.text, 0.12)
-                Rectangle { width: parent.width * (Packages.state.total ? Packages.state.done / Packages.state.total : 0); height: parent.height; radius: 3; color: Colors.accent
-                            Behavior on width { enabled: Motion.enabled; NumberAnimation { duration: Motion.standard } } }
+                width: parent.width
+                value: Packages.state.total ? Packages.state.done / Packages.state.total : 0
             }
             Label { visible: text.length > 0; role: "dim"; size: Tokens.textSmall
                     text: Packages.logless ? "Running for " + Math.max(1, Math.round((Packages.now - Packages.state.started) / 60)) + " min, in its terminal window"
@@ -45,7 +44,7 @@ Column {
         spacing: Tokens.gap
         Label { text: Packages.checking ? "Checking for updates…" : Packages.updates.length ? Packages.updates.length + " updates" : "Up to date"; font.weight: Font.DemiBold; anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - up.width - Tokens.gap }
-        Capsule { id: up; visible: Packages.updates.length > 0 && !Packages.state.running; icon: "update"; label: "Update"; active: true; onClicked: { UiState.closePanel(); Packages.update(); } }
+        GlassButton { id: up; visible: Packages.updates.length > 0 && !Packages.state.running; icon: "update"; label: "Update"; primary: true; onClicked: { UiState.closePanel(); Packages.update(); } }
     }
     Flickable {
         width: root.width
@@ -57,16 +56,42 @@ Column {
             width: root.width
             Repeater {
                 model: Packages.updates
-                Row {
+                // The name on the left, from → to on the right. The versions
+                // get up to 60% of the width and the name the rest; a version
+                // longer than its share is cut in the middle, and under the
+                // pointer such a row opens to two lines with both in full.
+                Item {
+                    id: pkg
                     required property var modelData
-                    spacing: Tokens.gap
                     width: list.width
-                    Label { width: parent.width * 0.62; text: modelData.atom; elide: Text.ElideMiddle }
+                    height: open ? atomL.height + vers.height : Math.max(atomL.height, vers.height)
+                    readonly property bool hasFrom: !!modelData.from
+                    // Each version's width in a room: the new one keeps at least
+                    // half, or all the old one leaves.
+                    function toIn(room) { return Math.min(toL.implicitWidth, Math.max(room / 2, room - (hasFrom ? fromL.implicitWidth : 0))); }
+                    function fromIn(room) { return hasFrom ? Math.min(fromL.implicitWidth, room - toIn(room)) : 0; }
+                    readonly property real arrow: hasFrom ? chev.width + 2 * vers.spacing : 0
+                    readonly property real shut: Math.max(0, width * 0.6 - arrow)
+                    readonly property bool cut: toIn(shut) < toL.implicitWidth || (hasFrom && fromIn(shut) < fromL.implicitWidth)
+                    readonly property bool open: cut && hover.hovered
+                    readonly property real room: open ? Math.max(0, width - arrow) : shut
+                    HoverHandler { id: hover }
+                    Label {
+                        id: atomL
+                        width: pkg.open ? pkg.width : Math.max(0, pkg.width - vers.width - Tokens.gap)
+                        y: pkg.open ? 0 : (pkg.height - height) / 2
+                        text: modelData.atom; elide: Text.ElideMiddle
+                    }
                     Row {
+                        id: vers
+                        anchors.right: parent.right
+                        y: pkg.open ? atomL.height : (pkg.height - height) / 2
                         spacing: 2
-                        Label { visible: !!modelData.from; text: modelData.from || ""; role: "dim"; size: Tokens.textSmall; numeric: true; anchors.verticalCenter: parent.verticalCenter }
-                        Icon { visible: !!modelData.from; name: "chevron"; size: Tokens.textSmall; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter }
-                        Label { text: (modelData.from ? "" : "new ") + modelData.to; role: "dim"; size: Tokens.textSmall; numeric: true; anchors.verticalCenter: parent.verticalCenter }
+                        Label { id: fromL; visible: pkg.hasFrom; width: pkg.fromIn(pkg.room); text: modelData.from || ""; elide: Text.ElideMiddle
+                                role: "dim"; size: Tokens.textSmall; numeric: true; anchors.verticalCenter: parent.verticalCenter }
+                        Icon { id: chev; visible: pkg.hasFrom; name: "chevron"; size: Tokens.textSmall; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter }
+                        Label { id: toL; width: pkg.toIn(pkg.room); text: (modelData.from ? "" : "new ") + modelData.to; elide: Text.ElideMiddle
+                                role: "dim"; size: Tokens.textSmall; numeric: true; anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
             }

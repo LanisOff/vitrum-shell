@@ -53,6 +53,8 @@ eq(d.shq("it's"), "'it'\\''s'", "shell quoting");
   eq(d.isProtected(bt[0].partitions[0], []), true, "and the partition itself");
   eq(d.isProtected(bt[1], []), false, "an unmounted stick is not protected");
   eq(JSON.stringify(bt[0].partitions[0].mountpoints), JSON.stringify(["/home", "/"]), "all mount points kept");
+  eq(bt[0].partitions[0].mountpoint, "/", "the shown mount point is / among them, not the first one lsblk names");
+  eq(bt[1].partitions[0].mountpoint, "", "no mount point when none is mounted");
 }
 // /home and the other system mounts count too.
 eq(d.isProtected({ kind: "partition", parent: "x", mountpoint: "/home", mountpoints: ["/home"] }, []), true, "/home is part of the running system");

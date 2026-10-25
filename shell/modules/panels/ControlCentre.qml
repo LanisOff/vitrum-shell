@@ -6,8 +6,8 @@ import qs.theme
 import qs.components
 
 /*
- * Control Centre: a fixed two-column grid of chips, volume and brightness,
- * and the media card. Wi-Fi and Bluetooth chips expand into their lists
+ * Control Centre: a fixed two-column grid of tiles, volume and brightness,
+ * and the media card. Wi-Fi and Bluetooth tiles expand into their lists
  * inside the panel (the sheet's height springs with the content).
  */
 Column {
@@ -16,11 +16,15 @@ Column {
     readonly property real col: Tokens.islandHeight * 6
     width: col * 2 + Tokens.gap
     property string expanded: ""        // "" | "wifi" | "bluetooth" | "awake" | "sound" | "phone"
+    // Networks are looked for while their list is open.
+    readonly property bool wifiList: expanded === "wifi"
+    onWifiListChanged: Network.scan(wifiList)
+    Component.onDestruction: if (wifiList) Network.scan(false)
 
     Grid {
         columns: 2
         spacing: Tokens.gap
-        Chip {
+        Tile {
             width: root.col
             icon: Network.kind === "wired" ? "ethernet" : Network.wifiEnabled ? "wifi" : "wifi-off"
             title: Network.kind === "wired" ? "Ethernet" : "Wi-Fi"
@@ -30,7 +34,7 @@ Column {
             onToggled: if (Network.nm) Network.setWifiEnabled(!Network.wifiEnabled)
             onExpand: root.expanded = root.expanded === "wifi" ? "" : "wifi"
         }
-        Chip {
+        Tile {
             width: root.col
             visible: Bluetooth.present
             icon: Bluetooth.powered ? "bluetooth" : "bluetooth-off"
@@ -41,7 +45,7 @@ Column {
             onToggled: Bluetooth.setPowered(!Bluetooth.powered)
             onExpand: { root.expanded = root.expanded === "bluetooth" ? "" : "bluetooth"; Bluetooth.scan(root.expanded === "bluetooth"); }
         }
-        Chip {
+        Tile {
             width: root.col
             visible: Vpn.available
             icon: "vpn"; title: "VPN"
@@ -50,7 +54,7 @@ Column {
             active: Vpn.active
             onToggled: Vpn.toggle()
         }
-        Chip {
+        Tile {
             width: root.col
             visible: Phone.devices.length > 0
             icon: "phone"; title: Phone.phone ? Phone.phone.name : "Phone"
@@ -60,13 +64,13 @@ Column {
             onToggled: if (Phone.connected) root.expanded = root.expanded === "phone" ? "" : "phone"; else Phone.settings()
             onExpand: root.expanded = root.expanded === "phone" ? "" : "phone"
         }
-        Chip {
+        Tile {
             width: root.col
             icon: "dnd"; title: "Do not disturb"; subtitle: Notifs.doNotDisturb ? "On" : "Off"
             active: Notifs.doNotDisturb
             onToggled: Notifs.setDoNotDisturb(!Notifs.doNotDisturb)
         }
-        Chip {
+        Tile {
             width: root.col
             icon: Colors.dark ? "dark" : "light"
             title: "Appearance"
@@ -74,7 +78,7 @@ Column {
             active: Settings.get("scheme.mode", "auto") !== "auto"
             onToggled: Settings.set("scheme.mode", ({ auto: "light", light: "dark", dark: "auto" })[Settings.get("scheme.mode", "auto")])
         }
-        Chip {
+        Tile {
             width: root.col
             visible: Power.profiles.length > 0
             icon: Power.profile === "performance" ? "profile-performance" : Power.profile === "power-saver" ? "profile-saver" : "profile-balanced"
@@ -86,7 +90,7 @@ Column {
                 Power.setProfile(order[(order.indexOf(Power.profile) + 1) % order.length]);
             }
         }
-        Chip {
+        Tile {
             width: root.col
             icon: "coffee"; title: "Stay awake"
             subtitle: Awake.mode === "on" ? "Until turned off"
@@ -97,14 +101,14 @@ Column {
             onToggled: Awake.toggle()
             onExpand: root.expanded = root.expanded === "awake" ? "" : "awake"
         }
-        Chip {
+        Tile {
             width: root.col
             icon: "gamepad"; title: "Game mode"
             subtitle: GameMode.forced ? "On" : GameMode.active ? (GameMode.game ? GameMode.game.title || "A game" : "On") : "Automatic"
             active: GameMode.active
             onToggled: GameMode.forced = !GameMode.forced
         }
-        Chip {
+        Tile {
             width: root.col
             icon: "recording"; title: "Record screen"; subtitle: UiState.recording ? "Recording" : "Off"
             active: UiState.recording
@@ -121,11 +125,11 @@ Column {
             spacing: 2
             Repeater {
                 model: root.expanded === "wifi" ? Network.wifiNetworks.slice(0, 8) : []
-                Capsule {
+                GlassButton {
                     required property var modelData
                     width: parent.width
                     icon: Network.secured(modelData) && !modelData.known ? "wifi-lock" : "wifi"; label: modelData.name + (modelData.connected ? "  ·  connected" : "")
-                    active: modelData.connected
+                    primary: modelData.connected
                     onClicked: if (!modelData.connected) { if (Network.needsPassword(modelData) && !modelData.known) UiState.closePanel(); Network.join(modelData); }
                 }
             }
@@ -140,12 +144,12 @@ Column {
             spacing: 2
             Repeater {
                 model: root.expanded === "bluetooth" ? Bluetooth.devices.filter(d => d.paired || d.name).slice(0, 8) : []
-                Capsule {
+                GlassButton {
                     required property var modelData
                     width: parent.width
                     icon: modelData.connected ? "bluetooth-connected" : "bluetooth"
                     label: (modelData.name || modelData.address) + (modelData.batteryAvailable ? "  ·  " + Math.round(modelData.battery * 100) + "%" : "")
-                    active: modelData.connected
+                    primary: modelData.connected
                     onClicked: Bluetooth.toggle(modelData)
                 }
             }
@@ -159,10 +163,10 @@ Column {
         Flow {
             width: root.width - 2 * Tokens.padding
             spacing: Tokens.gap / 2
-            Capsule { icon: "notifications"; label: "Ring it"; onClicked: Phone.ring() }
-            Capsule { icon: "folder"; label: "Its files"; onClicked: { UiState.closePanel(); Phone.browse(); } }
-            Capsule { icon: "clipboard"; label: "Send the clipboard"; onClicked: clipSend.running = true }
-            Capsule { icon: "settings"; label: "KDE Connect"; onClicked: { UiState.closePanel(); Phone.settings(); } }
+            GlassButton { icon: "notifications"; label: "Ring it"; onClicked: Phone.ring() }
+            GlassButton { icon: "folder"; label: "Its files"; onClicked: { UiState.closePanel(); Phone.browse(); } }
+            GlassButton { icon: "clipboard"; label: "Send the clipboard"; onClicked: clipSend.running = true }
+            GlassButton { icon: "settings"; label: "KDE Connect"; onClicked: { UiState.closePanel(); Phone.settings(); } }
         }
     }
     // The clipboard to the phone (a link is sent as a link, text as text).
@@ -178,11 +182,11 @@ Column {
                         { label: "For 1 hour", on: () => Awake.setFor(60), active: () => false },
                         { label: "For 2 hours", on: () => Awake.setFor(120), active: () => false },
                         { label: "Off", on: () => Awake.setOff(), active: () => !Awake.manual }]
-                Capsule {
+                GlassButton {
                     required property var modelData
                     width: parent.width
                     icon: "coffee"; label: modelData.label
-                    active: modelData.active()
+                    primary: modelData.active()
                     onClicked: { modelData.on(); root.expanded = ""; }
                 }
             }
@@ -199,7 +203,7 @@ Column {
             value: Audio.volume
             onMoved: v => Audio.setVolume(v)
         }
-        Capsule { id: mixerButton; icon: "mixer"; active: root.expanded === "sound"; onClicked: root.expanded = root.expanded === "sound" ? "" : "sound" }
+        GlassButton { id: mixerButton; icon: "mixer"; primary: root.expanded === "sound"; onClicked: root.expanded = root.expanded === "sound" ? "" : "sound" }
     }
     // Where sound goes, what plays how loud, which microphone (and its noise filter).
     Card {
@@ -213,11 +217,11 @@ Column {
                 width: parent.width; spacing: Tokens.gap / 2
                 Repeater {
                     model: root.expanded === "sound" ? Audio.sinks : []
-                    Capsule {
+                    GlassButton {
                         required property var modelData
                         icon: /headphone|headset/i.test(modelData.description || "") ? "headphones" : "speaker"
                         label: modelData.description || modelData.nickname || modelData.name
-                        active: modelData === Audio.sink
+                        primary: modelData === Audio.sink
                         onClicked: Audio.setDefaultSink(modelData)
                     }
                 }
@@ -242,11 +246,11 @@ Column {
                 width: parent.width; spacing: Tokens.gap / 2
                 Repeater {
                     model: root.expanded === "sound" ? Audio.sources.filter(n => n.name !== NoiseFilter.nodeName) : []
-                    Capsule {
+                    GlassButton {
                         required property var modelData
                         icon: "mic"
                         label: modelData.description || modelData.nickname || modelData.name
-                        active: modelData === Audio.source || (NoiseFilter.on && NoiseFilter.previous === modelData.name)
+                        primary: modelData === Audio.source || (NoiseFilter.on && NoiseFilter.previous === modelData.name)
                         onClicked: Audio.setDefaultSource(modelData)
                     }
                 }
@@ -254,7 +258,7 @@ Column {
             Row {
                 visible: NoiseFilter.available
                 spacing: Tokens.gap
-                Toggle { checked: NoiseFilter.on; onToggled: NoiseFilter.toggle(); anchors.verticalCenter: parent.verticalCenter }
+                GlassSwitch { checked: NoiseFilter.on; onToggled: NoiseFilter.toggle(); anchors.verticalCenter: parent.verticalCenter }
                 Label { text: "Noise filter for the microphone"; anchors.verticalCenter: parent.verticalCenter }
             }
         }

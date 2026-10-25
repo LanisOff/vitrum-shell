@@ -25,7 +25,8 @@ Item {
     signal optionsEdited(var options)
 
     readonly property var zones: (options.zones || []).map(z => String(z).trim()).filter(z => z.length > 0)
-    readonly property bool h12: options.hours === "12"
+    // "auto" (and widgets saved before it existed) follow clock.h24 from Date & time.
+    readonly property bool h12: options.hours === "12" || (options.hours !== "24" && !Settings.get("clock.h24", true))
     property date now: new Date()
     /// zone → offset from UTC in minutes, or null for a name the system does not know.
     property var offsets: ({})

@@ -15,11 +15,12 @@ import "../../lib/settings-panes.js" as Panes
 import "../../lib/symbols.js" as Symbols
 
 /*
- * Spotlight: a glass search capsule on the focused screen, with its
- * categories as round glass buttons beside it — Apps, Games, Clipboard, Emoji
- * & symbols. What it finds flows out of the capsule as a drop (as the bar's
- * panels flow out of their islands: niri's shaped glass melts the pieces into
- * one), a list on the left and a preview of the selected result on the right.
+ * Spotlight: a glass search field on the focused screen (a rounded rectangle,
+ * Tokens.radiusLauncher), with its categories as square glass buttons beside
+ * it — Apps, Games, Clipboard, Emoji & symbols; the current one is tinted.
+ * What it finds flows out of the field as a drop (as the bar's panels flow
+ * out of their islands: niri's shaped glass melts the pieces into one), a list
+ * on the left and a preview of the selected result on the right.
  *
  *   text        applications (usage-weighted fuzzy), settings, actions, games,
  *               open windows, SSH hosts, files, and a web search (Google)
@@ -28,7 +29,7 @@ import "../../lib/symbols.js" as Symbols
  *   ? words     web search          5m           a timer       pomodoro
  *   Tab         the next category; arrows move, Enter runs, Escape closes
  *
- * The buttons drip out of the capsule as it opens and melt back as it closes.
+ * The buttons drip out of the field as it opens and melt back as it closes.
  */
 PanelWindow {
     id: root
@@ -310,13 +311,16 @@ PanelWindow {
     // ---------------------------------------------------------- geometry ---
     readonly property bool shaped: Materials.shaped("launcher", root.modelData.name)
     readonly property real capH: Tokens.launcherHeight
-    readonly property real capR: capH / 2
+    // The field's and the buttons' corners: the radius vitrum-theme gives
+    // niri for the launcher's shaped glass (geometry-corner-radius and the
+    // fillet), so the glass, the drop's outline and the tint match.
+    readonly property real capR: Tokens.radiusLauncher
     readonly property real capW: Math.min(width - 2 * Tokens.gap - cats.length * (capH + Tokens.gap), Tokens.islandHeight * 20)
     readonly property real groupW: capW + cats.length * (capH + Tokens.gap)
     readonly property real gx: Math.round((width - groupW) / 2)
     readonly property real gy: Math.round(height * 0.18)
 
-    // Appearing: 0 → 1 as it opens. The capsule swells from a drop in its
+    // Appearing: 0 → 1 as it opens. The field swells from a square in its
     // middle to its width, then the buttons drip out of its end; closing runs
     // it back once the results have drawn up — glass cannot fade, so it
     // shrinks away rather than leave a blank pane behind.
@@ -344,8 +348,7 @@ PanelWindow {
         enabled: Motion.enabled
         NumberAnimation {
             duration: root.hasSheet ? Math.round(Motion.emphasized * 1.25) : Motion.standard
-            easing.type: root.hasSheet ? Easing.OutBack : Easing.InOutCubic
-            easing.overshoot: 1.05
+            easing.type: root.hasSheet ? Easing.OutQuint : Easing.InOutCubic
         }
     }
     readonly property bool dropShown: t > 0.001 && alive
@@ -363,12 +366,13 @@ PanelWindow {
     Behavior on ah { enabled: Motion.enabled && root.t > 0.99; SpringAnim { token: Motion.smooth } }
 
     readonly property var capFrame: ({ x: gx, y: gy, w: capW, h: capH })
-    // The results are as wide as the capsule and flow straight down out of it.
+    // The results are as wide as the field and flow straight down out of it.
     readonly property var geo: Drop.dropGeometry(capFrame, { x: gx, w: capW, h: ah }, t, Tokens.gap)
 
     // ------------------------------------------------------------- input ---
     MouseArea { id: catcher; anchors.fill: parent; enabled: root.open; onClicked: UiState.launcher = false }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     mask: Region { item: root.open ? catcher : dot }
 
     // -------------------------------------------------------- the glass ---
@@ -459,7 +463,8 @@ PanelWindow {
     }
 
     // ---------------------------------------------------- the categories ---
-    // Round glass buttons beside the capsule; they drip out of it on opening.
+    // Glass buttons beside the field, its corners and height; they drip out
+    // of it on opening. The current one is tinted (the icon stays Colors.text).
     component Cat: Item {
         id: c
         required property int index
@@ -468,27 +473,26 @@ PanelWindow {
         readonly property real pop: root.outCubic(root.phase(0.45 + 0.08 * index, 0.8 + 0.08 * index))
         readonly property real home: root.gx + root.capW + Tokens.gap + index * (root.capH + Tokens.gap)
         readonly property real start: root.cx + root.cw - root.capH
-        // From inside the capsule's right end out to its place.
+        // From inside the field's right end out to its place.
         x: start + (home - start) * pop
         y: root.gy
         width: root.capH; height: root.capH
         visible: root.alive && pop > 0.01
         readonly property Region region: visible ? reg : null
         Region { id: reg; item: c; radius: root.shaped ? 0 : root.capR }
-        Rectangle {
+        GlassButton {
+            id: b
             anchors.fill: parent
-            radius: width / 2
-            color: c.on ? Colors.alpha(Colors.accent, 0.85) : m.containsMouse ? Colors.alpha(Colors.text, 0.16) : Materials.fill("launcher", 0, root.modelData.name)
-            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-            border.width: root.shaped ? 0 : Tokens.hairline
-            border.color: Materials.border("launcher")
             opacity: c.pop
+            group: "launcher"
+            level: 0
+            outlined: !root.shaped
+            radius: root.capR
+            icon: c.cat.i
+            primary: c.on
+            onClicked: root.setMode(c.cat.m)
         }
-        Icon { anchors.centerIn: parent; name: c.cat.i; color: c.on ? Colors.onAccent : Colors.text; opacity: c.pop; filled: c.on }
-        scale: m.pressed ? 0.9 : 1
-        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
-        MouseArea { id: m; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.setMode(c.cat.m) }
-        ToolTipLabel { text: c.cat.t; shown: m.containsMouse }
+        ToolTipLabel { text: c.cat.t; shown: b.hovered }
     }
     Cat { id: cat0; index: 0 }
     Cat { id: cat1; index: 1 }
@@ -502,7 +506,7 @@ PanelWindow {
         anchors.top: parent.bottom; anchors.topMargin: Tokens.gap * 0.6
         anchors.horizontalCenter: parent.horizontalCenter
         width: tl.implicitWidth + Tokens.gap * 1.5; height: tl.implicitHeight + Tokens.gap * 0.6
-        radius: height / 2
+        radius: Tokens.radiusKnob
         color: Colors.alpha(Colors.surfaceHighest, 0.92)
         opacity: shown && !root.dropShown ? 1 : 0
         visible: opacity > 0
@@ -517,7 +521,7 @@ PanelWindow {
         visible: root.dropShown
         clip: true
         MouseArea { anchors.fill: parent }
-        // Pinned to the far edge: the results come down out of the capsule.
+        // Pinned to the far edge: the results come down out of the field.
         Item {
             id: inner
             x: Tokens.padding
@@ -526,7 +530,7 @@ PanelWindow {
             height: root.ah - 2 * Tokens.padding
             opacity: root.t > 0.5 ? Math.min(1, (root.t - 0.5) * 2.5) : 0
 
-            // The list: grouped, the selection a pill that slides.
+            // The list: grouped, the selection a tinted row that slides.
             ListView {
                 id: list
                 visible: !root.gridMode
@@ -536,12 +540,12 @@ PanelWindow {
                 model: root.gridMode ? [] : root.results
                 currentIndex: root.current
                 boundsBehavior: Flickable.StopAtBounds
-                // The selection: a pill that slides to the row (under its group's heading).
+                // The selection: the dichroic tint, sliding to the row (under its group's heading).
                 highlightFollowsCurrentItem: false
-                highlight: Rectangle {
+                highlight: ShellTint {
                     width: list.width; height: root.rowH
                     radius: Tokens.radiusInner
-                    color: Colors.alpha(Colors.accent, 0.24)
+                    group: "launcher"
                     y: list.currentItem ? list.currentItem.y + list.currentItem.headH : 0
                     Behavior on y { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
                 }
@@ -572,9 +576,11 @@ PanelWindow {
                         spacing: Tokens.gap
                         Item {
                             width: Tokens.iconSize * 1.6; height: width; anchors.verticalCenter: parent.verticalCenter
-                            IconImage { anchors.fill: parent; visible: !!row.modelData.app; source: row.modelData.app ? Quickshell.iconPath(row.modelData.app.icon, "application-x-executable") : "" }
+                            IconImage { anchors.fill: parent; visible: !!row.modelData.app; source: row.modelData.app ? Apps.iconSource(row.modelData.app.icon) : ""
+                                        // No icon in the theme: a line glyph, not the missing texture.
+                                        Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim } }
                             Image { anchors.fill: parent; visible: !!row.modelData.game; source: row.modelData.game && row.modelData.game.cover ? "file://" + row.modelData.game.cover : ""; fillMode: Image.PreserveAspectCrop; sourceSize.width: 64; asynchronous: true }
-                            Icon { anchors.centerIn: parent; visible: !row.modelData.app && !row.modelData.glyph && !row.modelData.game; name: row.modelData.icon || "help"; color: row.selected ? Colors.accent : Colors.textDim }
+                            Icon { anchors.centerIn: parent; visible: !row.modelData.app && !row.modelData.glyph && !row.modelData.game; name: row.modelData.icon || "help"; color: row.selected ? Colors.text : Colors.textDim }
                             Text { anchors.centerIn: parent; visible: !!row.modelData.glyph; text: row.modelData.glyph || ""; font.pixelSize: Tokens.iconSize * 1.2; color: Colors.text }
                         }
                         Column {
@@ -614,8 +620,10 @@ PanelWindow {
                     Rectangle {
                         anchors.fill: parent
                         radius: Tokens.radiusInner
-                        color: tile.index === root.current ? Colors.alpha(Colors.accent, 0.2) : Colors.alpha(Colors.text, 0.06)
+                        color: Colors.alpha(Colors.text, 0.06)
                         clip: true
+                        // The current one is tinted (under a cover, the outline shows it).
+                        ShellTint { anchors.fill: parent; radius: parent.radius; group: "launcher"; active: tile.index === root.current }
                         Image {
                             anchors.fill: parent
                             visible: !!tile.modelData.game

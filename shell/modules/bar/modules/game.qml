@@ -19,7 +19,7 @@ BarModule {
         id: row
         anchors.verticalCenter: parent.verticalCenter
         spacing: Tokens.gap / 2
-        Icon { name: "gamepad"; color: Colors.accent; filled: GameMode.forced; anchors.verticalCenter: parent.verticalCenter }
+        Icon { name: "gamepad"; color: Colors.accent; anchors.verticalCenter: parent.verticalCenter }
         Label {
             text: GameMode.game ? GameMode.game.title || GameMode.game.appId || "A game" : "Game mode"
             width: Math.min(implicitWidth, 180)

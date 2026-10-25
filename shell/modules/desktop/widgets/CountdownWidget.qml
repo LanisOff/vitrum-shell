@@ -136,6 +136,7 @@ Item {
     }
     Meter {
         id: meter
+        group: "widgets"
         visible: root.ok && root.sizeClass !== "S" && root.hasProgress
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom }
         value: root.progress

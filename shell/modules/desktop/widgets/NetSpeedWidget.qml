@@ -9,7 +9,7 @@ import qs.components
  * How fast the network moves right now (/proc/net/dev, once a second).
  *   S   down large, up under it; the last minute as a graph along the bottom
  *   M   the header (the interface at its end); down and up, the graph beside
- * The graph is both directions on one scale: down in the accent, up a second ink.
+ * The graph is both directions on one scale: down from the accent to accent2, up a second ink.
  * options: iface (the interface; empty: the one that has carried the most),
  * graph.
  * In a gallery card, sample rates; nothing is read.
@@ -116,7 +116,7 @@ Item {
         property var downs: []
         property var ups: []
         property real peak: 1
-        Sparkline { anchors.fill: parent; values: g.downs; max: g.peak; color: Colors.accent }
+        Sparkline { anchors.fill: parent; values: g.downs; max: g.peak }
         Sparkline { anchors.fill: parent; values: g.ups; max: g.peak; color: Colors.ink(120); fill: false; lineWidth: 1.5 }
     }
 

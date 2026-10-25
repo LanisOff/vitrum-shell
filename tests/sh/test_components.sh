@@ -46,7 +46,8 @@ test_v1_migration_keeps_the_author_setup() {
   assert_eq "$(component_get author_nvim)/$(component_get author_tmux_keys)/$(component_get games)/$(component_get utilities)/$(component_get tmux_autostart)" "1/1/1/1/1"
   assert_eq "$(component_get cli_tools)/$(component_get file_manager)/$(component_get ocr)" "1/1/1"
   assert_eq "${COMPONENTS_MIGRATED:-}" 1
-  assert_eq "$(components_new)" ""
+  # The Steam and Vesktop themes came after v1 and change those apps: offered as new, not assumed.
+  assert_eq "$(components_new | tr '\n' ' ')" "steam_theme vesktop_theme "
   assert_eq "$(components_unticked | tr '\n' ' ')" "plymouth phone "
   assert_eq "$WANT_TMUX_KEYS" vitrum
 }

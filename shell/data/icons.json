@@ -1,637 +1,867 @@
 {
  "wifi": {
-  "material": "wifi",
+  "phosphor": "",
+  "ph": "wifi-high",
   "nerd": "󰖩"
  },
+ "wifi-low": {
+  "phosphor": "",
+  "ph": "wifi-low",
+  "nerd": "󰤟"
+ },
+ "wifi-medium": {
+  "phosphor": "",
+  "ph": "wifi-medium",
+  "nerd": "󰤢"
+ },
+ "wifi-high": {
+  "phosphor": "",
+  "ph": "wifi-high",
+  "nerd": "󰤥"
+ },
  "wifi-off": {
-  "material": "wifi_off",
+  "phosphor": "",
+  "ph": "wifi-slash",
   "nerd": "󰖪"
  },
  "ethernet": {
-  "material": "lan",
+  "phosphor": "",
+  "ph": "network",
   "nerd": "󰈀"
  },
  "network-off": {
-  "material": "signal_disconnected"
+  "phosphor": "",
+  "ph": "network-slash"
  },
  "bluetooth": {
-  "material": "bluetooth",
+  "phosphor": "",
+  "ph": "bluetooth",
   "nerd": "󰂯"
  },
  "bluetooth-connected": {
-  "material": "bluetooth_connected",
+  "phosphor": "",
+  "ph": "bluetooth-connected",
   "nerd": "󰂱"
  },
  "bluetooth-off": {
-  "material": "bluetooth_disabled",
+  "phosphor": "",
+  "ph": "bluetooth-slash",
   "nerd": "󰂲"
  },
  "volume-high": {
-  "material": "volume_up",
+  "phosphor": "",
+  "ph": "speaker-high",
   "nerd": "󰕾"
  },
  "volume-low": {
-  "material": "volume_down",
+  "phosphor": "",
+  "ph": "speaker-low",
   "nerd": "󰕿"
  },
  "volume-mute": {
-  "material": "volume_off",
+  "phosphor": "",
+  "ph": "speaker-slash",
   "nerd": "󰖁"
  },
  "mic": {
-  "material": "mic",
+  "phosphor": "",
+  "ph": "microphone",
   "nerd": "󰍬"
  },
  "mic-off": {
-  "material": "mic_off",
+  "phosphor": "",
+  "ph": "microphone-slash",
   "nerd": "󰍭"
  },
  "cpu": {
-  "material": "memory",
+  "phosphor": "",
+  "ph": "cpu",
   "nerd": "󰻟"
  },
  "memory": {
-  "material": "memory_alt",
+  "phosphor": "",
+  "ph": "memory",
   "nerd": "󰍛"
  },
  "temperature": {
-  "material": "thermostat",
+  "phosphor": "",
+  "ph": "thermometer",
   "nerd": "󰔏"
  },
  "gpu": {
-  "material": "developer_board",
+  "phosphor": "",
+  "ph": "graphics-card",
   "nerd": "󰢮"
  },
  "notifications": {
-  "material": "notifications",
+  "phosphor": "",
+  "ph": "bell",
   "nerd": "󰂚"
  },
  "dnd": {
-  "material": "do_not_disturb_on",
+  "phosphor": "",
+  "ph": "bell-slash",
   "nerd": "󰂛"
  },
  "recording": {
-  "material": "radio_button_checked",
+  "phosphor": "",
+  "ph": "record",
   "nerd": "󰑊"
  },
  "keyboard": {
-  "material": "keyboard",
+  "phosphor": "",
+  "ph": "keyboard",
   "nerd": "󰌌"
  },
  "mouse": {
-  "material": "mouse",
+  "phosphor": "",
+  "ph": "mouse",
   "nerd": "󰍽"
  },
  "battery": {
-  "material": "battery_full",
+  "phosphor": "",
+  "ph": "battery-full",
   "nerd": "󰁹"
  },
  "power": {
-  "material": "power_settings_new",
+  "phosphor": "",
+  "ph": "power",
   "nerd": "󰐥"
  },
  "lock": {
-  "material": "lock",
+  "phosphor": "",
+  "ph": "lock",
   "nerd": "󰌾"
  },
  "logout": {
-  "material": "logout",
+  "phosphor": "",
+  "ph": "sign-out",
   "nerd": "󰍃"
  },
  "restart": {
-  "material": "restart_alt",
+  "phosphor": "",
+  "ph": "arrow-counter-clockwise",
   "nerd": "󰜉"
  },
  "sleep": {
-  "material": "bedtime",
+  "phosphor": "",
+  "ph": "moon",
   "nerd": "󰒲"
  },
  "search": {
-  "material": "search",
+  "phosphor": "",
+  "ph": "magnifying-glass",
   "nerd": "󰍉"
  },
  "apps": {
-  "material": "apps",
+  "phosphor": "",
+  "ph": "dots-nine",
   "nerd": "󰀻"
  },
  "calendar": {
-  "material": "calendar_month",
+  "phosphor": "",
+  "ph": "calendar-blank",
   "nerd": "󰃭"
  },
  "music": {
-  "material": "music_note",
+  "phosphor": "",
+  "ph": "music-note",
   "nerd": "󰝚"
  },
  "play": {
-  "material": "play_arrow",
+  "phosphor": "",
+  "ph": "play",
   "nerd": "󰐊"
  },
  "pause": {
-  "material": "pause",
+  "phosphor": "",
+  "ph": "pause",
   "nerd": "󰏤"
  },
  "next": {
-  "material": "skip_next",
+  "phosphor": "",
+  "ph": "skip-forward",
   "nerd": "󰒭"
  },
  "previous": {
-  "material": "skip_previous",
+  "phosphor": "",
+  "ph": "skip-back",
   "nerd": "󰒮"
  },
  "close": {
-  "material": "close",
+  "phosphor": "",
+  "ph": "x",
   "nerd": "󰅖"
  },
  "settings": {
-  "material": "settings",
+  "phosphor": "",
+  "ph": "gear-six",
   "nerd": "󰒓"
  },
  "light": {
-  "material": "light_mode",
+  "phosphor": "",
+  "ph": "sun",
   "nerd": "󰖙"
  },
  "dark": {
-  "material": "dark_mode",
+  "phosphor": "",
+  "ph": "moon",
   "nerd": "󰖔"
  },
  "screenshot": {
-  "material": "screenshot_region",
+  "phosphor": "",
+  "ph": "selection-plus",
   "nerd": "󰹑"
  },
  "camera": {
-  "material": "photo_camera",
+  "phosphor": "",
+  "ph": "camera",
   "nerd": "󰄀"
  },
  "video": {
-  "material": "videocam",
+  "phosphor": "",
+  "ph": "video-camera",
   "nerd": "󰕧"
  },
  "ocr": {
-  "material": "document_scanner",
+  "phosphor": "",
+  "ph": "scan",
   "nerd": "󱄺"
  },
  "timer": {
-  "material": "timer",
+  "phosphor": "",
+  "ph": "timer",
   "nerd": "󱎫"
  },
  "add": {
-  "material": "add",
+  "phosphor": "",
+  "ph": "plus",
   "nerd": "󰐕"
  },
  "edit": {
-  "material": "edit",
+  "phosphor": "",
+  "ph": "pencil-simple",
   "nerd": "󰏫"
  },
  "check": {
-  "material": "check",
+  "phosphor": "",
+  "ph": "check",
   "nerd": "󰄬"
  },
  "chevron": {
-  "material": "chevron_right",
+  "phosphor": "",
+  "ph": "caret-right",
   "nerd": "󰅂"
  },
  "expand": {
-  "material": "expand_more",
+  "phosphor": "",
+  "ph": "caret-down",
   "nerd": "󰅀"
  },
  "folder": {
-  "material": "folder",
+  "phosphor": "",
+  "ph": "folder",
   "nerd": "󰉋"
  },
  "file": {
-  "material": "draft",
+  "phosphor": "",
+  "ph": "file",
   "nerd": "󰈔"
  },
  "image": {
-  "material": "image",
+  "phosphor": "",
+  "ph": "image",
   "nerd": "󰋩"
  },
  "terminal": {
-  "material": "terminal",
+  "phosphor": "",
+  "ph": "terminal-window",
   "nerd": "󰆍"
  },
  "calculator": {
-  "material": "calculate",
+  "phosphor": "",
+  "ph": "calculator",
   "nerd": "󰃬"
  },
  "emoji": {
-  "material": "mood",
+  "phosphor": "",
+  "ph": "smiley",
   "nerd": "󰞅"
  },
  "clipboard": {
-  "material": "content_paste",
+  "phosphor": "",
+  "ph": "clipboard-text",
   "nerd": "󰅇"
  },
  "web": {
-  "material": "travel_explore",
+  "phosphor": "",
+  "ph": "globe-simple",
   "nerd": "󰖟"
  },
  "profile-performance": {
-  "material": "speed",
+  "phosphor": "",
+  "ph": "gauge",
   "nerd": "󰓅"
  },
  "profile-balanced": {
-  "material": "balance",
+  "phosphor": "",
+  "ph": "scales",
   "nerd": "󱐋"
  },
  "profile-saver": {
-  "material": "eco",
+  "phosphor": "",
+  "ph": "leaf",
   "nerd": "󰌪"
  },
  "brightness": {
-  "material": "brightness_6",
+  "phosphor": "",
+  "ph": "sun-dim",
   "nerd": "󰃟"
  },
  "trash": {
-  "material": "delete",
+  "phosphor": "",
+  "ph": "trash",
   "nerd": "󰆴"
  },
  "pin": {
-  "material": "push_pin",
+  "phosphor": "",
+  "ph": "push-pin",
   "nerd": "󰐃"
  },
  "help": {
-  "material": "help",
+  "phosphor": "",
+  "ph": "question",
   "nerd": "󰋖"
  },
  "weather-clear": {
-  "material": "clear_day",
+  "phosphor": "",
+  "ph": "sun",
   "nerd": "󰖙"
  },
  "weather-night": {
-  "material": "bedtime",
+  "phosphor": "",
+  "ph": "moon-stars",
   "nerd": "󰖔"
  },
  "weather-cloudy": {
-  "material": "cloud",
+  "phosphor": "",
+  "ph": "cloud",
   "nerd": "󰖐"
  },
  "weather-partly": {
-  "material": "partly_cloudy_day",
+  "phosphor": "",
+  "ph": "cloud-sun",
   "nerd": "󰖕"
  },
+ "weather-partly-night": {
+  "phosphor": "",
+  "ph": "cloud-moon",
+  "nerd": "󰼱"
+ },
  "weather-rain": {
-  "material": "rainy",
+  "phosphor": "",
+  "ph": "cloud-rain",
   "nerd": "󰖗"
  },
  "weather-snow": {
-  "material": "weather_snowy",
+  "phosphor": "",
+  "ph": "cloud-snow",
   "nerd": "󰖘"
  },
  "weather-storm": {
-  "material": "thunderstorm",
+  "phosphor": "",
+  "ph": "cloud-lightning",
   "nerd": "󰖓"
  },
  "weather-fog": {
-  "material": "foggy",
+  "phosphor": "",
+  "ph": "cloud-fog",
   "nerd": "󰖑"
  },
  "widgets": {
-  "material": "widgets",
-  "nerd": "󱩲"
+  "phosphor": "",
+  "ph": "squares-four",
+  "nerd": "󰜬"
  },
  "desktop": {
-  "material": "desktop_windows",
+  "phosphor": "",
+  "ph": "desktop",
   "nerd": "󰇄"
  },
  "window": {
-  "material": "web_asset",
-  "nerd": "󰖰"
+  "phosphor": "",
+  "ph": "app-window",
+  "nerd": "󰘔"
  },
  "screen": {
-  "material": "monitor",
+  "phosphor": "",
+  "ph": "monitor",
   "nerd": "󰍹"
  },
  "area": {
-  "material": "crop_free",
+  "phosphor": "",
+  "ph": "selection",
   "nerd": "󰆞"
  },
  "copy": {
-  "material": "content_copy",
+  "phosphor": "",
+  "ph": "copy",
   "nerd": "󰆏"
  },
  "open": {
-  "material": "open_in_new",
+  "phosphor": "",
+  "ph": "arrow-square-out",
   "nerd": "󰏌"
  },
  "history": {
-  "material": "history",
+  "phosphor": "",
+  "ph": "clock-counter-clockwise",
   "nerd": "󰋚"
  },
  "clear": {
-  "material": "clear_all",
-  "nerd": "󰵟"
+  "phosphor": "",
+  "ph": "broom",
+  "nerd": "󰎟"
  },
  "layout": {
-  "material": "language",
-  "nerd": "󰫀"
+  "phosphor": "",
+  "ph": "translate",
+  "nerd": "󰗊"
+ },
+ "workspaces": {
+  "phosphor": "",
+  "ph": "stack",
+  "nerd": "󰧾"
  },
  "user": {
-  "material": "person",
+  "phosphor": "",
+  "ph": "user",
   "nerd": "󰀄"
  },
  "update": {
-  "material": "deployed_code_update",
+  "phosphor": "",
+  "ph": "package",
   "nerd": "󰏔"
  },
  "vitrum-update": {
-  "material": "arrow_circle_down",
+  "phosphor": "",
+  "ph": "arrow-circle-down",
   "nerd": "󰳛"
  },
  "clock": {
-  "material": "schedule"
+  "phosphor": "",
+  "ph": "clock"
  },
  "materials": {
-  "material": "blur_on"
+  "phosphor": "",
+  "ph": "cube-transparent"
  },
  "toolbar": {
-  "material": "toolbar"
+  "phosphor": "",
+  "ph": "browser"
  },
  "typography": {
-  "material": "text_fields"
+  "phosphor": "",
+  "ph": "text-aa"
  },
  "palette": {
-  "material": "palette"
+  "phosphor": "",
+  "ph": "palette"
+ },
+ "processes": {
+  "phosphor": "",
+  "ph": "chart-bar-horizontal"
  },
  "motion": {
-  "material": "animation"
+  "phosphor": "",
+  "ph": "film-strip"
  },
  "coffee": {
-  "material": "coffee",
+  "phosphor": "",
+  "ph": "coffee",
   "nerd": "󰅶"
  },
  "videocam": {
-  "material": "videocam",
+  "phosphor": "",
+  "ph": "video-camera",
   "nerd": "󰕧"
  },
  "screen-share": {
-  "material": "screen_share",
+  "phosphor": "",
+  "ph": "screencast",
   "nerd": "󱒃"
  },
  "vpn": {
-  "material": "vpn_lock",
+  "phosphor": "",
+  "ph": "shield-check",
   "nerd": "󰖂"
  },
  "shield": {
-  "material": "shield",
+  "phosphor": "",
+  "ph": "shield",
   "nerd": "󰒘"
  },
  "gamepad": {
-  "material": "sports_esports",
+  "phosphor": "",
+  "ph": "game-controller",
   "nerd": "󰊗"
  },
  "build": {
-  "material": "build",
+  "phosphor": "",
+  "ph": "wrench",
   "nerd": "󱌢"
  },
  "stop": {
-  "material": "stop",
+  "phosphor": "",
+  "ph": "stop",
   "nerd": "󰓛"
  },
  "colorize": {
-  "material": "colorize",
+  "phosphor": "",
+  "ph": "eyedropper",
   "nerd": "󰈊"
  },
  "crop": {
-  "material": "crop",
+  "phosphor": "",
+  "ph": "crop",
   "nerd": "󰆞"
  },
  "brush": {
-  "material": "brush",
+  "phosphor": "",
+  "ph": "paint-brush",
   "nerd": "󰃣"
  },
  "text": {
-  "material": "title",
-  "nerd": "󰊞"
+  "phosphor": "",
+  "ph": "text-t",
+  "nerd": "󰊄"
  },
  "rect": {
-  "material": "crop_square",
+  "phosphor": "",
+  "ph": "rectangle",
   "nerd": "󰝣"
  },
  "blur": {
-  "material": "blur_on",
+  "phosphor": "",
+  "ph": "drop-half",
   "nerd": "󰂵"
  },
  "undo": {
-  "material": "undo",
+  "phosphor": "",
+  "ph": "arrow-u-up-left",
   "nerd": "󰕌"
  },
  "save": {
-  "material": "save",
+  "phosphor": "",
+  "ph": "floppy-disk",
   "nerd": "󰆓"
  },
  "arrow": {
-  "material": "arrow_outward",
+  "phosphor": "",
+  "ph": "arrow-up-right",
   "nerd": "󰁜"
  },
  "mixer": {
-  "material": "tune",
+  "phosphor": "",
+  "ph": "sliders-horizontal",
   "nerd": "󰘮"
  },
  "headphones": {
-  "material": "headphones",
+  "phosphor": "",
+  "ph": "headphones",
   "nerd": "󰋋"
  },
  "speaker": {
-  "material": "speaker",
+  "phosphor": "",
+  "ph": "speaker-hifi",
   "nerd": "󰓃"
  },
  "noise": {
-  "material": "graphic_eq",
+  "phosphor": "",
+  "ph": "waveform",
   "nerd": "󱑽"
  },
  "phone": {
-  "material": "smartphone",
+  "phosphor": "",
+  "ph": "device-mobile",
   "nerd": "󰄜"
  },
  "alert": {
-  "material": "warning",
+  "phosphor": "",
+  "ph": "warning",
   "nerd": "󰀦"
  },
  "disk": {
-  "material": "hard_drive",
+  "phosphor": "",
+  "ph": "hard-drive",
   "nerd": "󰋊"
  },
  "reply": {
-  "material": "reply",
+  "phosphor": "",
+  "ph": "arrow-bend-up-left",
   "nerd": "󰑚"
  },
  "send": {
-  "material": "send",
+  "phosphor": "",
+  "ph": "paper-plane-right",
   "nerd": "󰒊"
  },
  "speed": {
-  "material": "speed",
+  "phosphor": "",
+  "ph": "speedometer",
   "nerd": "󰓅"
  },
  "lyrics": {
-  "material": "lyrics",
+  "phosphor": "",
+  "ph": "microphone-stage",
   "nerd": "󰲸"
  },
  "corner": {
-  "material": "select_all",
-  "nerd": "󰒅"
+  "phosphor": "",
+  "ph": "frame-corners",
+  "nerd": "󰆟"
  },
  "hourglass": {
-  "material": "hourglass_top",
+  "phosphor": "",
+  "ph": "hourglass-medium",
   "nerd": "󰔟"
  },
  "pip": {
-  "material": "picture_in_picture_alt",
-  "nerd": "󰺝"
+  "phosphor": "",
+  "ph": "picture-in-picture",
+  "nerd": "󰹗"
  },
  "event": {
-  "material": "event",
+  "phosphor": "",
+  "ph": "calendar-dot",
   "nerd": "󰃰"
  },
  "sync": {
-  "material": "sync",
+  "phosphor": "",
+  "ph": "arrows-clockwise",
   "nerd": "󰓦"
  },
  "link": {
-  "material": "link",
+  "phosphor": "",
+  "ph": "link",
   "nerd": "󰌷"
  },
  "battery-phone": {
-  "material": "battery_full",
+  "phosphor": "",
+  "ph": "battery-full",
   "nerd": "󰁹"
  },
  "world": {
-  "material": "public"
+  "phosphor": "",
+  "ph": "globe-hemisphere-west"
  },
  "sun": {
-  "material": "wb_sunny"
+  "phosphor": "",
+  "ph": "sun"
  },
  "sunrise": {
-  "material": "wb_twilight"
+  "phosphor": "",
+  "ph": "sun-horizon"
  },
  "todo": {
-  "material": "checklist"
+  "phosphor": "",
+  "ph": "list-checks"
  },
  "countdown": {
-  "material": "event_upcoming"
+  "phosphor": "",
+  "ph": "calendar-star"
  },
  "graph": {
-  "material": "monitoring"
+  "phosphor": "",
+  "ph": "chart-line"
  },
  "devices": {
-  "material": "devices"
+  "phosphor": "",
+  "ph": "devices"
  },
  "toggles": {
-  "material": "toggle_on"
+  "phosphor": "",
+  "ph": "toggle-right"
  },
  "photo": {
-  "material": "photo_library"
+  "phosphor": "",
+  "ph": "images"
  },
  "quote": {
-  "material": "format_quote"
+  "phosphor": "",
+  "ph": "quotes"
  },
  "folder-apps": {
-  "material": "grid_view"
+  "phosphor": "",
+  "ph": "grid-four"
  },
  "redo": {
-  "material": "redo"
+  "phosphor": "",
+  "ph": "arrow-u-up-right"
  },
  "select": {
-  "material": "select_all"
+  "phosphor": "",
+  "ph": "selection-all"
  },
  "align-left": {
-  "material": "align_horizontal_left"
+  "phosphor": "",
+  "ph": "align-left"
  },
  "align-right": {
-  "material": "align_horizontal_right"
+  "phosphor": "",
+  "ph": "align-right"
  },
  "align-hcenter": {
-  "material": "align_horizontal_center"
+  "phosphor": "",
+  "ph": "align-center-horizontal"
  },
  "align-top": {
-  "material": "align_vertical_top"
+  "phosphor": "",
+  "ph": "align-top"
  },
  "align-bottom": {
-  "material": "align_vertical_bottom"
+  "phosphor": "",
+  "ph": "align-bottom"
  },
  "align-vcenter": {
-  "material": "align_vertical_center"
+  "phosphor": "",
+  "ph": "align-center-vertical"
  },
  "distribute-h": {
-  "material": "horizontal_distribute"
+  "phosphor": "",
+  "ph": "arrows-out-line-horizontal"
  },
  "distribute-v": {
-  "material": "vertical_distribute"
+  "phosphor": "",
+  "ph": "arrows-out-line-vertical"
  },
  "duplicate": {
-  "material": "library_add"
+  "phosphor": "",
+  "ph": "stack-plus"
  },
  "code": {
-  "material": "code"
+  "phosphor": "",
+  "ph": "code"
  },
  "drag": {
-  "material": "drag_indicator"
+  "phosphor": "",
+  "ph": "dots-six-vertical"
  },
  "checkbox": {
-  "material": "check_box"
+  "phosphor": "",
+  "ph": "check-square"
  },
  "checkbox-blank": {
-  "material": "check_box_outline_blank"
+  "phosphor": "",
+  "ph": "square"
  },
  "refresh": {
-  "material": "refresh"
+  "phosphor": "",
+  "ph": "arrow-clockwise"
  },
  "resize": {
-  "material": "open_in_full"
+  "phosphor": "",
+  "ph": "arrows-out-simple"
  },
  "wind": {
-  "material": "air"
+  "phosphor": "",
+  "ph": "wind"
  },
  "humidity": {
-  "material": "humidity_percentage"
+  "phosphor": "",
+  "ph": "drop"
  },
  "upload": {
-  "material": "upload"
+  "phosphor": "",
+  "ph": "upload-simple"
  },
  "download": {
-  "material": "download"
+  "phosphor": "",
+  "ph": "download-simple"
  },
  "shuffle": {
-  "material": "shuffle"
+  "phosphor": "",
+  "ph": "shuffle"
  },
  "remove": {
-  "material": "remove"
+  "phosphor": "",
+  "ph": "minus"
  },
  "moon": {
-  "material": "dark_mode"
+  "phosphor": "",
+  "ph": "moon"
  },
  "bolt": {
-  "material": "bolt"
+  "phosphor": "",
+  "ph": "lightning"
  },
  "rocket": {
-  "material": "rocket_launch"
+  "phosphor": "",
+  "ph": "rocket-launch"
  },
  "rotate": {
-  "material": "screen_rotation"
+  "phosphor": "",
+  "ph": "device-rotate"
  },
  "key": {
-  "material": "key"
+  "phosphor": "",
+  "ph": "key"
  },
  "star": {
-  "material": "star"
+  "phosphor": "",
+  "ph": "star"
  },
  "mirror": {
-  "material": "flip"
+  "phosphor": "",
+  "ph": "flip-horizontal"
  },
  "wifi-lock": {
-  "material": "wifi_password"
+  "phosphor": "",
+  "ph": "lock-simple"
  },
  "visibility": {
-  "material": "visibility"
+  "phosphor": "",
+  "ph": "eye"
  },
  "visibility-off": {
-  "material": "visibility_off"
+  "phosphor": "",
+  "ph": "eye-slash"
  },
  "bluetooth-searching": {
-  "material": "bluetooth_searching"
+  "phosphor": "",
+  "ph": "bluetooth"
  },
  "ip": {
-  "material": "settings_ethernet"
+  "phosphor": "",
+  "ph": "brackets-angle"
+ },
+ "board": {
+  "phosphor": "",
+  "ph": "circuitry",
+  "nerd": "󰘚"
+ },
+ "leaf": {
+  "phosphor": "",
+  "ph": "leaf"
+ },
+ "news": {
+  "phosphor": "",
+  "ph": "newspaper"
+ },
+ "stopwatch": {
+  "phosphor": "",
+  "ph": "clock-clockwise"
+ },
+ "lap": {
+  "phosphor": "",
+  "ph": "flag"
+ },
+ "habit": {
+  "phosphor": "",
+  "ph": "calendar-check"
+ },
+ "streak": {
+  "phosphor": "",
+  "ph": "flame"
  }
 }

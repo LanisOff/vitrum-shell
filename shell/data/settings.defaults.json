@@ -27,6 +27,11 @@
     "light": "07:00",
     "dark": "19:30"
   },
+  "look": {
+    "dichroic": {
+      "shift": -100
+    }
+  },
   "motion": {
     "speed": 1.0,
     "reduce": false
@@ -94,14 +99,22 @@
         ]
       ]
     },
-    "minimap": false
+    "minimap": false,
+    "modules": {
+      "context": { "title": true },
+      "cpu": { "show": "both" },
+      "memory": { "show": "both" },
+      "temperature": { "show": "both" },
+      "gpu": { "show": "both" },
+      "volume": { "percent": false },
+      "keyboard": { "long": false }
+    }
   },
   "dock": {
     "enabled": true,
     "intellihide": true,
     "magnify": true,
     "magnifyAmount": 1.4,
-    "stacks": false,
     "pinned": [
       "kitty",
       "org.kde.dolphin",
@@ -160,8 +173,7 @@
     "theme": "Bibata-Modern-Classic"
   },
   "icons": {
-    "theme": "Papirus-Dark",
-    "backplates": false
+    "theme": "Papirus-Dark"
   },
   "windows": {
     "focus": "shadow",
@@ -216,6 +228,18 @@
     "hud": true,
     "extra": []
   },
+  "steam": {
+    "theme": {
+      "enabled": true,
+      "sync": true
+    }
+  },
+  "vesktop": {
+    "theme": {
+      "enabled": true,
+      "sync": true
+    }
+  },
   "screencast": {
     "remember": {}
   },
@@ -253,7 +277,8 @@
     "smart": true
   },
   "keyboard": {
-    "perApp": true
+    "perApp": true,
+    "layouts": []
   },
   "keybinds": { "changes": {}, "own": [] },
   "input": {

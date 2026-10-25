@@ -95,6 +95,10 @@ Singleton {
     /// A widget's options: in the editor an edit like any other; outside it
     /// (a note typed into, a to-do ticked) saved at once.
     function setOptions(id, options) {
+        // Copied as JSON: the lists in options that came through a QML signal
+        // (a widget's, the form's) are sequences there, not Arrays, and
+        // W.withDefaults would read them as no list (the defaults back).
+        options = JSON.parse(JSON.stringify(options || {}));
         if (active) { patch(id, { options: options }); return; }
         Settings.set("widgets.items", W.update(stored, id, { options: options }));
     }
@@ -118,6 +122,17 @@ Singleton {
         selection = [];
     }
     function remove(id) { apply(draft.filter(i => i.id !== id)); selection = selection.filter(x => x !== id); }
+    /// A custom widget deleted: every placed copy of it goes too, stored and
+    /// in the draft, and no undo brings one back (it would show "Missing widget").
+    function dropType(type) {
+        const keep = l => l.filter(i => i.type !== type);
+        if (active) {
+            draft = keep(draft);
+            history = { undo: history.undo.map(keep), redo: history.redo.map(keep) };
+            _keepSelection();
+        }
+        if (stored.some(i => i.type === type)) Settings.set("widgets.items", keep(stored));
+    }
     function duplicateSelected() {
         let list = draft;
         const made = [];

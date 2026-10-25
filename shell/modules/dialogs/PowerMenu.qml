@@ -27,11 +27,14 @@ DialogFrame {
             delegate: Column {
                 required property var modelData
                 spacing: Tokens.gap
+                // Clear glass; the one under the pointer lights up with the tint.
                 Surface {
-                    width: Tokens.islandHeight * 2.6; height: width; radius: width / 2
+                    width: Tokens.islandHeight * 2.6; height: width; radius: Tokens.radiusTile
                     group: "dialogs"; level: 1; outlined: false
-                    color: mouse.containsMouse ? Colors.accent : Materials.fill("dialogs", 1, Screen.name)
-                    Icon { anchors.centerIn: parent; name: modelData.icon; size: Tokens.iconSize * 1.8; color: mouse.containsMouse ? Colors.onAccent : Colors.text }
+                    scale: mouse.pressed ? 0.97 : 1
+                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
+                    ShellTint { anchors.fill: parent; radius: parent.radius; group: "dialogs"; active: mouse.containsMouse; hovered: mouse.containsMouse }
+                    Icon { anchors.centerIn: parent; name: modelData.icon; size: Tokens.iconSize * 1.8; color: Colors.text }
                     MouseArea { id: mouse; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: root.act(modelData.run) }
                 }
                 Label { anchors.horizontalCenter: parent.horizontalCenter; text: modelData.label; role: "dim" }
@@ -43,10 +46,10 @@ DialogFrame {
         anchors.horizontalCenter: parent.horizontalCenter
         spacing: Tokens.gap / 2
         Label { text: "Power off"; role: "dim"; anchors.verticalCenter: parent.verticalCenter; rightPadding: Tokens.gap / 2 }
-        Capsule { icon: "timer"; label: "in 30 min"; onClicked: root.act(() => Shutdown.inMinutes(30)) }
-        Capsule { icon: "timer"; label: "in 1 h"; onClicked: root.act(() => Shutdown.inMinutes(60)) }
-        Capsule { visible: Packages.state.running; icon: "build"; label: "after " + Packages.toolName; onClicked: root.act(() => Shutdown.whenEmergeDone()) }
-        Capsule { visible: Shutdown.pending; icon: "close"; label: "cancel"; onClicked: root.act(() => Shutdown.cancel()) }
+        GlassButton { icon: "timer"; label: "in 30 min"; onClicked: root.act(() => Shutdown.inMinutes(30)) }
+        GlassButton { icon: "timer"; label: "in 1 h"; onClicked: root.act(() => Shutdown.inMinutes(60)) }
+        GlassButton { visible: Packages.state.running; icon: "build"; label: "after " + Packages.toolName; onClicked: root.act(() => Shutdown.whenEmergeDone()) }
+        GlassButton { visible: Shutdown.pending; icon: "close"; label: "cancel"; onClicked: root.act(() => Shutdown.cancel()) }
     }
     }
 }

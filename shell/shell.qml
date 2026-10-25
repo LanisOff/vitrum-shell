@@ -37,8 +37,9 @@ ShellRoot {
     settings.watchFiles: false
     // Settings first; then what must run without being shown: hardware alerts,
     // the microphone filter (it comes back on at login when it was on), the
-    // keyboard layout per app, the Bluetooth pairing agent, screen mirroring.
-    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; Bluetooth.present; Mirror.active; }
+    // keyboard layout per app, the Bluetooth pairing agent, screen mirroring,
+    // the sounds for devices and the charger.
+    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; Bluetooth.present; Mirror.active; Sounds.inShell; }
 
     // How long the start took, in the log: since this process began, and since
     // the session (niri) did.

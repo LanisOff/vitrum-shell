@@ -124,6 +124,34 @@ _rm "$HOME/.local/bin/vitrum-shell" "$HOME/.local/bin/vitrum-startup" "$HOME/.lo
 # The cursor theme only if we put it there.
 [[ -e "$VITRUM_STATE/assets/bibata.sha256" ]] && _rm "$XDG_DATA_HOME/icons/Bibata-Modern-Classic"
 
+# The Steam theme: switched off in Millennium and deleted, before the
+# manifest takes away the vitrum_theme package its helper runs on. Millennium
+# stays, like every package (the AUR's, or upstream's in /usr/lib/millennium).
+if [[ -x "$HOME/.local/bin/vitrum-steam-theme" ]]; then
+  step "Steam theme"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    dim "would run: vitrum-steam-theme remove"
+  else
+    "$HOME/.local/bin/vitrum-steam-theme" remove || warn "could not remove the Steam theme — Steam's settings (Millennium, Themes) switch back to its own look"
+  fi
+  _rm "$HOME/.local/bin/vitrum-steam-theme" "$XDG_DATA_HOME/vitrum/steam"
+  if [[ -e "${VITRUM_MILLENNIUM_LIB:-$VITRUM_SYSROOT/usr/lib/millennium}" ]]; then
+    info "Millennium is left installed — remove it with your package manager (pacman -R millennium), or delete /usr/lib/millennium if it came from its release"
+  fi
+fi
+
+# The Vesktop theme: switched off in Vencord and deleted, the same way and for
+# the same reason. Vesktop stays.
+if [[ -x "$HOME/.local/bin/vitrum-vesktop-theme" ]]; then
+  step "Vesktop theme"
+  if [[ "$DRY_RUN" == "1" ]]; then
+    dim "would run: vitrum-vesktop-theme remove"
+  else
+    "$HOME/.local/bin/vitrum-vesktop-theme" remove || warn "could not remove the Vesktop theme — switch it off in Vesktop's settings (Vencord, Themes)"
+  fi
+  _rm "$HOME/.local/bin/vitrum-vesktop-theme" "$XDG_DATA_HOME/vitrum/vesktop"
+fi
+
 step "restoring originals"
 # The manifest records, for every path vitrum ever wrote, whether it was the
 # user's (saved here, put back) or new (removed).

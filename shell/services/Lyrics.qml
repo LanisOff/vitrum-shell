@@ -27,12 +27,15 @@ Singleton {
     readonly property string key: Media.available && Media.title ? Media.artist + "\n" + Media.title : ""
     readonly property string cacheDir: (Quickshell.env("XDG_CACHE_HOME") || Quickshell.env("HOME") + "/.cache") + "/vitrum/lyrics"
     onKeyChanged: fetchLater.restart()
+    // Turned on: found for what plays now; off: gone from the bar and the lock as well.
+    readonly property bool enabled: Settings.get("media.lyrics", true)
+    onEnabledChanged: fetchLater.restart()
     // Players change title and artist one after the other: ask once they settle.
     Timer { id: fetchLater; interval: 400; onTriggered: root.fetch() }
 
     function fetch() {
         lines = []; plain = ""; index = -1;
-        if (!key || !Settings.get("media.lyrics", true)) { state = "none"; return; }
+        if (!key || !enabled) { state = "none"; return; }
         const args = Lib.queryArgs({ title: Media.title, artist: Media.artist, album: Media.album, length: Media.length });
         if (!args) { state = "missing"; return; }
         state = "loading";
@@ -52,7 +55,7 @@ Singleton {
         onExited: if (wanted !== root.key && root.key) fetchLater.restart()
         stdout: StdioCollector {
             onStreamFinished: {
-                if (proc.wanted !== root.key) return;
+                if (proc.wanted !== root.key || !root.enabled) return;
                 let d = {};
                 try { d = JSON.parse(text || "{}"); } catch (e) {}
                 const synced = Lib.parseLrc(d.syncedLyrics || "");

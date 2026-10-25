@@ -101,7 +101,6 @@ Item {
         Icon {
             id: mark
             name: "quote"
-            filled: true
             color: Colors.accent
             size: root.large ? Math.round(Tokens.textTitle * 1.9) : Math.round(Tokens.textTitle * 1.5)
             anchors { left: parent.left; top: parent.top; leftMargin: -Math.round(mark.size * 0.12) }

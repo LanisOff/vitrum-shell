@@ -74,6 +74,7 @@ Item {
         anchors.centerIn: parent
         spacing: Tokens.gap * 0.5
         Meter {
+            group: "widgets"
             anchors.horizontalCenter: parent.horizontalCenter
             kind: "circular"
             width: Math.min(root.width, root.height) * 0.62; height: width
@@ -107,12 +108,12 @@ Item {
             delegate: Item {
                 required property var modelData
                 width: rows.width; height: rows.rowH
-                Rectangle {
+                // The kind of device: a plain line icon in accent2, as in the header.
+                Item {
                     id: lead
                     anchors.verticalCenter: parent.verticalCenter
-                    width: Math.round(parent.height * 0.82); height: width; radius: width / 2
-                    color: Colors.alpha(Colors.text, 0.07)
-                    Icon { anchors.centerIn: parent; name: modelData.icon; size: Math.round(parent.width * 0.58); color: Colors.accent }
+                    width: Math.round(parent.height * 0.82); height: width
+                    Icon { anchors.centerIn: parent; name: modelData.icon; size: Math.round(parent.width * 0.72); color: Colors.accent2 }
                 }
                 Label {
                     anchors { left: lead.right; leftMargin: Tokens.gap * 0.8; right: bar.left; rightMargin: Tokens.gap; verticalCenter: parent.verticalCenter }
@@ -121,6 +122,7 @@ Item {
                 }
                 Meter {
                     id: bar
+                    group: "widgets"
                     anchors { right: pctBox.left; rightMargin: Tokens.gap * 0.8; verticalCenter: parent.verticalCenter }
                     width: Math.round(rows.width * 0.26)
                     thickness: 4

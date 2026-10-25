@@ -24,7 +24,7 @@ Page {
     Section {
         SettingRow {
             label: "Edit widgets"; hint: "The desktop shrinks beside a gallery: click or drag to add, drag to move, the corner to resize. Also Mod+Alt+W, or right-click a widget."; divider: false
-            Chip_ { text: "Open the editor"; accent: true; onClicked: Quickshell.execDetached(["vitrum-ipc", "widgets", "edit"]) }
+            GlassButton { label: "Open the editor"; primary: true; onClicked: Quickshell.execDetached(["vitrum-ipc", "widgets", "edit"]) }
         }
     }
     Section {
@@ -57,22 +57,17 @@ Page {
                 hint: (modelData.command || "") + " · every " + (modelData.interval || 10) + " s"
                 Icon { name: "trash"; anchors.verticalCenter: parent.verticalCenter
                        MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor
-                                   onClicked: Settings.set("widgets.custom", page.scripts.filter(s => s.id !== modelData.id)) } }
+                                   // The widget's copies on the desktop go with it (else "Missing widget").
+                                   onClicked: {
+                                       const type = "script:" + modelData.id;
+                                       if (page.items.some(i => i.type === type)) Settings.set("widgets.items", page.items.filter(i => i.type !== type));
+                                       Settings.set("widgets.custom", page.scripts.filter(s => s.id !== modelData.id));
+                                   } } }
             }
         }
         SettingRow {
             label: "Widgets folder"; hint: "~/.config/vitrum/widgets"; divider: false
-            Chip_ { text: "Open"; onClicked: Quickshell.execDetached(["sh", "-c", 'mkdir -p "$HOME/.config/vitrum/widgets" && exec xdg-open "$HOME/.config/vitrum/widgets"']) }
+            GlassButton { label: "Open"; onClicked: Quickshell.execDetached(["sh", "-c", 'mkdir -p "$HOME/.config/vitrum/widgets" && exec xdg-open "$HOME/.config/vitrum/widgets"']) }
         }
-    }
-    component Chip_: Rectangle {
-        id: c
-        property string text: ""
-        property bool accent: false
-        signal clicked()
-        height: Tokens.islandHeight * 1.05; radius: height / 2; width: cl.implicitWidth + Tokens.padding * 1.6
-        color: accent ? Colors.accent : cm.containsMouse ? Colors.alpha(Colors.text, 0.12) : Colors.alpha(Colors.text, 0.06)
-        Label { id: cl; anchors.centerIn: parent; text: c.text; role: c.accent ? "onAccent" : "text" }
-        MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: c.clicked() }
     }
 }

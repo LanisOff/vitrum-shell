@@ -30,11 +30,11 @@ DialogFrame {
         width: root.w
         spacing: Tokens.gap * 1.2
 
-        Rectangle {
+        // A plain line icon in the second hue, where the tonal circle was.
+        Item {
             anchors.horizontalCenter: parent.horizontalCenter
-            width: Tokens.islandHeight * 1.7; height: width; radius: width / 2
-            color: Colors.alpha(Colors.accent, 0.16)
-            Icon { anchors.centerIn: parent; name: root.q ? root.q.icon : "help"; size: Tokens.iconSize * 1.7; color: Colors.accent }
+            width: Tokens.islandHeight * 1.7; height: width
+            Icon { anchors.centerIn: parent; name: root.q ? root.q.icon : "help"; size: Tokens.iconSize * 1.7; color: Colors.accent2 }
         }
         Label {
             width: parent.width; horizontalAlignment: Text.AlignHCenter
@@ -58,7 +58,7 @@ DialogFrame {
             visible: !!root.q && root.q.field.length > 0
             width: parent.width
             height: Tokens.islandHeight * 1.35
-            radius: height / 2
+            radius: Tokens.radiusButton
             group: "dialogs"; level: 1
             border.width: input.activeFocus ? 2 : Tokens.hairline
             border.color: input.activeFocus ? Colors.alpha(Colors.accent, 0.8) : Materials.border("dialogs")
@@ -91,21 +91,17 @@ DialogFrame {
             Repeater {
                 model: !root.q ? [] : root.q.info ? [{ text: root.q.okText, main: true }]
                                   : [{ text: root.q.cancelText, main: false }, { text: root.q.okText, main: true }]
-                delegate: Rectangle {
+                // The answer is tinted, the other one clear glass.
+                delegate: GlassButton {
                     required property var modelData
                     width: root.q && root.q.info ? root.w : (root.w - Tokens.gap) / 2
                     height: Tokens.islandHeight * 1.2
-                    radius: height / 2
-                    color: modelData.main ? (btn.containsMouse ? Qt.lighter(Colors.accent, 1.08) : Colors.accent)
-                                          : Colors.alpha(Colors.text, btn.containsMouse ? 0.12 : 0.07)
+                    group: "dialogs"
+                    label: modelData.text
+                    primary: modelData.main
                     opacity: modelData.main && root.q && root.q.field && input.text.length === 0 ? 0.55 : 1
                     Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
-                    Label { anchors.centerIn: parent; text: parent.modelData.text; role: parent.modelData.main ? "onAccent" : "text"; font.weight: Font.DemiBold }
-                    MouseArea {
-                        id: btn
-                        anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor
-                        onClicked: parent.modelData.main ? root.submit() : root.dismissed()
-                    }
+                    onClicked: modelData.main ? root.submit() : root.dismissed()
                 }
             }
         }

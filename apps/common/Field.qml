@@ -4,7 +4,9 @@ import qs.components
 
 // A text field: a placeholder while empty, a password mode with an eye to
 // show what was typed. `text` is the value; accepted() on Enter.
-Rectangle {
+// A glass field (radius Tokens.radiusButton) in the group's material; focus
+// draws an accent ring, an invalid value a danger one.
+Surface {
     id: f
     property alias text: input.text
     property string placeholder: ""
@@ -17,10 +19,10 @@ Rectangle {
     function takeFocus() { input.forceActiveFocus(); }
     implicitWidth: Tokens.islandHeight * 8
     implicitHeight: Tokens.islandHeight * 1.1
-    radius: Tokens.radiusInner
-    color: Colors.alpha(Colors.text, 0.06)
-    border.width: input.activeFocus || invalid ? 2 : 0
-    border.color: invalid ? Colors.danger : Colors.accent
+    group: "panels"; level: 1
+    radius: Tokens.radiusButton
+    border.width: input.activeFocus || invalid ? 2 : Tokens.hairline
+    border.color: invalid ? Colors.danger : input.activeFocus ? Colors.accent : Materials.border(group)
     TextInput {
         id: input
         anchors { left: parent.left; right: eye.left; leftMargin: Tokens.gap; rightMargin: Tokens.gap / 2; verticalCenter: parent.verticalCenter }

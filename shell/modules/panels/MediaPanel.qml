@@ -16,7 +16,7 @@ Column {
         spacing: Tokens.gap / 2
         Repeater {
             model: Media.players
-            Capsule { required property var modelData; label: modelData.identity; active: modelData === Media.current; onClicked: Media.setPlayer(modelData) }
+            GlassButton { required property var modelData; label: modelData.identity; primary: modelData === Media.current; onClicked: Media.setPlayer(modelData) }
         }
     }
     // Position updates while visible.

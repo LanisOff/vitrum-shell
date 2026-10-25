@@ -74,7 +74,9 @@ Item {
                 anchors.centerIn: parent
                 width: Tokens.iconSize * 4; height: width
                 visible: !!(root.shown && root.shown.app) && (root.k === "app" || root.k === "window")
-                source: root.shown && root.shown.app ? Quickshell.iconPath(root.shown.app.icon, "application-x-executable") : ""
+                source: root.shown && root.shown.app ? Apps.iconSource(root.shown.app.icon) : ""
+                // No icon in the theme: a line glyph, not the missing texture.
+                Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
             }
             Icon {
                 anchors.centerIn: parent

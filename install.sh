@@ -28,6 +28,8 @@
 #    --with-phone / --no-phone                   KDE Connect
 #    --with-tmux / --no-tmux                     tmux, themed, with plugins
 #    --with-games / --no-games                   game mode + HUD (gamemode, MangoHud)
+#    --with-steam-theme / --no-steam-theme       vitrum's look for Steam via Millennium (needs games)
+#    --with-vesktop-theme / --no-vesktop-theme   vitrum's look for Discord (Vesktop), follows your colours
 #    --with-utilities / --no-utilities           mic noise filter, VPN, sensors, mixer, archives
 #    --with-cli-tools / --no-cli-tools           eza, bat, fzf, zoxide, delta
 #    --with-file-manager / --no-file-manager     Dolphin
@@ -117,7 +119,7 @@ ui_icons
 STAGES=(
   preflight   # sanity checks, sudo warm-up, backup dir
   packages    # through the detected package backend
-  fonts       # Inter, JetBrains Mono, Material Symbols, Nerd Font symbols
+  fonts       # Inter, JetBrains Mono, Phosphor icons, Nerd Font symbols
   niri        # patched compositor build
   shell       # Quickshell shell
   apps        # Settings / Disk Utility / About

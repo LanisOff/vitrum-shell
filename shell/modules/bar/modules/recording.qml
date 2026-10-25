@@ -7,7 +7,6 @@ StatusIcon {
     shown: UiState.recording
     icon: "recording"
     tint: Colors.danger
-    filled: true
     panel: ""
     onClicked: UiState.stopRecording()
 }

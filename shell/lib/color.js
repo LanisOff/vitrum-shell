@@ -49,3 +49,20 @@ function ensureContrast(fg, bg, min) {
     }
     return contrast(white, b) >= contrast(black, b) ? "#ffffff" : "#000000";
 }
+
+// Dichroic glass. The tint of anything that is on turns from the accent to a
+// second hue: the accent's hue turned `shift` degrees (look.dichroic.shift,
+// −100 by default), at a fixed saturation and a lightness per scheme.
+// hue is Qt's hslHue in 0..1 (−1 for a grey: taken as 0). Returns {h, s, l}.
+function _wrap01(h) { h = h % 1; return h < 0 ? h + 1 : h; }
+function dichroic(hue, shift, dark) {
+    // Only a number counts (as vitrum-theme's dichroic_shift does).
+    var s = typeof shift === "number" && isFinite(shift) ? Math.max(-180, Math.min(180, shift)) : -100;
+    return { h: _wrap01((hue < 0 ? 0 : hue) + s / 360), s: 0.72, l: dark ? 0.74 : 0.42 };
+}
+// The second colour for a colour a caller gives (a meaning colour on a meter:
+// danger, warning, a tone): the same colour turned −30° and a little lighter,
+// so red stays red and amber amber. hue/sat/light in 0..1 (hue < 0: a grey).
+function companion(hue, sat, light) {
+    return { h: _wrap01((hue < 0 ? 0 : hue) - 30 / 360), s: Math.max(0, Math.min(1, sat)), l: Math.min(0.9, light + 0.08) };
+}

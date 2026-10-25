@@ -22,16 +22,25 @@ Singleton {
     readonly property real lat: Settings.get("weather.latitude", 0)
     readonly property real lon: Settings.get("weather.longitude", 0)
 
+    // The state file says what this run has worked out, from the first update
+    // on: written only on a flip, a start in the daytime left it missing (a
+    // first login) or saying "dark" from last night, and vitrum-theme gave
+    // niri, GTK and the terminal the dark scheme under a light shell.
+    property string _stateWritten: ""
     function update() {
         isDay = SunLib.isDay(new Date(), sunrise, sunset,
                              { light: Settings.get("scheme.light", "07:00"), dark: Settings.get("scheme.dark", "19:30") });
+        const s = isDay ? "light" : "dark";
+        if (s === _stateWritten) return;
+        _stateWritten = s;
+        stateFile.setText(s + "\n");
+        if (Settings.get("scheme.mode", "auto") === "auto") Settings.retheme();
     }
 
-    // The flip: the state file for vitrum-theme, then everything outside the
-    // shell re-themed (GTK, Qt, the terminal, niri), and the wallpaper's other
-    // half when it has one (name-day.jpg / name-night.jpg).
+    // The flip: everything outside the shell re-themed (GTK, Qt, the terminal,
+    // niri; update() wrote the state file for vitrum-theme), and the
+    // wallpaper's other half when it has one (name-day.jpg / name-night.jpg).
     onIsDayChanged: {
-        stateFile.setText(isDay ? "light\n" : "dark\n");
         if (Settings.get("scheme.mode", "auto") !== "auto") return;
         Settings.retheme();
         if (!Settings.get("wallpaper.dayNight", true)) return;

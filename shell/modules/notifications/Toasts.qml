@@ -37,7 +37,11 @@ PanelWindow {
 
     visible: true
     anchors { top: where.indexOf("top") === 0; bottom: where.indexOf("bottom") === 0; right: where.endsWith("right"); left: where.endsWith("left") }
-    margins { top: Tokens.islandHeight + 2 * Tokens.gap; bottom: Tokens.gap; right: Tokens.gap; left: Tokens.gap }
+    // Clear of the bar, at whichever edge it is (the window ignores its reserved zone).
+    readonly property real barSpace: Tokens.islandHeight + 2 * Tokens.gap
+    readonly property bool barAtTop: Settings.get("bar.position", "top") === "top"
+    margins { top: barAtTop ? barSpace : Tokens.gap; bottom: barAtTop ? Tokens.gap : barSpace; right: Tokens.gap; left: Tokens.gap }
+    readonly property int side: where.endsWith("left") ? -1 : 1
     exclusionMode: ExclusionMode.Ignore
     implicitWidth: Tokens.islandHeight * 12 + Tokens.gap
     implicitHeight: Math.max(1, stack.implicitHeight)
@@ -83,6 +87,7 @@ PanelWindow {
                 id: toast
                 item: slot.card ? slot.card.item : ({})
                 count: slot.card ? slot.card.count : 1
+                side: root.side
                 height: implicitHeight
             }
             Component.onDestruction: Qt.callLater(stack.collect)
@@ -90,7 +95,7 @@ PanelWindow {
         add: Transition { enabled: Motion.enabled; NumberAnimation { property: "opacity"; from: 0; to: 1; duration: Motion.fast } }
         remove: Transition {
             enabled: Motion.enabled
-            NumberAnimation { property: "x"; to: Tokens.islandHeight * 4; duration: Motion.standard; easing.type: Easing.InCubic }
+            NumberAnimation { property: "x"; to: root.side * Tokens.islandHeight * 4; duration: Motion.standard; easing.type: Easing.InCubic }
             NumberAnimation { property: "opacity"; to: 0; duration: Motion.standard; easing.type: Easing.InCubic }
         }
         displaced: Transition { enabled: Motion.enabled; NumberAnimation { property: "y"; duration: Motion.standard; easing.type: Easing.OutCubic } }

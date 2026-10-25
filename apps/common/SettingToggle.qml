@@ -9,7 +9,8 @@ SettingRow {
     id: row
     property string key: ""
     label: Ui.label(key)
-    Toggle {
+    GlassSwitch {
+        anchors.verticalCenter: parent.verticalCenter
         checked: Settings.get(row.key, false) === true
         onToggled: Settings.set(row.key, !checked)
     }

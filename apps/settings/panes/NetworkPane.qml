@@ -48,11 +48,12 @@ Page {
     // Opened from the shell for a network that needs a login — once per
     // window, not again whenever this page is shown.
     Component.onCompleted: {
+        Network.scan(true);
         const s = Quickshell.env("VITRUM_WIFI_JOIN");
         if (s && !Network.loginOpened) { Network.loginOpened = true; join.openFor(s, false, true); }
     }
     // A page that is gone cannot show a password prompt any more.
-    Component.onDestruction: Network.forgetAsk(askPassword)
+    Component.onDestruction: { Network.forgetAsk(askPassword); Network.scan(false); }
     /// Tests: open the forms (qs ipc call network join <ssid> <enterprise> / password <ssid> / details <name>).
     IpcHandler {
         target: "network"
@@ -78,7 +79,7 @@ Page {
         visible: Network.nm
         SettingRow {
             label: "Wi-Fi"
-            Toggle { checked: Network.wifiEnabled; onToggled: Network.setWifiEnabled(!Network.wifiEnabled) }
+            GlassSwitch { checked: Network.wifiEnabled; onToggled: Network.setWifiEnabled(!Network.wifiEnabled) }
         }
         Repeater {
             model: Network.wifiEnabled ? Network.wifiNetworks : []
@@ -110,7 +111,7 @@ Page {
         SettingRow {
             visible: Network.wifiEnabled
             label: "Other network…"; hint: "A hidden network, or one to set up by hand"; divider: false
-            Capsule { label: "Join…"; onClicked: join.openFor("", true, false) }
+            GlassButton { label: "Join…"; onClicked: join.openFor("", true, false) }
         }
     }
 
@@ -125,7 +126,7 @@ Page {
                 label: modelData.name
                 hint: modelData.active ? "Connected" + (modelData.device ? " · " + modelData.device : "") : "Not connected"
                 divider: index < page.wired.length - 1
-                Capsule { label: "Details…"; anchors.verticalCenter: parent.verticalCenter; onClicked: details.openFor(modelData) }
+                GlassButton { label: "Details…"; anchors.verticalCenter: parent.verticalCenter; onClicked: details.openFor(modelData) }
             }
         }
     }
@@ -146,7 +147,7 @@ Page {
                     name: "trash"; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter
                     MouseArea { anchors.fill: parent; anchors.margins: -4; cursorShape: Qt.PointingHandCursor; onClicked: remove.ask(vpn.modelData) }
                 }
-                Toggle {
+                GlassSwitch {
                     anchors.verticalCenter: parent.verticalCenter
                     checked: vpn.modelData.active
                     onToggled: page.run([vpn.modelData.active ? "down" : "up", vpn.modelData.uuid], (ok, err) => { if (!ok) page.problem = err; })
@@ -155,7 +156,7 @@ Page {
         }
         SettingRow {
             label: "Import a profile"; hint: page.problem; divider: false
-            Capsule { icon: "download"; label: "Choose file…"; onClicked: vpnFile.open() }
+            GlassButton { icon: "download"; label: "Choose file…"; onClicked: vpnFile.open() }
         }
     }
     property string problem: ""
@@ -236,7 +237,7 @@ Page {
                 visible: join.method !== "pwd"
                 width: parent.width; spacing: Tokens.gap
                 Field { id: caField; width: parent.width - caBtn.width - Tokens.gap; placeholder: "CA certificate (optional)" }
-                Capsule { id: caBtn; label: "Choose…"; anchors.verticalCenter: parent.verticalCenter; onClicked: caFile.open() }
+                GlassButton { id: caBtn; label: "Choose…"; group: "dialogs"; anchors.verticalCenter: parent.verticalCenter; onClicked: caFile.open() }
             }
         }
         Field { id: passField; visible: join.security !== "none"; width: parent.width; password: true; placeholder: "Password"; onAccepted: join.accept() }
@@ -256,7 +257,10 @@ Page {
         property string metered: "unknown"
         property bool autoconnect: true
         function openFor(c) {
-            conn = c; open();
+            // Not the last connection's values while this one's are read.
+            conn = c; method = "auto"; ipv6 = "auto"; metered = "unknown"; autoconnect = true;
+            addrField.text = ""; gwField.text = ""; dnsField.text = "";
+            open();
             page.run(["show", c.uuid], (ok, err, out) => {
                 let s = null;
                 try { s = JSON.parse(out); } catch (e) {}
@@ -289,10 +293,11 @@ Page {
         Row {
             width: parent.width; spacing: Tokens.gap
             Label { text: "Connect automatically"; width: parent.width - autoToggle.width - Tokens.gap; anchors.verticalCenter: parent.verticalCenter }
-            Toggle { id: autoToggle; checked: details.autoconnect; onToggled: details.autoconnect = !details.autoconnect }
+            GlassSwitch { id: autoToggle; group: "dialogs"; checked: details.autoconnect; onToggled: details.autoconnect = !details.autoconnect }
         }
-        Capsule {
+        GlassButton {
             visible: !!details.conn && details.conn.kind === "wifi"
+            group: "dialogs"
             icon: "trash"; label: "Forget this network"
             onClicked: { const c = details.conn; details.close(); page.run(["delete", c.uuid]); }
         }
@@ -308,7 +313,7 @@ Page {
         onAccepted: { const c = conn; close(); page.run(["delete", c.uuid]); }
     }
 
-    // One of a few, as chips; the chosen one in the accent.
+    // One of a few, as glass buttons; the chosen one tinted, the others clear.
     component Choice: Flow {
         id: choice
         property var options: []
@@ -318,15 +323,13 @@ Page {
         spacing: 4
         Repeater {
             model: choice.options
-            delegate: Rectangle {
+            delegate: GlassButton {
                 required property var modelData
-                readonly property bool on: modelData.v === choice.current
-                height: Tokens.islandHeight * 1.05; radius: height / 2
-                width: ct.implicitWidth + Tokens.padding * 1.4
-                color: on ? Colors.accent : Colors.alpha(Colors.text, cm.containsMouse ? 0.1 : 0.05)
-                Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-                Label { id: ct; anchors.centerIn: parent; text: modelData.t; role: parent.on ? "onAccent" : "text"; size: Tokens.textSmall + 1 }
-                MouseArea { id: cm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: choice.picked(modelData.v) }
+                label: modelData.t
+                group: "dialogs"
+                primary: modelData.v === choice.current
+                labelSize: Tokens.textSmall + 1
+                onClicked: choice.picked(modelData.v)
             }
         }
     }

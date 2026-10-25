@@ -8,7 +8,7 @@ import qs.components
 
 /*
  * Alt+Tab: windows in most-recently-used order, as cards — app icon, title,
- * workspace. Holding Alt keeps it open, Tab/Shift+Tab (or the keybind again)
+ * workspace; the selected one tinted. Holding Alt keeps it open, Tab/Shift+Tab (or the keybind again)
  * moves, releasing Alt switches, Escape cancels.
  *
  * A quick tap can release Alt before this surface holds the keyboard, and
@@ -72,7 +72,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: card.visible ? shape : dot; radius: Tokens.radiusPanel * card.scale }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Item { id: shape; x: card.x + card.width * (1 - card.scale) / 2; y: card.y + card.height * (1 - card.scale) / 2; width: card.width * card.scale; height: card.height * card.scale }
     MouseArea {
         id: catcher
@@ -115,10 +116,8 @@ PanelWindow {
                     readonly property var ws: Niri.workspaces[modelData.workspaceId]
                     width: root.tile; height: root.tile * 0.9
                     radius: Tokens.radiusInner
-                    color: selected ? Colors.alpha(Colors.accent, 0.22) : Colors.alpha(Colors.text, 0.04)
-                    border.width: selected ? 2 : 0
-                    border.color: Colors.accent
-                    Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+                    color: Colors.alpha(Colors.text, 0.04)
+                    ShellTint { anchors.fill: parent; radius: parent.radius; group: "overlay"; active: selected }
                     Column {
                         anchors.centerIn: parent
                         width: parent.width - 2 * Tokens.padding
@@ -126,7 +125,9 @@ PanelWindow {
                         IconImage {
                             anchors.horizontalCenter: parent.horizontalCenter
                             implicitSize: root.tile * 0.36
-                            source: Quickshell.iconPath(app ? app.icon : modelData.appId, "application-x-executable")
+                            source: Apps.iconSource(app ? app.icon : modelData.appId)
+                            // No icon in the theme: a line glyph, not the missing texture.
+                            Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
                         }
                         Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: modelData.title || modelData.appId; font.weight: selected ? Font.DemiBold : Font.Normal; maximumLineCount: 2; wrapMode: Text.WordWrap }
                         Label { width: parent.width; horizontalAlignment: Text.AlignHCenter; text: (app ? app.name : modelData.appId) + (ws ? "  ·  " + ws.idx : ""); role: "dim"; size: Tokens.textSmall }

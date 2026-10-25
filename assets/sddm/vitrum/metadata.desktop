@@ -1,6 +1,6 @@
 [SddmGreeterTheme]
 Name=vitrum
-Description=The vitrum login: the lock screen's clock, capsule field and session chooser
+Description=The vitrum login: the lock screen's glass clock, a dichroic glass password field and the session chooser
 Author=vitrum
 License=MIT
 Type=sddm-theme

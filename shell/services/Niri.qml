@@ -5,6 +5,7 @@ import Quickshell
 import Quickshell.Io
 import "../lib/bar.js" as BarLib
 import "../lib/games.js" as Games
+import "../lib/keyboard.js" as Kb
 
 /*
  * Everything the shell knows about the compositor.
@@ -37,12 +38,7 @@ Singleton {
     property int keyboardLayoutIndex: 0
     readonly property string keyboardLayout: keyboardLayouts[keyboardLayoutIndex] || ""
     /// Short form for the bar: "English (US)" → "EN", "Russian" → "RU"
-    readonly property string keyboardShort: {
-        const l = keyboardLayout;
-        if (!l) return "";
-        const m = l.match(/\(([A-Z]{2})\)/);
-        return (m ? m[1] : l.slice(0, 2)).toUpperCase();
-    }
+    readonly property string keyboardShort: Kb.shortName(keyboardLayout)   // EN/US, RU, DE…
 
     readonly property var windowList: Object.values(windows)
     readonly property var workspaceList: {

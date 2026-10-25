@@ -16,16 +16,39 @@ Page {
     subtitle: "vitrum's own updates, and settings.json as text."
 
     property var result: null
-    function check() { result = Ui.checkRaw(editor.text, raw => Lib.validate(raw, Settings.defaults, Settings.enums)); return result; }
+    function check() { result = Ui.checkRaw(editor.text, raw => Lib.validate(raw, Settings.defaults, Settings.enums)); reveal.restart(); return result; }
+    // The verdict is under the buttons, past the bottom of the page: scroll
+    // down to it once it is laid out.
+    Timer { id: reveal; interval: 60; onTriggered: page.contentY = Math.max(0, page.contentHeight - page.height) }
 
-    FileView { id: file; path: Settings.path; watchChanges: true; onLoaded: if (!editor.activeFocus) editor.text = text(); onLoadFailed: editor.text = "{}\n" }
+    // Follows the file (the switches above write it too), unless you have
+    // edited the text: Apply would otherwise put back what the file was.
+    property string loaded: ""
+    // FileView sends no fileChanged for its own write: what Apply wrote is
+    // what Revert goes back to (it went back to the text from before Apply).
+    function apply() {
+        if (!check().ok) return;
+        const t = editor.text.trim() ? editor.text : "{}\n";
+        file.setText(t);
+        if (editor.text !== t) editor.text = t;
+        loaded = t;
+    }
+    FileView {
+        id: file
+        path: Settings.path
+        watchChanges: true
+        onFileChanged: reload()
+        onLoaded: { const t = text(); if (editor.text === page.loaded) editor.text = t; page.loaded = t; }
+        onLoadFailed: if (editor.text === page.loaded) { editor.text = "{}\n"; page.loaded = editor.text; }
+    }
 
     Section {
         title: "vitrum updates"
         note: "From the repository vitrum was installed from (vitrum update). Nothing is pulled until you press Update."
         SettingToggle { key: "updates.vitrum.check"; label: "Check for new versions"; hint: "Quietly, every few hours. An island appears in the bar when there is enough new." }
-        SettingSlider { key: "updates.vitrum.threshold"; label: "Show the island from"; from: 1; to: 30; step: 1; unit: " commits" }
-        SettingSlider { key: "updates.vitrum.hours"; label: "Check every"; from: 1; to: 24; step: 1; unit: " h"; divider: false }
+        // No unit: " commits" did not fit beside the slider ("16 com…") and read "1 commits".
+        SettingSlider { key: "updates.vitrum.threshold"; needs: "updates.vitrum.check"; label: "New commits to show the island"; from: 1; to: 30; step: 1 }
+        SettingSlider { key: "updates.vitrum.hours"; needs: "updates.vitrum.check"; label: "Check every"; from: 1; to: 24; step: 1; unit: " h"; divider: false }
     }
     Section {
         title: "settings.json"
@@ -36,26 +59,39 @@ Page {
             Flickable {
                 id: flick
                 anchors { fill: parent; margins: Tokens.padding }
-                contentHeight: editor.implicitHeight
+                contentHeight: editor.height
                 clip: true
+                boundsBehavior: Flickable.StopAtBounds
+                // The caret stays in view while typing or moving with the keys.
+                function follow(r) {
+                    if (contentY > r.y) contentY = r.y;
+                    else if (contentY + height < r.y + r.height) contentY = r.y + r.height - height;
+                }
                 TextEdit {
                     id: editor
                     width: flick.width
+                    // The whole box takes a click: a short file left most of
+                    // it under no text, and a click there never focused it.
+                    height: Math.max(implicitHeight, flick.height)
                     font.family: Tokens.fontMono
                     font.pixelSize: Tokens.textSize
                     color: Colors.text
                     selectionColor: Colors.accent
-                    wrapMode: TextEdit.NoWrap
+                    selectByMouse: true
+                    // A file on one line (as other tools write it) was cut off
+                    // at the box's edge, with no way to see the rest.
+                    wrapMode: TextEdit.WrapAtWordBoundaryOrAnywhere
                     onTextChanged: page.result = null
+                    onCursorRectangleChanged: if (activeFocus) flick.follow(cursorRectangle)
                 }
             }
         }
     }
     Row {
         spacing: Tokens.gap
-        Button_ { text: "Check"; onClicked: page.check() }
-        Button_ { text: "Apply"; accent: true; onClicked: { if (page.check().ok) file.setText(editor.text.trim() ? editor.text : "{}\n"); } }
-        Button_ { text: "Revert"; onClicked: { editor.text = file.text(); page.result = null; } }
+        GlassButton { label: "Check"; height: Tokens.islandHeight * 1.2; onClicked: page.check() }
+        GlassButton { label: "Apply"; primary: true; height: Tokens.islandHeight * 1.2; onClicked: page.apply() }
+        GlassButton { label: "Revert"; height: Tokens.islandHeight * 1.2; onClicked: { editor.text = page.loaded; page.result = null; } }
     }
     Column {
         visible: page.result !== null
@@ -64,17 +100,5 @@ Page {
         Label { visible: page.result && page.result.ok && !page.result.warnings.length; text: "Looks good."; role: "accent" }
         Repeater { model: page.result ? page.result.errors : []; delegate: Label { required property string modelData; text: modelData; role: "danger"; width: parent.width; wrapMode: Text.WordWrap; elide: Text.ElideNone } }
         Repeater { model: page.result ? page.result.warnings : []; delegate: Label { required property string modelData; text: "• " + modelData; role: "dim"; width: parent.width; wrapMode: Text.WordWrap; elide: Text.ElideNone } }
-    }
-
-    component Button_: Rectangle {
-        id: b
-        property string text: ""
-        property bool accent: false
-        signal clicked()
-        height: Tokens.islandHeight * 1.2; radius: height / 2
-        width: bl.implicitWidth + Tokens.padding * 2
-        color: accent ? Colors.accent : bm.containsMouse ? Colors.alpha(Colors.text, 0.12) : Colors.alpha(Colors.text, 0.06)
-        Label { id: bl; anchors.centerIn: parent; text: b.text; role: b.accent ? "onAccent" : "text"; font.weight: Font.DemiBold }
-        MouseArea { id: bm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: b.clicked() }
     }
 }

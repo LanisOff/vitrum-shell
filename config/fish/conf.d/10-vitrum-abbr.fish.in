@@ -121,16 +121,37 @@ command -q fastfetch; and abbr -a ff fastfetch
 # (unicode placeholders, made by the installer): no ImageMagick needed in
 # fastfetch — Gentoo builds it without — and tmux keeps it like any text.
 # Not kitty-direct: inside tmux it leaves kitty's escape open, and kitty hangs.
-# Elsewhere, a TTY, the config's "auto" stays. A --logo of your own comes
-# later and wins.
-if set -q KITTY_WINDOW_ID; and command -q fastfetch
-    function fastfetch --wraps fastfetch --description 'fastfetch, logo drawn by kitty'
+# Elsewhere, a TTY, the config's "auto" stays.
+#
+# fastfetch prints its lines beside the logo, and a terminal too narrow for
+# both (half the screen, a tmux split) gets a smaller logo or none, so the
+# values keep about 42 columns: the vitrum mark (30 cells and its padding)
+# from 90 columns; the distribution's art from 120, its small art from 90.
+# Below that, no logo. A line still too long is cut at the edge, never wrapped
+# under the logo (config.jsonc: disableLinewrap). A logo of your own (--logo,
+# --logo-type, --kitty…) is left exactly as you gave it.
+if command -q fastfetch
+    function fastfetch --wraps fastfetch --description 'fastfetch, its logo fitted to the terminal'
+        if string match -qr -- '^(-l|--logo|--logo-type|--file(-raw)?|--data(-raw)?|--raw|--sixel|--kitty(-direct|-icat)?|--iterm|--chafa)(=.*)?$' $argv
+            command fastfetch $argv
+            return
+        end
+        set -l cols $COLUMNS
+        test -n "$cols"; or set cols 80
         set -l logo "@VITRUM_STATE@/fastfetch/logo.kitty"
         set -q TMUX; and set logo "@VITRUM_STATE@/fastfetch/logo.tmux"
-        if test -s $logo
-            command fastfetch --logo $logo --logo-type raw --logo-width 30 --logo-height 15 $argv
-        else
+        if set -q KITTY_WINDOW_ID; and test -s $logo
+            if test $cols -ge 90
+                command fastfetch --logo $logo --logo-type raw --logo-width 30 --logo-height 15 $argv
+            else
+                command fastfetch --logo-type none $argv
+            end
+        else if test $cols -ge 120
             command fastfetch $argv
+        else if test $cols -ge 90
+            command fastfetch --logo-type small --logo '' $argv
+        else
+            command fastfetch --logo-type none $argv
         end
     end
 end

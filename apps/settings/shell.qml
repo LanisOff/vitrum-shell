@@ -59,10 +59,13 @@ ShellRoot {
                 Column {
                     anchors { fill: parent; margins: Tokens.padding }
                     spacing: Tokens.gap
-                    Rectangle {
-                        width: parent.width; height: Tokens.islandHeight * 1.2; radius: height / 2
-                        color: Colors.alpha(Colors.text, 0.06)
-                        border.width: search.activeFocus ? 2 : 0; border.color: Colors.accent
+                    // The search: a glass field; focus draws an accent ring.
+                    Surface {
+                        width: parent.width; height: Tokens.islandHeight * 1.2
+                        group: "panels"; level: 1
+                        radius: Tokens.radiusButton
+                        border.width: search.activeFocus ? 2 : Tokens.hairline
+                        border.color: search.activeFocus ? Colors.accent : Materials.border(group)
                         Row {
                             anchors { fill: parent; leftMargin: Tokens.gap; rightMargin: Tokens.gap }
                             spacing: Tokens.gap / 2
@@ -85,21 +88,22 @@ ShellRoot {
                         contentHeight: list.implicitHeight
                         clip: true
                         boundsBehavior: Flickable.StopAtBounds
-                        // The current pane's highlight: one plate that springs to the pane chosen.
-                        Rectangle {
+                        // The current pane: one plate of tinted glass that glides to the
+                        // pane chosen (damped) and drifts under the pointer.
+                        ShellTint {
                             readonly property Item entry: {
                                 sideRep.count;
                                 const i = app.shown.findIndex(p => p.id === app.current);
                                 const d = i >= 0 ? sideRep.itemAt(i) : null;
                                 return d ? d.children[1] : null;
                             }
-                            visible: entry !== null
+                            active: entry !== null
+                            hovered: entry ? entry.hovered : false
                             y: entry ? entry.parent.y + entry.y : 0
                             width: list.width
                             height: entry ? entry.height : 0
-                            radius: Tokens.radiusInner
-                            color: Colors.accent
-                            Behavior on y { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                            radius: Tokens.radiusTile
+                            Behavior on y { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
                         }
                         Column {
                             id: list
@@ -116,17 +120,18 @@ ShellRoot {
                                     Label { visible: parent.first; text: modelData.group; role: "dim"; size: Tokens.textSmall; font.weight: Font.DemiBold
                                             topPadding: index === 0 ? 0 : Tokens.gap; bottomPadding: 4; leftPadding: Tokens.gap }
                                     Rectangle {
-                                        width: list.width; height: Tokens.islandHeight * 1.25; radius: Tokens.radiusInner
+                                        width: list.width; height: Tokens.islandHeight * 1.25; radius: Tokens.radiusTile
                                         readonly property bool on: app.current === modelData.id
+                                        readonly property bool hovered: m.containsMouse
                                         color: !on && m.containsMouse ? Colors.alpha(Colors.text, 0.08) : "transparent"
                                         Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
                                         Row {
                                             // Leans towards the pointer.
                                             anchors { fill: parent; leftMargin: Tokens.gap + (m.containsMouse && !parent.on ? 5 : 0) }
-                                            Behavior on anchors.leftMargin { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                                            Behavior on anchors.leftMargin { enabled: Motion.enabled; SpringAnim { token: Motion.snappy } }
                                             spacing: Tokens.gap
-                                            Icon { name: modelData.icon; anchors.verticalCenter: parent.verticalCenter; color: parent.parent.on ? Colors.onAccent : Colors.text }
-                                            Label { text: modelData.name; anchors.verticalCenter: parent.verticalCenter; role: parent.parent.on ? "onAccent" : "text" }
+                                            Icon { name: modelData.icon; anchors.verticalCenter: parent.verticalCenter; color: Colors.text }
+                                            Label { text: modelData.name; anchors.verticalCenter: parent.verticalCenter }
                                         }
                                         MouseArea { id: m; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: app.current = modelData.id }
                                     }
@@ -155,13 +160,11 @@ ShellRoot {
                     wrapMode: Text.WordWrap; elide: Text.ElideNone
                     text: "settings.json could not be read, so changes here are not saved. Fix the file in Advanced (the desktop keeps its last good settings)."
                 }
-                Rectangle {
+                GlassButton {
                     id: fixBtn
                     anchors { right: parent.right; rightMargin: Tokens.padding; verticalCenter: parent.verticalCenter }
-                    height: Tokens.islandHeight * 1.05; radius: height / 2; width: fl.implicitWidth + Tokens.padding * 1.6
-                    color: Colors.danger
-                    Label { id: fl; anchors.centerIn: parent; text: "Open Advanced"; color: "white"; font.weight: Font.DemiBold }
-                    MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: app.current = "advanced" }
+                    label: "Open Advanced"; primary: true; danger: true
+                    onClicked: app.current = "advanced"
                 }
             }
             Loader {

@@ -71,10 +71,12 @@ StartupWMClass=vitrum-$name
 EOF
 }
 
-# What About shows as the vitrum version.
+# What About and fastfetch show as the vitrum version: the release in VERSION
+# (0.5.0), not a commit hash; a checkout without that file falls back to git.
 _apps_version() {
-  local v
-  v="$(git -C "$VITRUM_DIR" describe --tags --always --dirty 2>/dev/null || cat "$VITRUM_DIR/VERSION" 2>/dev/null || echo unknown)"
+  local v=""
+  [[ -s "$VITRUM_DIR/VERSION" ]] && v="$(head -n1 "$VITRUM_DIR/VERSION" | tr -d '[:space:]')"
+  [[ -n "$v" ]] || v="$(git -C "$VITRUM_DIR" describe --tags --always --dirty 2>/dev/null || echo unknown)"
   [[ "$DRY_RUN" == "1" ]] && return 0
   mkdir -p "$XDG_DATA_HOME/vitrum" && printf '%s\n' "$v" > "$XDG_DATA_HOME/vitrum/version"
 }

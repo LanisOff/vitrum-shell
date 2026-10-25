@@ -55,11 +55,10 @@ ShellRoot {
         implicitWidth: 1000
         implicitHeight: 640
         titleRow: [
-            Rectangle {
-                height: Tokens.islandHeight * 0.9; width: height; radius: height / 2
-                color: rm.containsMouse ? Colors.alpha(Colors.text, 0.12) : Colors.alpha(Colors.text, 0.06)
-                Icon { anchors.centerIn: parent; name: "restart"; size: Tokens.iconSize * 0.9 }
-                MouseArea { id: rm; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: Disks.refresh() }
+            GlassButton {
+                height: Tokens.islandHeight * 0.9; width: height
+                icon: "restart"
+                onClicked: Disks.refresh()
             }
         ]
 
@@ -132,7 +131,7 @@ ShellRoot {
                                     growIn.restart();
                                 }
                             }
-                            NumberAnimation { id: growIn; target: map; property: "grow"; to: 1; duration: Motion.emphasized; easing.type: Easing.OutBack; easing.overshoot: 1.4 }
+                            NumberAnimation { id: growIn; target: map; property: "grow"; to: 1; duration: Motion.emphasized; easing.type: Easing.OutQuint }
                             Repeater {
                                 model: map.parts
                                 delegate: Rectangle {
@@ -143,7 +142,7 @@ ShellRoot {
                                     height: map.height
                                     readonly property bool picked: app.selected && app.selected.name === modelData.name
                                     scale: picked ? 1 : pm.containsMouse ? 0.985 : 0.96
-                                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
                                     radius: Tokens.radiusInner * 0.6
                                     color: Qt.hsla((0.58 + index * 0.13) % 1, 0.55, Colors.dark ? 0.55 : 0.5, app.selected && app.selected.name === modelData.name ? 1 : 0.7)
                                     border.width: app.selected && app.selected.name === modelData.name ? 2 : 0; border.color: Colors.text
@@ -166,7 +165,20 @@ ShellRoot {
                     title: "Information"
                     Info { k: "Mount point"; v: app.selected ? (app.selected.mountpoint || "Not mounted") : "" }
                     Info { k: "Format"; v: app.selected ? (app.selected.fstype || app.selected.partTypeName || "—") : "" }
-                    Info { k: "Used"; v: app.selected && app.selected.fssize ? Disks.humanSize(app.selected.fsused) + " of " + Disks.humanSize(app.selected.fssize) : "—" }
+                    // How full the file system is, as a meter: amber past 80 %, red past 90 %.
+                    SettingRow {
+                        id: used
+                        readonly property real share: app.selected && app.selected.fssize ? app.selected.fsused / app.selected.fssize : 0
+                        label: "Used"
+                        Meter {
+                            visible: !!(app.selected && app.selected.fssize)
+                            anchors.verticalCenter: parent.verticalCenter
+                            width: Tokens.islandHeight * 4
+                            value: used.share
+                            color: used.share > 0.9 ? Colors.danger : used.share > 0.8 ? Colors.warning : Colors.accent
+                        }
+                        Label { text: app.selected && app.selected.fssize ? Disks.humanSize(app.selected.fsused) + " of " + Disks.humanSize(app.selected.fssize) : "—"; role: "dim"; numeric: true; anchors.verticalCenter: parent.verticalCenter }
+                    }
                     Info { k: "Label"; v: app.selected ? (app.selected.label || "—") : "" }
                     Info { k: "UUID"; v: app.selected ? (app.selected.uuid || "—") : "" }
                     Info { k: "Device"; v: app.selected ? app.selected.path + (app.selected.readOnly ? " (read-only)" : "") : ""; last: true }
@@ -203,27 +215,29 @@ ShellRoot {
     }
 
     // ------------------------------------------------------- components ---
+    // A drive or volume in the list: clear, the picked one tinted.
     component Entry: Rectangle {
         id: e
         property var item: null
         property int depth: 0
-        readonly property bool on: app.selected && item && app.selected.name === item.name
+        readonly property bool on: !!(app.selected && item && app.selected.name === item.name)
         width: list.width
         height: Tokens.islandHeight * (depth === 0 ? 1.5 : 1.2)
         radius: Tokens.radiusInner
-        color: on ? Colors.accent : em.containsMouse ? Colors.alpha(Colors.text, 0.08) : "transparent"
+        color: !on && em.containsMouse ? Colors.alpha(Colors.text, 0.08) : "transparent"
         Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        ShellTint { anchors.fill: parent; radius: e.radius; active: e.on; hovered: em.containsMouse }
         Row {
             // Leans towards the pointer.
             anchors { fill: parent; leftMargin: Tokens.gap + e.depth * Tokens.padding + (em.containsMouse && !e.on ? 5 : 0) }
-            Behavior on anchors.leftMargin { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+            Behavior on anchors.leftMargin { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
             spacing: Tokens.gap
-            Icon { name: e.depth === 0 ? "folder" : "file"; anchors.verticalCenter: parent.verticalCenter; color: e.on ? Colors.onAccent : Colors.textDim; size: Tokens.iconSize * (e.depth === 0 ? 1.1 : 0.9) }
+            Icon { name: e.depth === 0 ? "folder" : "file"; anchors.verticalCenter: parent.verticalCenter; color: e.on ? Colors.text : Colors.textDim; size: Tokens.iconSize * (e.depth === 0 ? 1.1 : 0.9) }
             Column {
                 anchors.verticalCenter: parent.verticalCenter
                 width: parent.width - Tokens.iconSize * 2
-                Label { width: parent.width; text: Disks.displayName(e.item); role: e.on ? "onAccent" : "text"; font.weight: e.depth === 0 ? Font.DemiBold : Font.Normal }
-                Label { width: parent.width; text: e.item ? Disks.humanSize(e.item.size) + (e.item.mountpoint ? " · " + e.item.mountpoint : "") : ""; size: Tokens.textSmall; role: e.on ? "onAccent" : "dim" }
+                Label { width: parent.width; text: Disks.displayName(e.item); role: "text"; font.weight: e.depth === 0 ? Font.DemiBold : Font.Normal }
+                Label { width: parent.width; text: e.item ? Disks.humanSize(e.item.size) + (e.item.mountpoint ? " · " + e.item.mountpoint : "") : ""; size: Tokens.textSmall; role: "dim" }
             }
         }
         MouseArea { id: em; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: app.selected = e.item }
@@ -235,21 +249,16 @@ ShellRoot {
         label: k; divider: !last
         Label { text: v; role: "dim"; numeric: true; anchors.verticalCenter: parent.verticalCenter }
     }
-    component Action: Rectangle {
+    // An action under the details: a clear glass button; a destructive one
+    // says so in the danger colour, and its danger tint comes in under the pointer.
+    component Action: GlassButton {
         id: a
         property string text: ""
-        property bool danger: false
         property bool shown: true
-        signal clicked()
         visible: shown
-        height: Tokens.islandHeight * 1.2; radius: height / 2; width: al.implicitWidth + Tokens.padding * 2
-        color: am.containsMouse ? (danger ? Colors.alpha(Colors.danger, 0.25) : Colors.alpha(Colors.text, 0.12)) : Colors.alpha(Colors.text, 0.06)
-        Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-        scale: am.pressed ? 0.94 : 1
-        Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+        height: Tokens.islandHeight * 1.2; width: al.implicitWidth + Tokens.padding * 2
+        primary: danger && hovered
         enabled: !Disks.busyMessage
-        opacity: enabled ? 1 : 0.5
-        Label { id: al; anchors.centerIn: parent; text: a.text; role: a.danger ? "danger" : "text"; font.weight: Font.DemiBold }
-        MouseArea { id: am; anchors.fill: parent; hoverEnabled: true; cursorShape: Qt.PointingHandCursor; onClicked: a.clicked() }
+        Label { id: al; anchors.centerIn: parent; text: a.text; role: a.danger && !a.hovered ? "danger" : "text"; font.weight: Font.DemiBold }
     }
 }

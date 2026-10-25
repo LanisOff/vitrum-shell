@@ -180,16 +180,24 @@ Singleton {
     // -------------------------------------------------------- displays ----
 
     property var displays: []
+    property string focusedOutput: ""
 
     function refreshDisplays() { displayProc.running = true; }
 
     Process {
         id: displayProc
-        command: ["sh", "-c", "niri msg --json outputs 2>/dev/null"]
+        // The outputs and the focused one (About lights it in its screen map).
+        command: ["sh", "-c", `
+            o="$(niri msg --json outputs 2>/dev/null)"; [ -n "$o" ] || o='{}'
+            f="$(niri msg --json focused-output 2>/dev/null)"; [ -n "$f" ] || f=null
+            printf '{"outputs":%s,"focused":%s}' "$o" "$f"
+        `]
         stdout: StdioCollector {
             onStreamFinished: {
                 try {
-                    const obj = JSON.parse(text);
+                    const both = JSON.parse(text);
+                    const obj = both.outputs || {};
+                    root.focusedOutput = both.focused && both.focused.name ? both.focused.name : "";
                     const list = [];
                     for (const key in obj) {
                         const o = obj[key];
@@ -205,6 +213,11 @@ Singleton {
                             height: cur ? cur.height : 0,
                             refresh: cur ? Math.round(cur.refresh_rate / 1000) : 0,
                             scale: o.logical ? o.logical.scale : 1,
+                            // Where it sits in niri's layout (logical pixels); none when off.
+                            x: o.logical ? o.logical.x : 0,
+                            y: o.logical ? o.logical.y : 0,
+                            logicalWidth: o.logical ? o.logical.width : 0,
+                            logicalHeight: o.logical ? o.logical.height : 0,
                             transform: o.logical ? o.logical.transform : "normal",
                             vrr: !!o.vrr_enabled,
                             modes: modes.map(m => ({
@@ -224,6 +237,73 @@ Singleton {
 
     // Read when asked (About): nothing else shows them, and a niri query every
     // five seconds, games included, bought nothing.
+
+    // ------------------------------------------------------- details ----
+    //
+    // What only About shows, read when it asks (refreshDetails): every
+    // graphics device (lspci, one per line, the class cut off), the card's
+    // memory (nvidia-smi or amdgpu's sysfs, in MiB), the memory's type and
+    // speed (udev's DMI properties, no root needed), the board, the root
+    // filesystem (POSIX df, bytes) and the seconds up. nvidia-smi wakes NVML,
+    // so it is not part of the shell's start.
+
+    property string gpuDevices: ""
+    property int gpuVramMB: 0
+    property string memoryType: ""
+    property string memorySpeed: ""
+    property string boardName: ""
+    property string boardMaker: ""
+    property real diskTotal: 0
+    property real diskUsed: 0
+    property real diskFree: 0
+    property int uptimeSeconds: 0
+    property bool detailsRead: false
+
+    function refreshDetails() { detailsProc.running = true; }
+
+    Process {
+        id: detailsProc
+        command: ["sh", "-c", `
+            printf 'gpus=%s\\n' "$(lspci 2>/dev/null | grep -iE 'vga|3d controller|display controller' | sed 's/^[^ ]* [^:]*: //' | paste -sd'|' -)"
+            v="$(command -v nvidia-smi >/dev/null && nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1 | tr -dc 0-9)"
+            if [ -z "$v" ]; then
+                for f in /sys/class/drm/card*/device/mem_info_vram_total; do
+                    [ -r "$f" ] && v=$(( $(cat "$f") / 1048576 )) && break
+                done
+            fi
+            printf 'vram=%s\\n' "$v"
+            u="$(udevadm info -q property -p /sys/devices/virtual/dmi/id 2>/dev/null)"
+            printf 'memtype=%s\\n' "$(printf '%s\\n' "$u" | sed -n 's/^MEMORY_DEVICE_[0-9]*_TYPE=//p' | grep -viE '^(unknown|other)$' | head -n1)"
+            s="$(printf '%s\\n' "$u" | sed -n 's/^MEMORY_DEVICE_[0-9]*_CONFIGURED_SPEED_MTS=//p' | grep -v '^0$' | head -n1)"
+            [ -n "$s" ] || s="$(printf '%s\\n' "$u" | sed -n 's/^MEMORY_DEVICE_[0-9]*_SPEED_MTS=//p' | grep -v '^0$' | head -n1)"
+            printf 'memspeed=%s\\n' "$s"
+            printf 'boardname=%s\\n' "$(cat /sys/devices/virtual/dmi/id/board_name 2>/dev/null)"
+            printf 'boardvendor=%s\\n' "$(cat /sys/devices/virtual/dmi/id/board_vendor 2>/dev/null)"
+            printf 'disk=%s\\n' "$(df -Pk / 2>/dev/null | tail -n1 | awk '{ printf "%.0f %.0f %.0f", $2 * 1024, $3 * 1024, $4 * 1024 }')"
+            printf 'uptime=%s\\n' "$(cut -d. -f1 /proc/uptime 2>/dev/null)"
+        `]
+        stdout: StdioCollector {
+            onStreamFinished: {
+                const kv = {};
+                for (const line of text.split("\n")) {
+                    const i = line.indexOf("=");
+                    if (i > 0) kv[line.substring(0, i)] = line.substring(i + 1).trim();
+                }
+                root.gpuDevices = (kv.gpus || "").split("|").join("\n");
+                root.gpuVramMB = parseInt(kv.vram) || 0;
+                root.memoryType = kv.memtype || "";
+                root.memorySpeed = kv.memspeed || "";
+                root.boardName = kv.boardname || "";
+                root.boardMaker = kv.boardvendor || "";
+                const d = (kv.disk || "").split(" ").map(Number);
+                root.diskTotal = d[0] || 0;
+                root.diskUsed = d[1] || 0;
+                root.diskFree = d[2] || 0;
+                root.uptimeSeconds = parseInt(kv.uptime) || 0;
+                root.detailsRead = true;
+            }
+        }
+    }
 
     // ------------------------------------------------------------- GPU ----
     //

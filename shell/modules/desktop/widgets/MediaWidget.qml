@@ -37,10 +37,13 @@ Item {
 
     Loader {
         anchors { fill: parent; topMargin: head.height + Tokens.gap * 0.6 }
+        // Under the header: the card's blurred cover reaches up behind it.
+        z: -1
         active: Media.available
         sourceComponent: PlayerCard {
             fill: true
             bare: true
+            bleedTop: head.height + Tokens.gap * 0.6 + Tokens.padding
             showLyrics: root.options.lyrics !== false
             showVisualizer: root.options.visualizer !== false
         }

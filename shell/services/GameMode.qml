@@ -40,11 +40,11 @@ Singleton {
     // The Settings app shares this code (and Motion reads it): only the shell acts.
     readonly property bool inShell: !Quickshell.env("VITRUM_NO_THEME")
     onGameChanged: if (inShell) _register()
-    onActiveChanged: {
-        if (!inShell) return;
-        _register();
-        if (active && Settings.get("games.hud", true)) hud(true);
-    }
+    onActiveChanged: if (inShell) _register()
+    // The HUD while game mode is on and games.hud asks for it: turning either
+    // off mid-game hides it at once.
+    readonly property bool hudWanted: active && Settings.get("games.hud", true)
+    onHudWantedChanged: if (inShell) hud(hudWanted)
 
     // gamemode: register the game's process (it was started without gamemoderun).
     function _register() {

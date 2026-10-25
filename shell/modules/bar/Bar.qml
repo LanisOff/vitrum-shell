@@ -33,7 +33,14 @@ PanelWindow {
     readonly property bool atTop: Settings.get("bar.position", "top") === "top"
     readonly property string primaryName: BarLib.primaryScreen(Quickshell.screens, Settings.get("bar.primary", ""))
     readonly property bool primary: screen && screen.name === primaryName
-    readonly property var layout: BarLib.parseLayout(Settings.get("bar.layout", {})).layout
+    // This screen's layout: its own (bar.screens.<name>, when own) or the
+    // shared one, with the workspaces' minimap. Through a string, so that it
+    // only changes when the layout does: Settings.values is a new object on
+    // every change of any setting, and a new list each time made every island
+    // and module of the bar be built again (state lost, panels cut off).
+    readonly property string layoutKey: JSON.stringify(BarLib.withMinimap(
+        BarLib.layoutFor(Settings.get("bar", {}), bar.modelData ? bar.modelData.name : ""), Settings.get("bar.minimap", false)))
+    readonly property var layout: JSON.parse(layoutKey)
     readonly property real span: Tokens.islandHeight + 2 * Tokens.gap
     readonly property bool shaped: Materials.shaped("bar", bar.modelData.name)
     // What niri rounds every piece with in shaped mode (vitrum-theme writes the same).
@@ -59,31 +66,56 @@ PanelWindow {
         for (const row of [left, center, activities, right])
             for (let i = 0; i < row.children.length; i++) {
                 const c = row.children[i];
-                if (c.region && c.visible) out.push(c);
+                // An island the Repeater let go of is still an object until it is
+                // deleted: never its glass.
+                if (c && c.region && c.visible && c.parent === row && !c.gone) out.push(c);
             }
         islands = out;
+        // A panel whose island went (the layout changed under it) flows out of
+        // the island that has its module now. (One that only shrank away keeps it.)
+        if ((open || closing) && (!source || source.gone)) source = _findSource(shown);
     }
     readonly property var islandRegions: islands.map(i => i.region)
 
+    // One side's islands. A ListModel, changed only where the layout changed
+    // (lib/bar.js planIslands): an island that stays keeps its modules, their
+    // state and a panel open from it, and only what is new is built.
     component Side: Row {
+        id: side
         property var islandList: []
+        property var _shown: []
+        property var _uids: []
+        property int _next: 0
+        readonly property ListModel rows: ListModel {}
+        function sync() {
+            const plan = BarLib.planIslands(_shown, _uids, islandList, _next);
+            for (const o of plan.ops) {
+                if (o.op === "remove") rows.remove(o.index, 1);
+                else if (o.op === "move") rows.move(o.from, o.to, 1);
+                else if (o.op === "insert") rows.insert(o.index, { uid: o.uid, mods: o.mods });
+                else if (o.op === "set") rows.setProperty(o.index, "mods", o.mods);
+            }
+            _shown = islandList; _uids = plan.uids; _next = plan.next;
+        }
+        onIslandListChanged: sync()
+        Component.onCompleted: sync()
         z: 2                       // above the click catcher: another island's click switches panels
         spacing: Tokens.gap
         y: bar.atTop ? Tokens.gap : bar.height - Tokens.gap - Tokens.islandHeight
         height: Tokens.islandHeight
         Repeater {
-            model: parent.islandList
+            model: side.rows
+            // Its glass goes at once, not when the object is deleted later.
+            onItemRemoved: (index, item) => { if (item) item.gone = true; bar._collect(); }
             delegate: IslandView {
-                required property var modelData
-                modules: modelData
+                required property string mods
+                modules: mods.split(",")
                 screen: bar.screen
                 primary: bar.primary
                 shaped: bar.shaped
                 merged: bar.shaped && bar.source === this && bar.t > 0.02
-                onRegionChanged: bar._collect()
                 onVisibleChanged: Qt.callLater(bar._collect)
                 Component.onCompleted: bar._collect()
-                Component.onDestruction: Qt.callLater(bar._collect)
             }
         }
     }
@@ -132,14 +164,13 @@ PanelWindow {
     }
 
     // One progress value drives the whole drop: island (0) to panel (1). Opening
-    // overshoots a touch — the drop swells and settles.
+    // is a long, damped ease out: the drop grows and comes to rest, no overshoot.
     property real t: open ? 1 : 0
     Behavior on t {
         enabled: Motion.enabled
         NumberAnimation {
             duration: bar.open ? Math.round(Motion.emphasized * 1.25) : Motion.standard
-            easing.type: bar.open ? Easing.OutBack : Easing.InOutCubic
-            easing.overshoot: 1.05
+            easing.type: bar.open ? Easing.OutQuint : Easing.InOutCubic
         }
     }
     readonly property bool dropShown: t > 0.001 && (open || closing)
@@ -147,8 +178,8 @@ PanelWindow {
     // The island in the bar's frame (y from the bar's edge), followed live: it
     // springs when its contents change, and the drop goes with it. Switching to
     // another island's panel slides the neck along the bar.
-    readonly property real srcX: source ? source.parent.x + source.x : anchorRect.x
-    readonly property real srcW: source ? source.width : Math.max(anchorRect.width, 1)
+    readonly property real srcX: source && source.parent ? source.parent.x + source.x : anchorRect.x
+    readonly property real srcW: source && source.parent ? source.width : Math.max(anchorRect.width, 1)
     // The island already springs when its contents change, so the drop follows
     // it exactly; only a move to another island's panel animates. (Easing both
     // edges on their own while the island grew let them part: the panel swung
@@ -258,7 +289,9 @@ PanelWindow {
         function onBarProbe() {
             const d = Object.assign({}, UiState.barDebug);
             d[bar.modelData.name] = { open: bar.open, closing: bar.closing, shown: bar.shown, t: bar.t, shaped: bar.shaped,
-                                      source: !!bar.source, geo: bar.geo, islands: bar.islands.length, w: bar.width, h: bar.height };
+                                      source: !!bar.source, geo: bar.geo, islands: bar.islands.length, w: bar.width, h: bar.height,
+                                      // Which objects hold which modules: the same address after a change = kept.
+                                      layout: bar.layout, pieces: bar.islands.map(i => i.probe()) };
             UiState.barDebug = d;
         }
     }

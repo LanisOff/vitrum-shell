@@ -1,0 +1,106 @@
+#!/usr/bin/env python3
+"""vitrum-vesktop-theme — vitrum's theme for Vesktop (Discord with Vencord).
+
+  vitrum-vesktop-theme status      one line of JSON: {"vesktop", "installed",
+                                   "active", "running", "themeDir"}
+  vitrum-vesktop-theme apply       write the theme's colours from vitrum's palette
+                                   (unless vesktop.theme.sync is off) and switch the
+                                   theme on or off in Vencord (vesktop.theme.enabled);
+                                   installs nothing
+  vitrum-vesktop-theme install     copy the theme into Vesktop's themes folder, then apply
+  vitrum-vesktop-theme reinstall   the same, with the theme's file replaced whole
+  vitrum-vesktop-theme remove      switch the theme off in Vencord and delete it
+
+Vesktop itself must be installed first (vitrum does not install it).
+Exit 0 on success; 1 with a short message on stderr on failure; 2 when it
+needs the user's terminal (nothing here does today; kept for the contract
+shared with vitrum-steam-theme). New colours show at once in a running
+Vesktop; switching the theme on or off shows after Vesktop restarts.
+"""
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+# Installed layout: ~/.local/bin/vitrum-vesktop-theme with the package in ~/.local/share/vitrum/lib.
+HERE = Path(__file__).resolve().parent
+for candidate in (HERE, HERE.parent / "share" / "vitrum" / "lib",
+                  Path(os.environ.get("XDG_DATA_HOME") or Path.home() / ".local/share") / "vitrum" / "lib"):
+    if (candidate / "vitrum_theme" / "__init__.py").is_file():
+        sys.path.insert(0, str(candidate))
+        break
+
+import vitrum_theme as vt  # noqa: E402
+from vitrum_theme import vesktop  # noqa: E402
+
+NEEDS_TERMINAL = ("in a terminal", "your password")
+
+
+def fail(msg: str) -> int:
+    print(f"vitrum-vesktop-theme: {msg}", file=sys.stderr)
+    return 2 if any(k in msg for k in NEEDS_TERMINAL) else 1
+
+
+def note(msg: str) -> None:
+    print(f"vitrum-vesktop-theme: {msg}", file=sys.stderr)
+
+
+def load():
+    settings, warnings = vt.load_settings(vt.CONFIG / "vitrum" / "settings.json")
+    for w in warnings:
+        note(f"warning: {w}")
+    pal_file = vt.DATA_HOME / "vitrum" / "palette.json"
+    try:
+        doc = json.loads(pal_file.read_text(encoding="utf-8"))
+        palette, source = doc["palette"], doc.get("source", "")
+        if not isinstance(palette, dict) or "dark" not in palette:
+            raise ValueError
+    except (OSError, ValueError, KeyError, TypeError):
+        # No palette yet (vitrum-theme never ran): work it out the same way.
+        path = settings["wallpaper"]["path"] or next(iter(settings["wallpaper"]["perOutput"].values()), "")
+        palette, source = vt.resolve_palette(settings, Path(os.path.expanduser(path)) if path else None)
+    return settings, vt.with_accent2(palette, settings), source
+
+
+def cmd_apply() -> int:
+    settings, palette, source = load()
+    vesktop.apply(settings, palette, sync_colours=vesktop.theme_flag(settings, "sync"), enforce=True, note=source)
+    if vesktop.needs_restart():
+        note("Vesktop is running: restart it to switch the theme on or off (new colours show at once)")
+    return 0
+
+
+def cmd_install(reinstall: bool) -> int:
+    vesktop.install_theme(replace=reinstall)
+    vesktop.record_component(True)
+    return cmd_apply()
+
+
+def main(argv=None) -> int:
+    ap = argparse.ArgumentParser(prog="vitrum-vesktop-theme", description="vitrum's theme for Vesktop (Vencord)")
+    ap.add_argument("command", choices=["status", "apply", "install", "reinstall", "remove"])
+    ap.add_argument("--yes", action="store_true", help="accepted for the installer; nothing asks")
+    a = ap.parse_args(argv)
+    try:
+        if a.command == "status":
+            print(json.dumps(vesktop.status()))
+            return 0
+        if a.command == "apply":
+            return cmd_apply()
+        if a.command in ("install", "reinstall"):
+            return cmd_install(a.command == "reinstall")
+        if a.command == "remove":
+            vesktop.remove_theme()
+            if vesktop.vesktop_running():
+                note("Vesktop is running: restart it to drop the theme")
+            return 0
+    except vesktop.VesktopThemeError as e:
+        return fail(str(e))
+    except OSError as e:
+        return fail(f"{e.strerror or e}: {e.filename or ''}".strip(": "))
+    return 1
+
+
+if __name__ == "__main__":
+    sys.exit(main())

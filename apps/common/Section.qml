@@ -25,7 +25,7 @@ Column {
         property int delay: 0
         PauseAnimation { duration: enterAnim.delay }
         ParallelAnimation {
-            NumberAnimation { target: rise; property: "y"; to: 0; duration: Motion.emphasized; easing.type: Easing.OutBack; easing.overshoot: 2.2 }
+            NumberAnimation { target: rise; property: "y"; to: 0; duration: Motion.emphasized; easing.type: Easing.OutQuint }
             NumberAnimation { target: sec; property: "opacity"; to: 1; duration: Motion.standard; easing.type: Easing.OutCubic }
         }
     }

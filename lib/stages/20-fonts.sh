@@ -2,9 +2,10 @@
 # Stage: fonts — the UI and icon fonts, the cursor, and fontconfig aliases.
 #
 # Inter, JetBrains Mono (plain and Nerd), Noto and Noto Color Emoji come from
-# the distribution (packages stage). Material Symbols Rounded, Apple's colour
-# emoji (samuelngs/apple-emoji-ttf) and the Bibata cursor are not packaged on
-# Gentoo, so they are fetched with pinned checksums on every distribution
+# the distribution (packages stage). The Phosphor icon fonts (Light for the UI,
+# Fill for the player's solid icons), Apple's colour emoji
+# (samuelngs/apple-emoji-ttf) and the Bibata cursor are not packaged on Gentoo,
+# so they are fetched with pinned checksums on every distribution
 # (lib/assets.tsv) — one path, no surprises. Noto stays as the emoji fallback.
 # Where the distribution lacks a package vitrum needs (JetBrains Mono and
 # adw-gtk3 on Void, the JetBrainsMono Nerd Font on Fedora and Void), the
@@ -13,13 +14,18 @@
 stage_fonts() {
   stage "Fonts"
 
-  step "icon font, emoji and cursor"
-  fetch_asset material-symbols
+  step "icon fonts, emoji and cursor"
+  fetch_asset phosphor-light
+  fetch_asset phosphor-fill
+  # Material Symbols Rounded was the icon font before Phosphor: an older
+  # install's copy (and its stamp) goes, so nothing picks it up by accident.
+  local old_icons="$HOME/.local/share/fonts/vitrum/MaterialSymbolsRounded.ttf"
+  if [[ -e "$old_icons" ]]; then run rm -f "$old_icons" "$VITRUM_STATE/assets/material-symbols.sha256"; fi
   fetch_asset apple-emoji
   fetch_asset bibata
 
   local a gaps=()
-  mapfile -t gaps < <(assets_wanted | grep -vxE 'material-symbols|apple-emoji|bibata')
+  mapfile -t gaps < <(assets_wanted | grep -vxE 'phosphor-light|phosphor-fill|apple-emoji|bibata')
   if [[ ${#gaps[@]} -gt 0 ]]; then
     step "from upstream, as $PKG_BACKEND does not package them: ${gaps[*]}"
     for a in "${gaps[@]}"; do fetch_asset "$a"; done

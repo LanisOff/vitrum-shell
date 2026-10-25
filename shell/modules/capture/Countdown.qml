@@ -25,7 +25,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: gate.mapped ? disc : dot; radius: gate.mapped ? disc.radius : 0 }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
 
     Surface {
         id: disc
@@ -41,10 +42,10 @@ PanelWindow {
             numeric: true
             size: Tokens.textTitle * 2.4
             font.weight: Font.Light
-            // Each second pops in.
+            // Each second pops in and settles, damped (no overshoot).
             scale: 1
             onTextChanged: if (Motion.enabled) pop.restart()
-            SequentialAnimation { id: pop; NumberAnimation { target: num; property: "scale"; to: 1.25; duration: 0 } SpringAnimation { target: num; property: "scale"; to: 1; spring: 4; damping: 0.35 } }
+            SequentialAnimation { id: pop; NumberAnimation { target: num; property: "scale"; to: 1.25; duration: 0 } NumberAnimation { target: num; property: "scale"; to: 1; duration: Motion.emphasized; easing.type: Easing.OutCubic } }
         }
         MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Capture.cancelCountdown() }
     }

@@ -7,7 +7,7 @@ import qs.components
 
 /*
  * A folder of apps on the desktop.
- *   S   a folder tile: four icons in a 2×2 grid on a tonal square, the title under it
+ *   S   a folder tile: four icons in a 2×2 grid on a square of glass, the title under it
  *   L   the header (title, how many), then the apps in a grid of four across,
  *       each with its name under it; wider sizes take more columns
  * options: title, apps (desktop file names; empty: the most used). A click launches.
@@ -43,15 +43,14 @@ Item {
         visible: root.small
         anchors.fill: parent
         readonly property real labelH: Math.round(Tokens.textSmall * 1.7)
-        Rectangle {
+        Surface {
             id: tile
             readonly property real side: Math.min(root.width, root.height - parent.labelH - Tokens.gap * 0.4)
             width: side; height: side
             anchors { horizontalCenter: parent.horizontalCenter; top: parent.top }
-            radius: Math.round(side * 0.24)
-            color: Colors.alpha(Colors.text, Colors.dark ? 0.1 : 0.08)
-            border.width: Tokens.hairline
-            border.color: Colors.alpha(Colors.text, 0.08)
+            group: "widgets"
+            level: 1
+            radius: Tokens.radiusTile
             Grid {
                 id: quad
                 readonly property real pad: Math.round(tile.side * 0.13)
@@ -68,9 +67,12 @@ Item {
                         IconImage {
                             anchors.centerIn: parent
                             implicitSize: Math.round(quad.cell * 0.9)
-                            source: Quickshell.iconPath(q.modelData.icon, "application-x-executable")
-                            scale: qm.pressed ? 0.88 : qm.containsMouse ? 1.08 : 1
-                            Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                            source: Apps.iconSource(q.modelData.icon)
+                            // No icon in the theme: a line glyph, not the missing texture.
+                            Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
+                            // Damped: a slight lift under the pointer, a sink when pressed.
+                            scale: qm.pressed ? 0.97 : qm.containsMouse ? 1.02 : 1
+                            Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
                         }
                         MouseArea {
                             id: qm
@@ -115,7 +117,7 @@ Item {
                 width: root.cellW; height: root.cellH
                 Rectangle {
                     anchors { fill: parent; margins: 2 }
-                    radius: Tokens.radiusInner
+                    radius: Tokens.radiusTile
                     color: Colors.alpha(Colors.text, cm.containsMouse ? 0.07 : 0)
                     Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
                 }
@@ -123,9 +125,10 @@ Item {
                     id: ic
                     anchors { horizontalCenter: parent.horizontalCenter; top: parent.top; topMargin: Tokens.gap * 0.5 }
                     implicitSize: root.iconL
-                    source: Quickshell.iconPath(cell.modelData.icon, "application-x-executable")
-                    scale: cm.pressed ? 0.9 : cm.containsMouse ? 1.06 : 1
-                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.bouncy } }
+                    source: Apps.iconSource(cell.modelData.icon)
+                    Icon { anchors.centerIn: parent; visible: parent.source == ""; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
+                    scale: cm.pressed ? 0.97 : cm.containsMouse ? 1.02 : 1
+                    Behavior on scale { enabled: Motion.enabled; SpringAnim { token: Motion.smooth } }
                 }
                 Label {
                     anchors { top: ic.bottom; topMargin: Tokens.gap * 0.35; horizontalCenter: parent.horizontalCenter }

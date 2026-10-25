@@ -1,7 +1,8 @@
 import QtQuick
 import qs.theme
 
-// A bar island: a capsule that sizes to its content with a spring. The width
+// A bar island: a rounded piece (Tokens.islandRadius, the radius niri's
+// glass gets for the bar too) that sizes to its content with a spring. The width
 // is whole pixels, so the glass niri draws under it (whole-pixel regions) and
 // the tint and outline drawn here keep the same edges while it moves.
 Surface {

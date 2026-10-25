@@ -35,7 +35,7 @@ declare -gA FINISH_STAGES=(
   [sddm]="packages boot" [plymouth]="packages boot"
   [tmux]="packages terminal" [author_nvim]="packages terminal"
   [author_tmux_keys]=terminal [tmux_autostart]=terminal
-  [games]="packages shell"
+  [games]="packages shell" [steam_theme]="packages shell" [vesktop_theme]="packages shell"
 )
 
 # _finish_part_state <id> — installed, skipped (a stage of it was skipped or

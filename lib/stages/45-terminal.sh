@@ -45,7 +45,7 @@ _terminal_legacy() {
 
 # fastfetch shows the vitrum mark, or the distribution's logo when that was
 # picked: then fastfetch draws its own (config.jsonc says builtin), and with
-# no logo.kitty the fish function runs plain fastfetch.
+# no logo.kitty the fish function only fits that art to the terminal's width.
 _terminal_logo() {
   [[ "$DRY_RUN" == "1" ]] && return 0
   if [[ "${VITRUM_FASTFETCH_LOGO:-picture}" == distro ]]; then

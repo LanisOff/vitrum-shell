@@ -27,8 +27,8 @@ Item {
             width: parent.width
             spacing: Tokens.gap
             Label { text: "Notifications"; size: Tokens.textLarge; font.weight: Font.DemiBold; width: parent.width - dnd.width - clear.width - 2 * Tokens.gap; anchors.verticalCenter: parent.verticalCenter }
-            Capsule { id: dnd; icon: "dnd"; active: Notifs.doNotDisturb; onClicked: Notifs.setDoNotDisturb(!Notifs.doNotDisturb) }
-            Capsule { id: clear; icon: "clear"; onClicked: Notifs.clearHistory() }
+            GlassButton { id: dnd; icon: "dnd"; primary: Notifs.doNotDisturb; onClicked: Notifs.setDoNotDisturb(!Notifs.doNotDisturb) }
+            GlassButton { id: clear; icon: "clear"; onClicked: Notifs.clearHistory() }
         }
         Label { visible: Notifs.history.length === 0; text: "Nothing new"; role: "dim" }
         ListView {
@@ -72,11 +72,15 @@ Item {
                         width: appGroup.width
                         Column {
                             width: parent.parent.width - 2 * Tokens.padding
+                            // The summary, the time and the dismiss ×, a gap between each.
                             Row {
+                                id: topLine
                                 width: parent.width
-                                Label { text: modelData.summary; font.weight: Font.DemiBold; width: parent.width - Tokens.iconSize * 4; elide: Text.ElideRight }
-                                Label { text: Qt.formatTime(new Date(modelData.time), "hh:mm"); role: "dim"; size: Tokens.textSmall; numeric: true; width: Tokens.iconSize * 3; horizontalAlignment: Text.AlignRight }
-                                Icon { name: "close"; size: Tokens.iconSize * 0.8; color: Colors.textDim; MouseArea { anchors.fill: parent; cursorShape: Qt.PointingHandCursor; onClicked: Notifs.close(modelData) } }
+                                spacing: Tokens.gap
+                                Label { id: summary; text: modelData.summary; font.weight: Font.DemiBold; width: Math.max(0, parent.width - stamp.width - dismiss.width - 2 * topLine.spacing); elide: Text.ElideRight }
+                                Label { id: stamp; text: Qt.formatTime(new Date(modelData.time), Settings.get("clock.h24", true) ? "HH:mm" : "h:mm AP"); role: "dim"; size: Tokens.textSmall; numeric: true; width: implicitWidth; height: summary.height }
+                                Icon { id: dismiss; name: "close"; size: Tokens.iconSize * 0.8; color: Colors.textDim; anchors.verticalCenter: parent.verticalCenter
+                                       MouseArea { anchors.fill: parent; anchors.margins: -Tokens.gap * 0.5; cursorShape: Qt.PointingHandCursor; onClicked: Notifs.close(modelData) } }
                             }
                             Label { width: parent.width; visible: text.length > 0; text: modelData.body; role: "dim"; wrapMode: Text.WordWrap; maximumLineCount: 3; elide: Text.ElideRight; textFormat: Text.StyledText }
                         }

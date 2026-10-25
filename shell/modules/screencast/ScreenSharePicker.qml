@@ -38,7 +38,8 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("overlay", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     Region { id: effect; item: root.open || card.opacity > 0 ? shape : dot; radius: Tokens.radiusPanel }
-    Item { id: dot; width: 1; height: 1 }
+    // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
+    Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Item { id: shape; x: card.x + (card.width - card.width * card.scale) / 2; y: card.y + (card.height - card.height * card.scale) / 2; width: card.width * card.scale; height: card.height * card.scale }
 
     // ------------------------------------------------------------ state ---
@@ -150,10 +151,10 @@ PanelWindow {
             // Who is asking.
             Row {
                 spacing: Tokens.gap
-                Rectangle {
-                    width: Tokens.islandHeight * 1.3; height: width; radius: width / 2
-                    color: Colors.alpha(Colors.accent, 0.2)
-                    Icon { anchors.centerIn: parent; name: "screen"; color: Colors.accent }
+                // A plain line icon in the second hue, where the tonal circle was.
+                Item {
+                    width: Tokens.islandHeight * 1.3; height: width
+                    Icon { anchors.centerIn: parent; name: "screen"; color: Colors.accent2 }
                 }
                 Column {
                     anchors.verticalCenter: parent.verticalCenter
@@ -168,10 +169,11 @@ PanelWindow {
                 spacing: Tokens.gap * 0.5
                 Repeater {
                     model: [{ id: "screens", label: "Screens", icon: "screen" }, { id: "windows", label: "Windows", icon: "window" }]
-                    delegate: Capsule {
+                    delegate: GlassButton {
                         required property var modelData
+                        group: "overlay"
                         icon: modelData.icon; label: modelData.label
-                        active: root.tab === modelData.id
+                        primary: root.tab === modelData.id
                         onClicked: { root.tab = modelData.id; root.current = 0; root.picked = []; }
                     }
                 }
@@ -246,14 +248,17 @@ PanelWindow {
                                     anchors.centerIn: parent
                                     implicitSize: parent.height * 0.42
                                     source: tile.modelData.kind === "window"
-                                        ? Quickshell.iconPath((Apps.forAppId(tile.modelData.win.appId) || {}).icon || tile.modelData.win.appId, "application-x-executable") : ""
+                                        ? Apps.iconSource((Apps.forAppId(tile.modelData.win.appId) || {}).icon || tile.modelData.win.appId) : ""
+                                    // No icon in the theme: a line glyph, not the missing texture.
+                                    Icon { anchors.centerIn: parent; visible: parent.source == "" && tile.modelData.kind === "window"; name: "window"; size: Math.round(parent.width * 0.8); color: Colors.textDim }
                                 }
-                                Rectangle {
+                                // Picked: a small tinted mark with a check in the text colour.
+                                Item {
                                     visible: tile.on
                                     anchors { right: parent.right; top: parent.top; margins: Tokens.gap * 0.6 }
-                                    width: Tokens.iconSize * 1.3; height: width; radius: width / 2
-                                    color: Colors.accent
-                                    Icon { anchors.centerIn: parent; name: "check"; color: Colors.onAccent; size: Tokens.iconSize * 0.8 }
+                                    width: Tokens.iconSize * 1.3; height: width
+                                    ShellTint { anchors.fill: parent; radius: Tokens.radiusKnob; group: "overlay"; animate: false }
+                                    Icon { anchors.centerIn: parent; name: "check"; color: Colors.text; size: Tokens.iconSize * 0.8 }
                                 }
                             }
                             Column {
@@ -293,22 +298,22 @@ PanelWindow {
                     spacing: Tokens.gap / 2
                     Row {
                         spacing: Tokens.gap
-                        Toggle { checked: root.cursor; onToggled: root.cursor = !root.cursor; anchors.verticalCenter: parent.verticalCenter }
+                        GlassSwitch { group: "overlay"; checked: root.cursor; onToggled: root.cursor = !root.cursor; anchors.verticalCenter: parent.verticalCenter }
                         Label { text: "Show the pointer"; anchors.verticalCenter: parent.verticalCenter }
                     }
                     // Next time this app asks, share the same without asking.
                     Row {
                         visible: !!root.req && !!root.req.app && !(root.multi && root.picked.length > 1)
                         spacing: Tokens.gap
-                        Toggle { checked: root.rememberIt; onToggled: root.rememberIt = !root.rememberIt; anchors.verticalCenter: parent.verticalCenter }
+                        GlassSwitch { group: "overlay"; checked: root.rememberIt; onToggled: root.rememberIt = !root.rememberIt; anchors.verticalCenter: parent.verticalCenter }
                         Label { text: "Always share this with " + root.appName(); anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
                 Row {
                     anchors { right: parent.right; verticalCenter: parent.verticalCenter }
                     spacing: Tokens.gap
-                    Capsule { label: "Cancel"; onClicked: root.cancel() }
-                    Capsule { icon: "screen"; label: root.multi && root.picked.length > 1 ? "Share " + root.picked.length : "Share"; active: true; onClicked: root.share() }
+                    GlassButton { group: "overlay"; label: "Cancel"; onClicked: root.cancel() }
+                    GlassButton { group: "overlay"; icon: "screen"; label: root.multi && root.picked.length > 1 ? "Share " + root.picked.length : "Share"; primary: true; onClicked: root.share() }
                 }
             }
         }

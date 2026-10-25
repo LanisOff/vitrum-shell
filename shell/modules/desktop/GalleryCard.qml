@@ -18,7 +18,7 @@ Rectangle {
     signal dragged(point windowPos)
     signal dropped(point windowPos)
 
-    radius: 20
+    radius: Tokens.radiusPanel
     color: mouse.containsMouse ? Colors.alpha(Colors.text, Colors.dark ? 0.1 : 0.07) : Colors.alpha(Colors.text, Colors.dark ? 0.055 : 0.04)
     Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
     scale: mouse.pressed && !mouse.dragging ? 0.97 : 1
@@ -64,7 +64,7 @@ Rectangle {
         anchors { left: parent.left; right: parent.right; bottom: parent.bottom; margins: 10 }
         height: Tokens.textSize * 1.6
         spacing: 6
-        Icon { name: card.meta.icon; size: Tokens.textSize + 2; color: Colors.accent; filled: true; anchors.verticalCenter: parent.verticalCenter }
+        Icon { name: card.meta.icon; size: Tokens.textSize + 2; color: Colors.accent2; anchors.verticalCenter: parent.verticalCenter }
         Label { width: parent.width - sizes.width - Tokens.textSize - 14; text: card.meta.name; font.weight: Font.Medium; size: Tokens.textSmall + 1; anchors.verticalCenter: parent.verticalCenter }
         Label { id: sizes; text: card.meta.sizes.join(" "); role: "dim"; size: Tokens.textSmall - 1; anchors.verticalCenter: parent.verticalCenter }
     }
