@@ -150,7 +150,7 @@ sddm	x11-misc/sddm	sddm	sddm	-	-	-	sddm	sddm
 # Fedora's sddm wants a greeter display server; this one is Wayland (weston), not Xorg.
 sddm-greeter-ds	.	.	sddm	-	-	-	sddm-wayland-generic	.
 plymouth	sys-boot/plymouth	plymouth	plymouth	-	-	-	plymouth	plymouth
-mpvpaper	gui-apps/mpvpaper	mpvpaper	live-wallpaper	~amd64	-	-	copr:sdegler/hyprland:mpvpaper	mpvpaper
+mpvpaper	gui-apps/mpvpaper	aur:mpvpaper	live-wallpaper	~amd64	-	-	copr:sdegler/hyprland:mpvpaper	mpvpaper
 mpv	media-video/mpv	mpv	live-wallpaper	-	-	-	mpv	mpv
 tmux	app-misc/tmux	tmux	tmux	-	-	-	tmux	tmux
 xsel	x11-misc/xsel	xsel	tmux	-	-	-	xsel	xsel
