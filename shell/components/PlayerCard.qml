@@ -226,7 +226,13 @@ Item {
             readonly property int maxRows: root.fill && spare < tallH ? 2 : 3
             readonly property bool wanted: root.showLyrics && Lyrics.state === "synced" && Settings.get("media.lyrics", true)
             readonly property bool room: !root.fill || spare >= twoH
-            readonly property real currentH: currentItem ? currentItem.height : lineH
+            // Taken a tick later, never as it changes. A new track resets the model,
+            // the view announces its current item in the middle of that, and a
+            // highlight range bound straight to it reached back into the half-reset
+            // view: Qt crashed in viewportMoved on every track change.
+            property real currentH: lineH
+            function syncCurrentH() { currentH = currentItem ? currentItem.height : lineH; }
+            onCurrentItemChanged: Qt.callLater(syncCurrentH)
             visible: wanted && room
             width: body.width
             height: !visible ? 0 : lines === 3 ? threeH : root.fill ? Math.min(tallH, spare) : tallH
@@ -242,6 +248,7 @@ Item {
                 required property var modelData
                 required property int index
                 readonly property bool now: index === Lyrics.index
+                onHeightChanged: if (ListView.isCurrentItem) Qt.callLater(lyrics.syncCurrentH)
                 // Only the line being sung and its neighbours: the room kept for
                 // a three-row line would otherwise show slivers of the lines
                 // beyond them, cut by the view's edge.
