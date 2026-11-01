@@ -240,7 +240,6 @@ PanelWindow {
         Item { id: stageWall; anchors.fill: parent }
 
         // The desktop as it is, small: the wallpaper with rounded corners and a shadow.
-        Rectangle { id: stageMask; anchors.fill: parent; radius: stageShadow.radius; visible: false; layer.enabled: true }
         Rectangle {
             id: stageShadow
             anchors.fill: parent
@@ -252,25 +251,34 @@ PanelWindow {
             layer.enabled: visible
             layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 1; shadowOpacity: 0.55; shadowVerticalOffset: 18; shadowColor: "black" }
         }
-        Item {
+        // Made anew for each visit, in the mapped window: mapped again after a
+        // game on this screen, a mask that stayed masked with its dead texture
+        // and the stage had no wallpaper.
+        Loader {
             anchors.fill: parent
-            visible: root.fade > 0.001
-            opacity: root.fade
-            layer.enabled: visible
-            layer.effect: MultiEffect { maskEnabled: true; maskSource: stageMask }
-            ShaderEffectSource { anchors.fill: parent; sourceItem: wallGlass; live: true }
-            // A faint grid: where widgets snap (on the stage, not at home).
-            Canvas {
-                anchors.fill: parent
-                opacity: root.zoom
-                onPaint: {
-                    const c = getContext("2d"), s = 88;
-                    c.reset();
-                    c.fillStyle = Qt.rgba(1, 1, 1, 0.16);
-                    for (let x = s; x < width; x += s) for (let y = s; y < height; y += s) c.fillRect(x - 1.5, y - 1.5, 3, 3);
+            active: root.fade > 0.001 && root.backingWindowVisible
+            sourceComponent: Item {
+                Rectangle { id: stageMask; anchors.fill: parent; radius: stageShadow.radius; visible: false; layer.enabled: true }
+                Item {
+                    anchors.fill: parent
+                    opacity: root.fade
+                    layer.enabled: true
+                    layer.effect: MultiEffect { maskEnabled: true; maskSource: stageMask }
+                    ShaderEffectSource { anchors.fill: parent; sourceItem: wallGlass; live: true }
+                    // A faint grid: where widgets snap (on the stage, not at home).
+                    Canvas {
+                        anchors.fill: parent
+                        opacity: root.zoom
+                        onPaint: {
+                            const c = getContext("2d"), s = 88;
+                            c.reset();
+                            c.fillStyle = Qt.rgba(1, 1, 1, 0.16);
+                            for (let x = s; x < width; x += s) for (let y = s; y < height; y += s) c.fillRect(x - 1.5, y - 1.5, 3, 3);
+                        }
+                        onWidthChanged: requestPaint()
+                        onHeightChanged: requestPaint()
+                    }
                 }
-                onWidthChanged: requestPaint()
-                onHeightChanged: requestPaint()
             }
         }
 

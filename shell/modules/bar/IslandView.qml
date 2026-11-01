@@ -29,9 +29,12 @@ Island {
     readonly property Region region: Region {
         x: (root.parent ? root.parent.x : 0) + root.x
         y: (root.parent ? root.parent.y : 0) + root.y
-        // Nothing once the island is out of its row (a moment before it is deleted).
-        width: root.parent && !root.gone ? root.width : 0
-        height: root.parent && !root.gone ? root.height : 0
+        // Nothing once the island is out of its row (a moment before it is
+        // deleted), and nothing narrower than its own corners: niri would
+        // round it into a thin upright sliver on the way to nothing.
+        readonly property bool wide: root.parent && !root.gone && root.width >= 2 * root.radius
+        width: wide ? root.width : 0
+        height: wide ? root.height : 0
         radius: root.shaped ? 0 : root.radius
     }
     property int visibleModules: 0
@@ -45,6 +48,12 @@ Island {
             if (l && l.wanted) n++;
         }
         visibleModules = n;
+        // What the island shows now. The last of it stays while it shrinks away.
+        if (n > 0)
+            for (let i = 0; i < loaders.count; i++) {
+                const l = loaders.itemAt(i);
+                if (l) l.showing = l.wanted;
+            }
     }
 
     // Does a module here open this panel?
@@ -69,6 +78,8 @@ Island {
 
     targetWidth: active ? implicitWidth : 0
     visible: width > 0
+    // Comes and goes through its last few pixels instead of ending as a sliver.
+    opacity: Math.min(1, width / Math.max(1, Math.min(implicitWidth, Tokens.islandHeight)))
     clip: true
     color: merged ? "transparent" : Materials.fill(group, level, Screen.name)
     outlined: !merged
@@ -99,7 +110,10 @@ Island {
             required property string mid
             source: "modules/" + mid + ".qml"
             readonly property bool wanted: status === Loader.Ready && !!item && item.shown
-            visible: wanted
+            property bool showing: false
+            // An island shrinking away keeps what it held: gone at once, it
+            // left an empty plate closing on nothing.
+            visible: wanted || (showing && !root.active && root.width > 0)
             onWantedChanged: root._count()
             onLoaded: { item.screen = Qt.binding(() => root.screen); item.primary = Qt.binding(() => root.primary); item.island = root; }
         }

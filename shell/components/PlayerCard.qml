@@ -128,6 +128,7 @@ Item {
 
         // The cover, and the track with its controls.
         Row {
+            id: track
             spacing: Tokens.gap * 1.5
             readonly property real cover: root.fill ? Math.min(Tokens.islandHeight * 4.4, Math.max(Tokens.islandHeight * 1.8, root.height * 0.4)) : Tokens.islandHeight * 3.4
             Rectangle {
@@ -193,6 +194,7 @@ Item {
             }
         }
         Item {
+            id: timesRow
             width: body.width; height: times.implicitHeight
             // In a widget too, when it is tall enough to spare the line.
             visible: !root.fill || root.height > Tokens.islandHeight * 4.5
@@ -209,12 +211,19 @@ Item {
             readonly property real rowH: Tokens.textLarge * 1.3
             // The tallest line: three rows of the large size.
             readonly property real tallH: lineH + 2 * rowH
-            readonly property int lines: root.fill ? (root.height > Tokens.islandHeight * 8 ? 3 : 1) : 3
-            readonly property bool room: !root.fill || root.height > Tokens.islandHeight * 6
+            readonly property real threeH: lineH * 2 + tallH
+            // In a widget, what the card has left for them: all else, the
+            // spectrum's least included, comes first. Sized by the card alone,
+            // they pushed the spectrum out past its bottom edge.
+            readonly property real spare: root.height - 2 * root.pad - track.height - wave.height - 2 * body.spacing
+                - (timesRow.visible ? timesRow.height + body.spacing : 0)
+                - (spectrum.visible ? spectrum.least + body.spacing : 0)
+            readonly property int lines: root.fill && spare < threeH ? 1 : 3
+            readonly property bool room: !root.fill || spare >= lineH
             readonly property real currentH: currentItem ? currentItem.height : lineH
             visible: root.showLyrics && room && Lyrics.state === "synced" && Settings.get("media.lyrics", true)
             width: body.width
-            height: visible ? (lines === 3 ? lineH * 2 + tallH : tallH) : 0
+            height: !visible ? 0 : lines === 3 ? threeH : root.fill ? Math.min(tallH, spare) : tallH
             clip: true
             interactive: false
             model: Lyrics.lines
@@ -258,7 +267,8 @@ Item {
             opacity: Cava.active && Cava.bars.length > 0 ? 1 : 0
             Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
             width: body.width
-            height: !visible ? 0 : root.fill ? Math.max(Tokens.islandHeight * 0.5, root.height - 2 * root.pad - y) : Tokens.islandHeight * 0.9
+            readonly property real least: Tokens.islandHeight * 0.5
+            height: !visible ? 0 : root.fill ? Math.max(least, root.height - 2 * root.pad - y) : Tokens.islandHeight * 0.9
             spacing: 2
             Repeater {
                 model: Cava.barCount

@@ -11,7 +11,11 @@ BarModule {
     shown: Privacy.shares.length > 0
     panel: "privacy"
     implicitWidth: row.implicitWidth
-    readonly property string app: Privacy.shares.length ? (Apps.forAppId(Privacy.shares[0].app) || {}).name || Privacy.shares[0].app || "An app" : ""
+    readonly property string sharingWith: Privacy.shares.length ? (Apps.forAppId(Privacy.shares[0].app) || {}).name || Privacy.shares[0].app || "An app" : ""
+    // Kept when the share ends: the island shrinks away with the name still in it.
+    property string app: ""
+    onSharingWithChanged: if (sharingWith) app = sharingWith
+    Component.onCompleted: app = sharingWith
 
     Row {
         id: row

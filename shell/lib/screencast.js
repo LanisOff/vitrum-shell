@@ -38,6 +38,10 @@ function rememberedAnswer(remember, req, screens, windows) {
     return null;
 }
 
+// A tile → what vitrum-thumbs is told to picture, and the file it writes.
+function thumbSource(item) { return item.kind === "monitor" ? "monitor:" + item.name : String(item.win.id); }
+function thumbFile(item) { return thumbSource(item).replace(":", "-") + ".ppm"; }
+
 // For the toast: "DP-2", "a kitty window", "2 sources".
 function describe(answer, windows) {
     var s = answer.sources || [];

@@ -53,28 +53,41 @@ PanelWindow {
     /// "Always share this with <app>": answered from memory next time.
     property bool rememberIt: false
     readonly property bool multi: !!req && req.multiple
-    // Live screen previews; VITRUM_NO_SCREENCOPY=1 turns them off (nested tests).
-    readonly property bool livePreviews: Quickshell.env("VITRUM_NO_SCREENCOPY") !== "1"
     readonly property var screenItems: Quickshell.screens.map(s => ({ kind: "monitor", screen: s, name: s.name }))
     readonly property var windowItems: Niri.windowsByRecency().map(w => ({ kind: "window", win: w }))
     readonly property var items: tab === "screens" ? screenItems : windowItems
 
-    // Window pictures: one frame of a cast per window (tools/vitrum-thumbs),
-    // shown as they arrive; until then, and where none comes, the app's icon.
+    // Pictures: one frame of a cast per screen and window (tools/vitrum-thumbs),
+    // shown as they arrive; until then, and where none comes, an icon. Not
+    // ScreencopyView for the screens: on niri it crashes the shell (see
+    // vitrum-thumbs).
     property string thumbDir: ""
-    property int thumbGen: 0
+    /// The pictures that are there: file name → true. A tile asks for its own
+    /// once, when it comes; asked over and over, it went through Loading each
+    /// time and flipped between the picture and the icon.
+    property var thumbsReady: ({})
     function loadThumbs() {
-        const ids = windowItems.map(w => String(w.win.id));
-        if (!ids.length || thumbProc.running) return;
+        // Screens first: they are what the picker opens on.
+        const sources = ((req.types & 1) ? screenItems : []).concat((req.types & 2) ? windowItems : []).map(Lib.thumbSource);
+        if (!sources.length || thumbProc.running) return;
         thumbDir = ScreenShare.dir + "/thumbs-" + Date.now();
-        thumbProc.command = ["sh", "-c", 'rm -rf "$1"/thumbs-*; shift; exec vitrum-thumbs "$@"', "_", ScreenShare.dir, thumbDir].concat(ids);
+        thumbsReady = {};
+        thumbProc.command = ["sh", "-c", 'rm -rf "$1"/thumbs-*; shift; exec vitrum-thumbs "$@"', "_", ScreenShare.dir, thumbDir].concat(sources);
         thumbProc.running = true;
     }
-    Process { id: thumbProc; onExited: root.thumbGen++ }
-    Timer { interval: 400; repeat: true; running: thumbProc.running; onTriggered: root.thumbGen++ }
+    Process {
+        id: thumbProc
+        stdout: SplitParser {
+            onRead: name => {
+                const ready = Object.assign({}, root.thumbsReady);
+                ready[name] = true;
+                root.thumbsReady = ready;
+            }
+        }
+    }
 
     onOpenChanged: if (open) {
-        if (req.types & 2) loadThumbs();
+        loadThumbs();
         // From req itself: canScreens may not have caught up when open flips.
         tab = (req.types & 1) ? "screens" : "windows";
         current = 0;
@@ -212,23 +225,9 @@ PanelWindow {
                                 border.width: tile.on || (root.multi && tile.index === root.current) ? 2 : 1
                                 border.color: tile.on ? Colors.accent : root.multi && tile.index === root.current ? Colors.alpha(Colors.accent, 0.5) : Colors.alpha(Colors.text, 0.12)
                                 Behavior on border.color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
-                                // A screen: live. A window: its app (niri has no window previews).
-                                // Created only while the picker is open: screencopy binds the
-                                // compositor's dmabuf interface, and a compositor offering an
-                                // old version (nested niri) drops the whole shell otherwise.
-                                Loader {
-                                    anchors.fill: parent
-                                    anchors.margins: 2
-                                    active: tile.modelData.kind === "monitor" && root.open && root.livePreviews
-                                    sourceComponent: ScreencopyView {
-                                        visible: hasContent
-                                        captureSource: tile.modelData.screen
-                                        live: true
-                                        paintCursor: false
-                                    }
-                                }
+                                // Until its picture comes: a screen's icon, a window's app.
                                 Icon {
-                                    visible: tile.modelData.kind === "monitor" && !root.livePreviews
+                                    visible: tile.modelData.kind === "monitor" && thumb.status !== Image.Ready
                                     anchors.centerIn: parent
                                     name: "screen"; size: parent.height * 0.35; color: Colors.textDim
                                 }
@@ -236,9 +235,9 @@ PanelWindow {
                                     id: thumb
                                     anchors.fill: parent
                                     anchors.margins: 2
-                                    visible: tile.modelData.kind === "window" && status === Image.Ready
-                                    source: tile.modelData.kind === "window" && root.thumbDir
-                                        ? "file://" + root.thumbDir + "/" + tile.modelData.win.id + ".ppm?" + root.thumbGen : ""
+                                    visible: status === Image.Ready
+                                    readonly property string file: Lib.thumbFile(tile.modelData)
+                                    source: root.thumbsReady[file] ? "file://" + root.thumbDir + "/" + file : ""
                                     fillMode: Image.PreserveAspectFit
                                     asynchronous: true
                                     cache: false

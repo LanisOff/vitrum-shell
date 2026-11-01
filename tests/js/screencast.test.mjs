@@ -32,3 +32,9 @@ eq(JSON.stringify(s.sourcesOf([{ kind: "monitor", name: "DP-2" }, { kind: "windo
 eq(s.describe({ sources: [{ type: "monitor", connector: "DP-2" }] }, windows), "DP-2", "a screen");
 eq(s.describe({ sources: [{ type: "window", id: 3 }] }, windows), "a kitty window", "a window");
 eq(s.describe({ sources: [{ type: "monitor", connector: "DP-2" }, { type: "window", id: 3 }] }, windows), "2 sources", "several");
+
+// What vitrum-thumbs is told, and the file it writes.
+eq(s.thumbSource({ kind: "monitor", name: "DP-1" }), "monitor:DP-1", "a screen");
+eq(s.thumbFile({ kind: "monitor", name: "DP-1" }), "monitor-DP-1.ppm", "its picture");
+eq(s.thumbSource({ kind: "window", win: { id: 7 } }), "7", "a window");
+eq(s.thumbFile({ kind: "window", win: { id: 7 } }), "7.ppm", "its picture");
