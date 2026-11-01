@@ -518,11 +518,14 @@ window-rule {{
 }}
 
 // Games: variable refresh rate while they are on screen (outputs with
-// variable-refresh-rate on-demand=true, set in Settings → Displays).
+// variable-refresh-rate on-demand=true, set in Settings → Displays), and never
+// see-through next to a focused window: the wallpaper and the widgets showing
+// through the picture read as a haze over it.
 window-rule {{
     match app-id="^steam_app_[0-9]+$"
     match app-id="^gamescope$"
 {_game_matches(settings)}    variable-refresh-rate true
+    opacity 1.0
 }}
 
 window-rule {{

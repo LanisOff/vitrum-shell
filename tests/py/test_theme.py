@@ -365,6 +365,7 @@ class Kdl(unittest.TestCase):
         self.assertIn('match title="(?i)Minecraft"', rule)
         self.assertIn('match title="(?i)a\\\\.b\\"c"', rule)
         self.assertIn("variable-refresh-rate true", rule)
+        self.assertIn("opacity 1.0", rule, "not see-through beside a focused window")
         self.assertEqual(rule.count("match"), 5, "a blank entry adds nothing")
 
     def test_glass_advanced_overrides(self):

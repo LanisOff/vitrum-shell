@@ -197,7 +197,9 @@ Item {
             id: timesRow
             width: body.width; height: times.implicitHeight
             // In a widget too, when it is tall enough to spare the line.
-            visible: !root.fill || root.height > Tokens.islandHeight * 4.5
+            // A long line of lyrics comes first: without room for two rows it would be cut.
+            visible: !root.fill || (root.height > Tokens.islandHeight * 4.5
+                                    && (!lyrics.wanted || lyrics.spareAll - height - body.spacing >= lyrics.twoH))
             Label { id: times; text: LockLib.formatDuration(wave.pos); role: "dim"; size: Tokens.textSmall; numeric: true }
             Label { anchors.right: parent.right; text: LockLib.formatDuration(Media.length); role: "dim"; size: Tokens.textSmall; numeric: true }
         }
@@ -212,16 +214,20 @@ Item {
             // The tallest line: three rows of the large size.
             readonly property real tallH: lineH + 2 * rowH
             readonly property real threeH: lineH * 2 + tallH
+            // Two rows: what a long line needs to be read whole.
+            readonly property real twoH: lineH + rowH
             // In a widget, what the card has left for them: all else, the
             // spectrum's least included, comes first. Sized by the card alone,
             // they pushed the spectrum out past its bottom edge.
-            readonly property real spare: root.height - 2 * root.pad - track.height - wave.height - 2 * body.spacing
-                - (timesRow.visible ? timesRow.height + body.spacing : 0)
+            readonly property real spareAll: root.height - 2 * root.pad - track.height - wave.height - 2 * body.spacing
                 - (spectrum.visible ? spectrum.least + body.spacing : 0)
+            readonly property real spare: spareAll - (timesRow.visible ? timesRow.height + body.spacing : 0)
             readonly property int lines: root.fill && spare < threeH ? 1 : 3
-            readonly property bool room: !root.fill || spare >= lineH
+            readonly property int maxRows: root.fill && spare < tallH ? 2 : 3
+            readonly property bool wanted: root.showLyrics && Lyrics.state === "synced" && Settings.get("media.lyrics", true)
+            readonly property bool room: !root.fill || spare >= twoH
             readonly property real currentH: currentItem ? currentItem.height : lineH
-            visible: root.showLyrics && room && Lyrics.state === "synced" && Settings.get("media.lyrics", true)
+            visible: wanted && room
             width: body.width
             height: !visible ? 0 : lines === 3 ? threeH : root.fill ? Math.min(tallH, spare) : tallH
             clip: true
@@ -243,11 +249,15 @@ Item {
                 opacity: near ? 1 : 0
                 Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.standard } }
                 width: lyrics.width
-                height: Math.max(lyrics.lineH, contentHeight + lyrics.lineH - lyrics.rowH)
-                verticalAlignment: Text.AlignVCenter; horizontalAlignment: Text.AlignHCenter
+                // Padding, not a height: with a height set, Qt cuts wrapped text to
+                // it, a height taken from the text never grew past one row, and a
+                // long line ended in "…" instead of going on to the next row.
+                topPadding: (lyrics.lineH - lyrics.rowH) / 2
+                bottomPadding: topPadding
+                horizontalAlignment: Text.AlignHCenter
                 text: modelData.text
                 wrapMode: Text.WordWrap
-                maximumLineCount: 3
+                maximumLineCount: lyrics.maxRows
                 elide: Text.ElideRight
                 size: now ? Tokens.textLarge : Tokens.textSize
                 font.weight: now ? Font.DemiBold : Font.Normal

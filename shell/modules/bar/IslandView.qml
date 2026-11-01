@@ -79,7 +79,7 @@ Island {
     targetWidth: active ? implicitWidth : 0
     visible: width > 0
     // Comes and goes through its last few pixels instead of ending as a sliver.
-    opacity: Math.min(1, width / Math.max(1, Math.min(implicitWidth, Tokens.islandHeight)))
+    opacity: Math.min(1, width / (Tokens.islandHeight * 0.75))
     clip: true
     color: merged ? "transparent" : Materials.fill(group, level, Screen.name)
     outlined: !merged
