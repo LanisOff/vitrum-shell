@@ -7,7 +7,7 @@ import qs.components
 // Lock, log out, suspend, restart, power off — now or later.
 DialogFrame {
     id: root
-    open: UiState.power && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
+    want: UiState.power && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
     onDismissed: UiState.power = false
 
     function act(f) { UiState.power = false; f(); }

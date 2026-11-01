@@ -22,7 +22,7 @@ PanelWindow {
     id: root
     required property var modelData
     screen: modelData
-    readonly property bool open: UiState.capture
+    readonly property bool open: gate.ready && UiState.capture
     readonly property bool focused_: screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
     readonly property real scale_: (Niri.outputs[screen.name] && Niri.outputs[screen.name].scale) || 1
     readonly property var bounds: ({ w: width, h: height })
@@ -40,9 +40,7 @@ PanelWindow {
         function onTestSelect(r, take) { if (root.open && root.focused_) { root.sel = { x: r.x, y: r.y, w: r.width, h: r.height }; if (take) root.take(); } }
     }
 
-    // Mapped while open, and while idle unless a fullscreen window is up
-    // (UiState.parkOverlays; components/MapGate.qml).
-    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    MapGate { id: gate; want: root.open }      // mapped only while open (components/MapGate.qml)
     visible: gate.mapped
     // Mapped again by opening: the window is a new one, the focus goes back in.
     onBackingWindowVisibleChanged: if (backingWindowVisible && open && focused_) keys.forceActiveFocus()

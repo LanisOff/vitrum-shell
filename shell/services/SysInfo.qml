@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import "../lib/gpu.js" as Gpu
 
 /*
  * Everything About and the Settings overview need to say about this
@@ -242,10 +243,10 @@ Singleton {
     //
     // What only About shows, read when it asks (refreshDetails): every
     // graphics device (lspci, one per line, the class cut off), the card's
-    // memory (nvidia-smi or amdgpu's sysfs, in MiB), the memory's type and
-    // speed (udev's DMI properties, no root needed), the board, the root
-    // filesystem (POSIX df, bytes) and the seconds up. nvidia-smi wakes NVML,
-    // so it is not part of the shell's start.
+    // memory (nvidia-smi, or the largest in amdgpu's sysfs, the card the load
+    // reads, in MiB), the memory's type and speed (udev's DMI properties, no
+    // root needed), the board, the root filesystem (POSIX df, bytes) and the
+    // seconds up. nvidia-smi wakes NVML, so it is not part of the shell's start.
 
     property string gpuDevices: ""
     property int gpuVramMB: 0
@@ -267,9 +268,14 @@ Singleton {
             printf 'gpus=%s\\n' "$(lspci 2>/dev/null | grep -iE 'vga|3d controller|display controller' | sed 's/^[^ ]* [^:]*: //' | paste -sd'|' -)"
             v="$(command -v nvidia-smi >/dev/null && nvidia-smi -i 0 --query-gpu=memory.total --format=csv,noheader,nounits 2>/dev/null | head -n1 | tr -dc 0-9)"
             if [ -z "$v" ]; then
+                top=0
                 for f in /sys/class/drm/card*/device/mem_info_vram_total; do
-                    [ -r "$f" ] && v=$(( $(cat "$f") / 1048576 )) && break
+                    n=''
+                    { read -r n < "$f"; } 2>/dev/null
+                    case $n in ''|*[!0-9]*) continue ;; esac
+                    if [ "$n" -gt "$top" ]; then top=$n; fi
                 done
+                if [ "$top" -gt 0 ]; then v=$((top / 1048576)); fi
             fi
             printf 'vram=%s\\n' "$v"
             u="$(udevadm info -q property -p /sys/devices/virtual/dmi/id 2>/dev/null)"
@@ -307,10 +313,11 @@ Singleton {
 
     // ------------------------------------------------------------- GPU ----
     //
-    // NVIDIA through nvidia-smi when it is there, as one process sampling on
-    // its own loop (-l): one started every two seconds brought NVML up each
-    // time, a hitch in every game on NVIDIA. Other GPUs report through hwmon
-    // as part of the temperature sensors and have no usage figure here.
+    // NVIDIA through nvidia-smi, else AMD through amdgpu's sysfs, always as one
+    // process sampling on its own loop: one started every two seconds brought
+    // NVML up each time, a hitch in every game on NVIDIA. lib/gpu.js builds the
+    // command and reads its lines. Other GPUs report through hwmon as part of
+    // the temperature sensors and have no usage figure here.
 
     property bool gpuAvailable: false
     property real gpuUsage: 0
@@ -319,12 +326,12 @@ Singleton {
     Process {
         id: gpuProc
         running: root.subscribers > 0
-        command: ["sh", "-c", "command -v nvidia-smi >/dev/null && exec nvidia-smi -i 0 --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits -l 2"]
+        command: ["sh", "-c", Gpu.command()]
         stdout: SplitParser {
             onRead: line => {
-                const p = line.trim().split(",").map(s => parseFloat(s));
-                root.gpuAvailable = p.length === 2 && !isNaN(p[0]);
-                if (root.gpuAvailable) { root.gpuUsage = p[0] / 100; root.gpuTemp = p[1]; }
+                const s = Gpu.parse(line);
+                root.gpuAvailable = s.available;
+                if (s.available) { root.gpuUsage = s.usage; root.gpuTemp = s.temp; }
             }
         }
     }

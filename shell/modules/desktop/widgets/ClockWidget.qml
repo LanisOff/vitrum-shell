@@ -98,14 +98,17 @@ Item {
             visible: root.useGlass
             backdrop: root.useGlass ? root.backdrop : null
             source: root.useGlass ? root.source : null
-            // Stronger than the lock's: there the picture around is blurred and
-            // the clear digits stand out by themselves; here it is as sharp as
-            // they are, so the rims carry the glass.
+            // Stronger rims than the lock's: there the picture around is blurred
+            // and the clear digits stand out by themselves; here it is as sharp
+            // as they are, so the rims carry the glass. In white light, though:
+            // no fringing and no added saturation. The bend scales with the
+            // digits, so at this size red and blue part by tens of pixels, wider
+            // than the rim, and the digits turn to oil film on any picture.
             bevel: root.timeSize * 0.14
-            refraction: root.timeSize * 0.5
+            refraction: root.timeSize * 0.3
             edgeLight: 1.8
-            fringing: 0.5
-            saturation: 1.4
+            fringing: 0
+            saturation: 1
             brightness: 0.07
             tint: Qt.rgba(1, 1, 1, Colors.dark ? 0.05 : 0.12)
             shadow: 0.6

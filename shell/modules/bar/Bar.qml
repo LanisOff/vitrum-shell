@@ -153,7 +153,10 @@ PanelWindow {
         source = _findSource(UiState.panel);
         anchorRect = UiState.panelAnchor;
     }
-    Timer { id: closeTimer; interval: Math.max(1, Motion.standard + 60); onTriggered: bar.closing = false }
+    Timer { id: closeTimer; interval: Math.max(1, Motion.standard + 60); onTriggered: { bar.closing = false; unloadTimer.restart(); } }
+    // A closed panel stays built for a moment, so that opening it again is
+    // instant; then it goes (the Loader follows `shown`).
+    Timer { id: unloadTimer; interval: 60000; onTriggered: if (!bar.open && !bar.closing) bar.shown = "" }
     onMineChanged: {
         if (mine) { closeTimer.stop(); closing = false; _take(); open = true; }
         else if (open) { open = false; closing = true; closeTimer.restart(); }

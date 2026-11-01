@@ -61,6 +61,7 @@ stage_doctor() {
   _chk_path "$HOME/.local/share/icons/Bibata-Modern-Classic" "cursor: Bibata Modern Classic" warn
 
   _doctor_session
+  _doctor_crashes
   _doctor_kernel
   _doctor_steam_theme
   _doctor_vesktop_theme
@@ -189,6 +190,73 @@ except Exception:
 t = ((d.get("vesktop") or {}).get("theme") or {}) if isinstance(d, dict) else {}
 raise SystemExit(0 if isinstance(t, dict) and t.get("enabled") is False else 1)
 PY
+}
+
+# The shell's crashes of the last week, newest first, from Quickshell's own
+# reports: every init has those, core dumps only exist under systemd. One
+# warning however many there are; the folder also holds Settings' crashes,
+# which _doc_crash leaves out.
+_doctor_crashes() {
+  local dir="$XDG_CACHE_HOME/quickshell/crashes" f why files=() lines=()
+  while IFS= read -r f; do files+=("$f"); done < <(find "$dir" -maxdepth 2 -name report.txt -mtime -7 2>/dev/null)
+  if [[ ${#files[@]} -gt 0 ]]; then
+    while IFS= read -r f; do
+      why="$(_doc_crash "$f")"
+      [[ -z "$why" ]] || lines+=("$(date -r "$f" '+%F %H:%M') $why — $f")
+    done < <(ls -1t -- "${files[@]}")
+  fi
+  if [[ ${#lines[@]} -eq 0 ]]; then _chk "no shell crashes in the last 7 days" ok; return 0; fi
+  _chk "shell crashes: ${#lines[@]} in the last 7 days" warn
+  printf '      %s\n' "${lines[@]:0:10}"
+  if [[ ${#lines[@]} -gt 10 ]]; then printf '      … and %s older\n' "$((${#lines[@]} - 10))"; fi
+}
+
+# _doc_crash <report.txt> — the cause in one line, nothing for another config's
+# crash. The same reading as shell/lib/crashes.js, in awk because a tty has no
+# QML; both are tested on tests/fixtures/crashes.
+_doc_crash() {
+  awk '
+    function short(s, n, w) {
+      gsub(/\(anonymous namespace\)::/, "", s); gsub(/operator\(\)/, "operator@", s)
+      while (sub(/<[^<>]*>/, "", s)) {}
+      sub(/\(.*$/, "", s); sub(/[ \t]+$/, "", s)
+      n = split(s, w, /[ \t]+/); s = w[n]
+      sub(/operator@/, "operator()", s)
+      return s
+    }
+    /^===== / { sect = $0; next }
+    sect ~ /Instance Information/ {
+      if ($0 ~ /^Signal: /) { sig = substr($0, 9); sub(/ \([0-9]+\)$/, "", sig) }
+      else if ($0 ~ /^Config Path: /) conf = substr($0, 14)
+      next
+    }
+    sect ~ /Stacktrace/ && frame == "" {
+      if ($0 !~ /^#[0-9]+[ \t]+(0x[0-9a-fA-F]+|\(inlined\))[ \t]+(at|in) /) next
+      rest = $0; sub(/^#[0-9]+[ \t]+(0x[0-9a-fA-F]+|\(inlined\))[ \t]+/, "", rest)
+      sym = ""; file = ""
+      if (rest ~ /^at /) file = substr(rest, 4)
+      else {
+        rest = substr(rest, 4); at = 0
+        for (i = 1; i <= length(rest) - 3; i++) if (substr(rest, i, 4) == " at ") at = i
+        if (at) { sym = short(substr(rest, 1, at - 1)); file = substr(rest, at + 4) }
+        else sym = short(rest)
+      }
+      if (file ~ /(^|\/)(libc|libpthread|libgcc_s|libstdc\+\+|libjemalloc|ld-linux[^\/]*)\.so/) next
+      if (sym != "") {
+        if (sym !~ /^(raise|abort|gsignal|pthread_kill|__pthread_kill[A-Za-z0-9_]*|__restore_rt|__assert[A-Za-z0-9_]*|__libc[A-Za-z0-9_]*|__GI_[A-Za-z0-9_]*|__cxa[A-Za-z0-9_]*|__cxxabiv1[^ ]*|__gnu_cxx::[^ ]*|std::terminate|std::__terminate|qt_assert[A-Za-z0-9_]*|qt_message[A-Za-z0-9_]*|qFatal|QMessageLogger::[^ ]*|QDebug::~QDebug|qs::crash::[^ ]*)$/) frame = sym
+      } else if (file != "" && lib == "") {
+        lib = file; sub(/^.*\//, "", lib); sub(/\.so.*$/, ".so", lib)
+      }
+    }
+    END {
+      sub(/[ \t]+$/, "", conf)
+      if (conf != "" && conf !~ /\/quickshell\/vitrum\/shell\.qml$/) exit
+      if (sig == "") sig = "Unknown signal"
+      if (frame != "") print sig " in " frame
+      else if (lib != "") print sig " in " lib " (no symbols)"
+      else print sig " (no usable stack in the report)"
+    }
+  ' "$1"
 }
 
 # Kernel options: warnings, each naming what it costs. Without a readable config

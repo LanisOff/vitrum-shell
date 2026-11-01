@@ -1,7 +1,6 @@
 import QtQuick
 import QtQuick.Effects
 import Quickshell
-import Quickshell.Io
 import Quickshell.Wayland
 import Quickshell.Widgets
 import qs.services
@@ -25,8 +24,8 @@ import "../../lib/lock.js" as LockLib
  * least of all; each miniature plays its little demo once when it appears.
  *
  * The installer leaves a marker, ~/.local/share/vitrum/welcome, on a fresh
- * install. The tour opens when the marker is there at shell start, and the
- * marker goes whenever the tour closes: done, skipped, or closed by another
+ * install (WelcomeMarker). The tour opens when the marker is there at shell
+ * start, and the marker goes whenever the tour closes: done, skipped, or closed by another
  * overlay opening (the tour itself invites Mod+Space). Otherwise it would come
  * back at every login. `vitrum-ipc welcome open` shows it again by hand;
  * `welcome next|back|go <n>|step` move it from outside (and tests).
@@ -35,9 +34,8 @@ PanelWindow {
     id: root
     required property var modelData
     screen: modelData
-    readonly property bool open: UiState.welcome && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
+    readonly property bool open: gate.ready && UiState.welcome && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
 
-    readonly property string markerPath: (Quickshell.env("XDG_DATA_HOME") || Quickshell.env("HOME") + "/.local/share") + "/vitrum/welcome"
     readonly property var steps: Lib.steps()
     readonly property int count: steps.length
     property int index: 0
@@ -51,7 +49,7 @@ PanelWindow {
     // The window's entrance, 0 … 1: its parts come in one after another.
     property real openT: 1
 
-    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    MapGate { id: gate; want: root.open }      // mapped only while open (components/MapGate.qml)
     visible: gate.mapped
     // Mapped again by opening: the window is a new one, the focus goes back in.
     onBackingWindowVisibleChanged: if (backingWindowVisible && open) keys.forceActiveFocus()
@@ -70,17 +68,8 @@ PanelWindow {
     Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Item { id: shape; x: card.x + (card.width - card.width * card.scale) / 2; y: card.y + (card.height - card.height * card.scale) / 2; width: card.width * card.scale; height: card.height * card.scale }
 
-    // The marker, at shell start: its being there opens the tour.
-    FileView {
-        path: root.markerPath
-        printErrors: false
-        onLoaded: UiState.welcome = true
-    }
-    Process { id: forget; command: ["rm", "-f", root.markerPath] }
-    // Closed by any means (closeAll, closeOverlays, IPC, finish): seen once.
     Connections {
         target: UiState
-        function onWelcomeChanged() { if (!UiState.welcome) forget.running = true; }
         function onWelcomeMove(delta) { if (!root.open) return; if (delta > 0) root.advance(); else root.back(); }
         function onWelcomeGo(step) { if (root.open) root.go(step); }
     }

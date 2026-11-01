@@ -22,7 +22,7 @@ PanelWindow {
     id: root
     required property var modelData
     screen: modelData
-    readonly property bool open: UiState.wallpaperPicker && !!modelData && modelData.name === (Niri.focusedOutput || Quickshell.screens[0].name)
+    readonly property bool open: gate.ready && UiState.wallpaperPicker && !!modelData && modelData.name === (Niri.focusedOutput || Quickshell.screens[0].name)
 
     MapGate { id: gate; want: root.open }
     visible: gate.mapped

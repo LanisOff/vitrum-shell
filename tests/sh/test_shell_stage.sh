@@ -26,6 +26,7 @@ test_shell_launcher_stops_by_pid_file() {
   stage_shell >/dev/null
   l="$(cat "$HOME/.local/bin/vitrum-shell")"
   assert_contains "$l" "vitrum-shell.pid"
+  assert_contains "$l" "export MALLOC_CONF=thp:never"
   ! grep -q -- "pkill -f -- '-c vitrum'" <<<"$l"
 }
 test_shell_stage_creates_settings_only_when_absent() {

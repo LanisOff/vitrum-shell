@@ -1,0 +1,31 @@
+===== Version Information =====
+Quickshell: 0.3.2 (revision , distributed by Arch Linux)
+Qt: 6.12.0 (built against 6.12.0)
+
+===== Build Information =====
+Build Type: RelWithDebInfo
+Configuration:
+  Crash Handling: ON
+
+===== System Information =====
+/etc/os-release
+NAME="Test Linux"
+
+===== Environment (trimmed) =====
+QT_QPA_PLATFORM=wayland
+
+===== Instance Information =====
+Signal: Segmentation fault (11)
+Crashed process ID: 4054505
+Run ID: 4ore28qctnt
+Shell ID: f74cb6b168b0ab7a2cc12938763a7f86
+Config Path: /home/test/.config/quickshell/vitrum/shell.qml
+
+===== Stacktrace =====
+#0  0x00007f1909a44caf at /usr/bin/../lib/libc.so.6
+#1  0x00007f190c335e23 in QQuickListView::viewportMoved(QFlags<Qt::Orientation>) at /usr/bin/../lib/libQt6Quick.so.6
+#2  0x00007f190bf5be13 in QQuickFlickablePrivate::itemGeometryChanged(QQuickItem*, QQuickGeometryChange, QRectF const&) at /usr/bin/../lib/libQt6Quick.so.6
+#3  0x00007f190c314e4a at /usr/bin/../lib/libQt6Quick.so.6
+
+===== Log Tail =====
+2026-11-01 12:58:36.000 DEBUG quickshell.colorquantizer: Color Quantization took:  1 ms

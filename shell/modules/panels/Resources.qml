@@ -34,6 +34,6 @@ Column {
     Figure { icon: "cpu"; title: SysInfo.cpuModel || "Processor"; value: Math.round(SysInfo.cpuUsage * 100) + "%"; fraction: SysInfo.cpuUsage }
     Figure { icon: "memory"; title: "Memory"; value: SysInfo.memoryUsedGB.toFixed(1) + " / " + SysInfo.memoryTotalGB.toFixed(0) + " GB"; fraction: SysInfo.memoryUsage }
     Figure { visible: SysInfo.cpuTemp > 0; icon: "temperature"; title: "CPU temperature"; value: Math.round(SysInfo.cpuTemp) + "°C"; fraction: SysInfo.cpuTemp / 100 }
-    Figure { visible: SysInfo.gpuAvailable; icon: "gpu"; title: SysInfo.gpuModel || "Graphics"; value: Math.round(SysInfo.gpuUsage * 100) + "% · " + Math.round(SysInfo.gpuTemp) + "°C"; fraction: SysInfo.gpuUsage }
+    Figure { visible: SysInfo.gpuAvailable; icon: "gpu"; title: SysInfo.gpuModel || "Graphics"; value: Math.round(SysInfo.gpuUsage * 100) + "%" + (SysInfo.gpuTemp > 0 ? " · " + Math.round(SysInfo.gpuTemp) + "°C" : ""); fraction: SysInfo.gpuUsage }
     Label { text: (SysInfo.hostname ? SysInfo.hostname + " · " : "") + (SysInfo.uptime ? "up " + SysInfo.uptime : ""); role: "dim"; size: Tokens.textSmall }
 }

@@ -20,7 +20,7 @@ ShellRoot {
             check("network fallback backend without NetworkManager", Network.backend === "ip", Network.backend);
             check("network reports the wired link", Network.kind === "wired" && Network.online, Network.kind + "/" + Network.online);
             check("cpu usage measured", SysInfo.cpuUsage >= 0 && SysInfo.cpuUsage <= 1, SysInfo.cpuUsage);
-            check("nvidia gpu read", SysInfo.gpuAvailable, SysInfo.gpuAvailable);
+            check("gpu read", SysInfo.gpuAvailable, SysInfo.gpuAvailable);
             check("sun decided", typeof Sun.isDay === "boolean", typeof Sun.isDay);
             check("apps listed", Apps.all.length > 10, Apps.all.length);
             console.log(" DONE"); Qt.quit();

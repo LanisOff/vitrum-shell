@@ -10,7 +10,7 @@ import qs.components
 DialogFrame {
     id: root
     readonly property var flow: Polkit.flow
-    open: Polkit.active && flow !== null && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
+    want: Polkit.active && flow !== null && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
     onDismissed: if (flow) flow.cancelAuthenticationRequest()
     onOpenChanged: if (open) { pass.text = ""; pass.forceActiveFocus(); }
     focusItem: pass

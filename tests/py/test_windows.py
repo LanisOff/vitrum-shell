@@ -52,6 +52,27 @@ class WindowVisibility(unittest.TestCase):
                     bad.append(f"{f.relative_to(ROOT)}: {m.group(0)[:80]}")
         self.assertEqual(bad, [])
 
+    def test_windows_on_demand_open_after_they_are_built(self):
+        # A window built on demand is made with `want` already true. Without
+        # gate.ready in its `open`, `open` never changes: no onOpenChanged (no
+        # focus, no reset of the query) and no entrance. And nothing may be
+        # built on demand that has to run while it is closed.
+        shell = (ROOT / "shell/shell.qml").read_text(encoding="utf-8")
+        names = re.findall(r"OnDemand \{ want: .*?; (\w+) \{ modelData", shell)
+        self.assertGreater(len(names), 8)
+        self.assertNotIn("Switcher", names)      # Alt+Tab is decided inside it
+        bad = []
+        for name in names:
+            f = next((ROOT / "shell/modules").rglob(name + ".qml"))
+            text = f.read_text(encoding="utf-8")
+            dialog = text.lstrip().find("DialogFrame {") >= 0 and re.search(r"^DialogFrame \{", text, re.M)
+            if dialog:
+                if not re.search(r"^    want: ", text, re.M):
+                    bad.append(f"{name}: a dialog sets `want`, not `open`")
+            elif not re.search(r"property bool open: gate\.ready && ", text):
+                bad.append(f"{name}: no gate.ready in `open`")
+        self.assertEqual(bad, [])
+
     def test_the_check_sees_the_windows(self):
         self.assertGreater(len(list(window_visible_lines())), 10)
 

@@ -215,6 +215,9 @@ _shell_launchers() {
 #   vitrum-shell --restart  stop the running one; vitrum-startup brings it back with new code
 #   vitrum-shell --stop     stop it for good this session
 set -u
+# jemalloc reads this before main: no transparent huge pages for the shell's
+# heap (about 100 MB of memory it never touches).
+export MALLOC_CONF=thp:never
 runtime="\${XDG_RUNTIME_DIR:-/tmp}"
 pidf="\$runtime/vitrum-shell.pid"
 stop() { [ -f "\$pidf" ] && kill "\$(cat "\$pidf")" 2>/dev/null; }

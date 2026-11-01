@@ -18,7 +18,7 @@ PanelWindow {
     id: root
     required property var modelData
     screen: modelData
-    readonly property bool open: Capture.editing !== "" && modelData.name === (Niri.focusedOutput || Quickshell.screens[0].name)
+    readonly property bool open: gate.ready && Capture.editing !== "" && modelData.name === (Niri.focusedOutput || Quickshell.screens[0].name)
     // Mapped only while editing (MapGate: never mid-build), full-screen and opaque-ish.
     MapGate { id: gate; want: root.open; linger: 0 }
     visible: gate.mapped

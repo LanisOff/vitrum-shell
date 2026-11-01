@@ -9,7 +9,7 @@ import qs.components
 DialogFrame {
     id: root
     readonly property var q: Prompt.current
-    open: q !== null && !Polkit.active && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
+    want: q !== null && !Polkit.active && screen.name === (Niri.focusedOutput || Quickshell.screens[0].name)
     onDismissed: Prompt.answer(false, "")
     focusItem: q && q.field ? input : enterCatcher
     property int lastToken: -1

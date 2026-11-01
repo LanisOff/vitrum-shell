@@ -4,7 +4,8 @@ import qs.theme
 import qs.components
 
 /*
- * The graphics card's load and temperature (SysInfo: NVIDIA, through nvidia-smi).
+ * The graphics card's load and temperature (SysInfo: NVIDIA or AMD). A card
+ * asleep has no temperature: 0 here, and the figures for it stay hidden.
  *   S   the load as a ring, the temperature under it
  *   M   the header (the temperature at its end); the load; the last two
  *       minutes of it as a graph beside it
@@ -31,7 +32,7 @@ Item {
     readonly property bool tall: sizeClass === "L" || sizeClass === "XL"
     readonly property color heat: temp > 75 ? Colors.meaning(0.07) : Colors.accent
 
-    // Sixty samples, two seconds apart (nvidia-smi's own pace).
+    // Sixty samples, two seconds apart (the pace of SysInfo's sampler).
     readonly property int points: 60
     property var history: []
     readonly property var sampleSeries: Array.from({ length: 60 }, (_, i) => 0.42 + 0.18 * Math.sin(i / 6) + 0.07 * Math.sin(i * 1.3))
@@ -54,7 +55,7 @@ Item {
     WidgetEmpty {
         visible: !root.ready
         icon: "gpu"
-        text: "No GPU data (NVIDIA only)"
+        text: "No GPU data (NVIDIA or AMD)"
     }
 
     // ---- S: one glance.

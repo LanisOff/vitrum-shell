@@ -1,0 +1,22 @@
+===== Instance Information =====
+Signal: Aborted (6)
+Crashed process ID: 2211
+Run ID: abortrun
+Shell ID: 00000000000000000000000000000000
+Config Path: /home/test/.config/quickshell/vitrum/shell.qml
+
+===== Stacktrace =====
+#0  0x00007f0000000001 in __pthread_kill_implementation at /usr/lib/libc.so.6
+#1  0x00007f0000000002 in raise at /usr/lib/libc.so.6
+#2  0x00007f0000000003 in abort at /usr/lib/libc.so.6
+#3  0x00007f0000000004 in __gnu_cxx::__verbose_terminate_handler() at /usr/lib/libstdc++.so.6
+#4  0x00007f0000000005 in qt_message_fatal(QtMsgType, QMessageLogContext const&, QString const&) at /usr/lib/libQt6Core.so.6
+#5  0x00007f0000000006 in QMessageLogger::fatal(char const*, ...) const at /usr/lib/libQt6Core.so.6
+#6  0x00007f0000000007 in QDebug::~QDebug() at /usr/lib/libQt6Core.so.6
+#7  0x00007f0000000008 in qs::crash::(anonymous namespace)::handleCppTerminate() at /usr/bin/quickshell
+#8  0x00007f0000000009 at /usr/lib/libQt6Core.so.6
+#9  0x00007f000000000a in void qs::service::(anonymous namespace)::Node<int, QList<int>>::bind<long>(int) const::{lambda()#1}::operator()() const at /usr/bin/quickshell
+#10 0x00007f000000000b in QObject::event(QEvent*) at /usr/lib/libQt6Core.so.6
+
+===== Log Tail =====
+2026-11-01 12:58:36.000 FATAL qs: gave up

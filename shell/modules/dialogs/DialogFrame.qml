@@ -13,16 +13,16 @@ import qs.components
 PanelWindow {
     id: root
     required property var modelData
-    property bool open: false
+    /// The dialog should be up (what `open` follows once the window is built).
+    property bool want: false
+    readonly property bool open: gate.ready && want
     /// What takes the keyboard when the dialog is mapped again by opening.
     property Item focusItem: null
     default property alias content: inner.data
     signal dismissed()
     screen: modelData
 
-    // Mapped while open, and while idle unless a fullscreen window is up
-    // (UiState.parkOverlays; components/MapGate.qml).
-    MapGate { id: gate; want: root.open || !UiState.parkOverlays }
+    MapGate { id: gate; want: root.open }      // mapped only while open (components/MapGate.qml)
     visible: gate.mapped
     // Mapped again by opening: the window is a new one, the focus goes back in.
     onBackingWindowVisibleChanged: if (backingWindowVisible && open && focusItem) focusItem.forceActiveFocus()

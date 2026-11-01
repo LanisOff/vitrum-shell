@@ -1,5 +1,6 @@
 //@ pragma UseQApplication
 //@ pragma Env QS_NO_RELOAD_POPUP=1
+//@ pragma Env QSG_RENDER_LOOP=basic
 
 import QtQuick
 import Quickshell
@@ -30,6 +31,10 @@ import qs.ipc
  * vitrum — the shell. Per-screen surfaces in Variants; single-instance ones
  * (they move to the focused output) below. Services are singletons, pulled
  * in by whoever needs them.
+ *
+ * The basic render loop: Qt's threaded one wakes every window for one frame
+ * each time any animation starts, and on NVIDIA each of those frames is a swap
+ * that can take tens of ms. Here only the window that changed draws.
  */
 ShellRoot {
     // No reload on file changes: the installer restarts the shell instead (a
@@ -38,8 +43,9 @@ ShellRoot {
     // Settings first; then what must run without being shown: hardware alerts,
     // the microphone filter (it comes back on at login when it was on), the
     // keyboard layout per app, the Bluetooth pairing agent, screen mirroring,
-    // the sounds for devices and the charger.
-    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; Bluetooth.present; Mirror.active; Sounds.inShell; }
+    // the sounds for devices and the charger, the update checks (the power
+    // menu used to start those: it is built on demand now).
+    Component.onCompleted: { Settings.ready; HwAlerts.enabled; NoiseFilter.on; KeyboardMemory.on; LoginScreen.dir; Bluetooth.present; Mirror.active; Sounds.inShell; CrashWatch.seen; Packages.backend; }
 
     // How long the start took, in the log: since this process began, and since
     // the session (niri) did.
@@ -67,6 +73,7 @@ ShellRoot {
     Component { id: trayMenu; TrayMenu {} }
 
     Lock { id: lockScreen }
+    WelcomeMarker {}
 
     // A dock per screen, each fixed to it; only the focused screen's shows.
     // Not one dock that follows focus: a window that changes screens is
@@ -91,8 +98,9 @@ ShellRoot {
         delegate: Scope {
             id: perScreen
             required property var modelData
+            readonly property bool focused: modelData.name === (Niri.focusedOutput || Quickshell.screens[0].name)
             WallpaperView { modelData: perScreen.modelData }
-            WallpaperPicker { modelData: perScreen.modelData }
+            OnDemand { want: UiState.wallpaperPicker && perScreen.focused; WallpaperPicker { modelData: perScreen.modelData } }
             Desktop { modelData: perScreen.modelData }
             BarReserve { modelData: perScreen.modelData }
             Bar {
@@ -100,19 +108,23 @@ ShellRoot {
                 panels: ({ calendar: calendar, media: media, resources: resources, control: control, privacy: privacy, timers: timers, updates: updates, vitrum: vitrumPanel, notifications: notificationsPanel, tray: trayMenu })
             }
             Toasts { modelData: perScreen.modelData }
-            Launcher { modelData: perScreen.modelData }
-            KeybindSheet { modelData: perScreen.modelData }
-            WelcomeTour { modelData: perScreen.modelData }
-            ScreenSharePicker { modelData: perScreen.modelData }
+            // Rarely open, so built when wanted (components/OnDemand.qml). `want`
+            // says the same as the window's own `open`. Polkit and Prompt are
+            // named here at the start, which also starts the polkit agent.
+            OnDemand { want: UiState.launcher && perScreen.focused; Launcher { modelData: perScreen.modelData } }
+            OnDemand { want: UiState.keybinds && perScreen.focused; KeybindSheet { modelData: perScreen.modelData } }
+            OnDemand { want: UiState.welcome && perScreen.focused; WelcomeTour { modelData: perScreen.modelData } }
+            OnDemand { want: UiState.screencastRequest !== null && perScreen.focused; ScreenSharePicker { modelData: perScreen.modelData } }
             Osd { modelData: perScreen.modelData }
-            PolkitDialog { modelData: perScreen.modelData }
-            PromptDialog { modelData: perScreen.modelData }
-            PowerMenu { modelData: perScreen.modelData }
+            OnDemand { want: Polkit.active && Polkit.flow !== null && perScreen.focused; PolkitDialog { modelData: perScreen.modelData } }
+            OnDemand { want: Prompt.current !== null && !Polkit.active && perScreen.focused; PromptDialog { modelData: perScreen.modelData } }
+            OnDemand { want: UiState.power && perScreen.focused; PowerMenu { modelData: perScreen.modelData } }
+            // Not on demand: Alt+Tab is decided inside it, and must be instant.
             Switcher { modelData: perScreen.modelData }
-            OverviewOverlay { modelData: perScreen.modelData }
-            CaptureOverlay { modelData: perScreen.modelData }
+            OnDemand { want: Niri.overviewOpen && Settings.get("overview.overlay", true); OverviewOverlay { modelData: perScreen.modelData } }
+            OnDemand { want: UiState.capture; CaptureOverlay { modelData: perScreen.modelData } }
             CaptureThumb { modelData: perScreen.modelData }
-            ImageEditor { modelData: perScreen.modelData }
+            OnDemand { want: Capture.editing !== "" && perScreen.focused; ImageEditor { modelData: perScreen.modelData } }
             Countdown { modelData: perScreen.modelData }
             HotCorners { modelData: perScreen.modelData }
             ColorPicker { modelData: perScreen.modelData }
