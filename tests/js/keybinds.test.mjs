@@ -122,3 +122,49 @@ eq(merged.find(b => b.keys.toLowerCase() === "mod+n").title, "Notifications", "o
   eq(k.combo({ super: true, shift: true, ctrl: true }, "T"), "Mod+Ctrl+Shift+T", "modifier order");
   eq(k.combo({}, "Print"), "Print", "no modifiers");
 }
+
+// The sheet: plain words, one row per family, a range for the digits.
+eq(k.plainTitle("Consume/expel window left (stack or unstack)"), "Stack or unstack window left", "niri's words");
+eq(k.plainTitle("Next track (keyboard)"), "Next track", "another way to the same action");
+const fam = [["Focus column left", "Mod+Left"], ["Focus column right", "Mod+Right"], ["Focus window up", "Mod+Up"], ["Focus window down", "Mod+Down"],
+             ["Focus column left", "Mod+H"], ["Focus column right", "Mod+L"], ["Focus window up", "Mod+K"], ["Focus window down", "Mod+J"]]
+  .map(([title, keys]) => ({ section: "Focus", title, keys }));
+let row = k.group(fam, "")[0].rows;
+eq(row.length, 1, "a family is one row");
+eq(row[0].title, "Move focus", "its name");
+eq(row[0].alts.map(a => a.join(" ")).join(" | "), "Super ← → ↑ ↓ | Super H L K J", "its keys side by side");
+eq(row[0].find, "Focus", "and how Settings shows them all");
+eq(k.group(fam, "super h")[0].rows[0].title, "Move focus", "found by one member");
+const moved = fam.map(b => b.keys === "Mod+Up" ? Object.assign({}, b, { keys: "Mod+Ctrl+I" }) : b);
+eq(k.group(moved, "")[0].rows.length, 4, "a key moved elsewhere: the rows stay apart");
+const digits = [1, 2, 3].map(n => ({ section: "Workspaces", title: "Focus workspace 1–9", keys: "Mod+" + n }));
+eq(k.group(digits, "")[0].rows[0].alts.map(a => a.join(" ")).join(), "Super 1…3", "a digit range");
+eq(k.group(digits, "")[0].rows[0].title, "Go to workspace", "under its plain name");
+
+// Held modifiers: binds with exactly those.
+const mixed = [{ section: "A", keys: "Mod+Q", title: "One" }, { section: "A", keys: "Mod+Shift+Q", title: "Two" }, { section: "B", keys: "Print", title: "Three" }];
+const titles = (s) => s.map(x => x.rows.map(r => r.title).join()).join();
+eq(titles(k.group(mixed, "", { super: true })), "One", "Super alone");
+eq(titles(k.group(mixed, "", { super: true, shift: true })), "Two", "Super and Shift");
+eq(titles(k.group(mixed, "", {})), "One,Two,Three", "nothing held: all");
+let h = k.heldKeys({}, 0x01000053, true);
+eq(k.heldLabel(k.heldKeys(h, 0x01000020, true)), "Super + Shift", "pressed");
+eq(k.heldLabel(k.heldKeys(h, 0x01000053, false)), "", "released");
+eq(k.heldKeys(h, 0x41, true) === h, true, "a letter changes nothing");
+
+// Essentials first, unless something narrows the sheet.
+const ess = [{ section: "Desktop", keys: "Mod+Space", title: "Launcher" }, { section: "Other", keys: "Mod+X", title: "Odd" }];
+eq(k.sheet(ess, "").map(s => s.section).join(), "Essentials,Desktop,Other", "on top");
+eq(k.sheet(ess, "")[0].wide, true, "across the card");
+eq(k.sheet(ess, "odd").map(s => s.section).join(), "Other", "gone while searching");
+eq(k.sheet(ess, "", { super: true }).map(s => s.section).join(), "Desktop,Other", "and while keys are held");
+
+// Columns: each section to the shortest column, in order.
+const sec = (n) => ({ rows: new Array(n) });
+eq(k.columns([sec(10), sec(2), sec(2), sec(2)], 2).map(c => c.length).join(), "1,3", "short ones beside a long one");
+eq(k.columns([], 3).length, 3, "empty columns are still columns");
+eq(k.columns([sec(1)], 0).length, 1, "at least one");
+const wheel = [["Focus workspace down", "Mod+Page_Down"], ["Focus workspace up", "Mod+Page_Up"], ["Focus workspace down (mouse)", "Mod+WheelScrollDown"], ["Focus workspace up (mouse)", "Mod+WheelScrollUp"]]
+  .map(([title, keys]) => ({ section: "Workspaces", title, keys }));
+eq(k.group(wheel, "")[0].rows[0].alts.map(a => a.join(" ")).join(" | "), "Super PgDn PgUp | Super Wheel", "the wheel is one cap");
+

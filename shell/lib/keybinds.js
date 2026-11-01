@@ -1,6 +1,7 @@
 .pragma library
 // The keybind sheet: binds.json (written from KEYBINDS.md by the installer)
-// grouped by section, searched by title, section or the keys themselves.
+// grouped by section, searched by title, section or the keys themselves, or
+// narrowed to the modifiers held down.
 
 var NAMES = {
     Mod: "Super", Super: "Super", Ctrl: "Ctrl", Control: "Ctrl", Alt: "Alt", Shift: "Shift", ISO_Level3_Shift: "AltGr",
@@ -57,10 +58,124 @@ function _matches(b, words) {
     return true;
 }
 
-// → [{ section, rows: [{ title, alts: [caps…] }] }], sections and rows in
+// KEYBINDS.md's words where they are niri's and not plain ones.
+var PLAIN = {
+    "Window switcher (next)": "Window switcher",
+    "Window switcher (previous)": "Window switcher, backwards",
+    "Cycle the material": "Switch material",
+    "Capture": "Capture screen",
+    "Screenshot (niri native)": "Screenshot picker",
+    "Maximize column (keeps gaps)": "Maximize column",
+    "Switch focus between floating and tiling layers": "Focus floating or tiled windows",
+    "Cycle preset column widths (⅓ → ½ → ⅔)": "Cycle column width",
+    "Cycle preset window heights": "Cycle window height",
+    "Consume/expel window left (stack or unstack)": "Stack or unstack window left",
+    "Consume/expel window right (stack or unstack)": "Stack or unstack window right",
+    "Focus workspace 1–9": "Go to workspace",
+    "Move column to workspace 1–9": "Move column to workspace",
+    "Finder": "Files",
+    "Quit niri": "Log out"
+};
+// "… (keyboard)", "… (mouse)": another way to the same action, so the same row.
+function plainTitle(title) {
+    var t = String(title || "").replace(/ \((keyboard|mouse)\)$/, "");
+    return PLAIN[t] || t;
+}
+
+// Actions that differ in their last key only: one row, the keys side by side.
+// find: what shows all of them in Settings.
+var FAMILIES = [
+    { title: "Move focus", find: "Focus", members: ["Focus column left", "Focus column right", "Focus window up", "Focus window down"] },
+    { title: "Move", find: "Move", members: ["Move column left", "Move column right", "Move window up", "Move window down"] },
+    { title: "Focus monitor", find: "Focus monitor", members: ["Focus monitor left", "Focus monitor right", "Focus monitor up", "Focus monitor down"] },
+    { title: "Move column to monitor", find: "column to monitor", members: ["Move column to monitor left", "Move column to monitor right", "Move column to monitor up", "Move column to monitor down"] },
+    { title: "Resize column", find: "column width", members: ["Shrink column width 10%", "Grow column width 10%"] },
+    { title: "Resize window", find: "window height", members: ["Shrink window height 10%", "Grow window height 10%"] },
+    { title: "Stack or unstack window", find: "Stack or", members: ["Stack or unstack window left", "Stack or unstack window right"] },
+    { title: "Scroll workspaces", find: "Focus workspace", members: ["Focus workspace down", "Focus workspace up"] },
+    { title: "Send column up or down", find: "column to workspace", members: ["Move column to workspace down", "Move column to workspace up"] }
+];
+
+function _mergeFamily(rows, fam) {
+    var members = [];
+    for (var i = 0; i < fam.members.length; i++) {
+        var found = rows.filter(function (r) { return r.title === fam.members[i]; })[0];
+        if (!found) return rows;
+        members.push(found);
+    }
+    var alts = [];
+    for (var a = 0; a < members[0].alts.length; a++) {
+        var head = members[0].alts[a].slice(0, -1), keys = [];
+        for (var m = 0; m < members.length; m++) {
+            var alt = members[m].alts[a];
+            // A key changed in Settings no longer fits the row: the rows stay apart.
+            if (members[m].alts.length !== members[0].alts.length || !alt || alt.slice(0, -1).join(" ") !== head.join(" ")) return rows;
+            keys.push(alt[alt.length - 1]);
+        }
+        alts.push(head.concat([keys.join(" ").replace("Wheel ↓ Wheel ↑", "Wheel")]));
+    }
+    var row = { title: fam.title, alts: alts, find: fam.find, hit: members.some(function (r) { return r.hit; }) };
+    var out = [];
+    rows.forEach(function (r) {
+        if (r === members[0]) out.push(row);
+        else if (members.indexOf(r) < 0) out.push(r);
+    });
+    return out;
+}
+
+// Super 1, Super 2 … Super 9 → Super 1…9.
+function _digitRange(alts) {
+    var out = [], at = {};
+    alts.forEach(function (alt) {
+        var last = alt[alt.length - 1], head = alt.slice(0, -1).join(" ");
+        if (!/^[0-9]$/.test(last)) { out.push(alt); return; }
+        if (at[head] === undefined) { at[head] = out.length; out.push(alt.slice()); return; }
+        var kept = out[at[head]];
+        kept[kept.length - 1] = kept[kept.length - 1].charAt(0) + "…" + last;
+    });
+    return out;
+}
+
+// The modifiers of a bind (of its first chord, for tmux's sequences), as held does.
+function _mods(keys) {
+    var parts = String(keys || "").split(" ")[0].split("+").slice(0, -1), m = {};
+    for (var i = 0; i < parts.length; i++) {
+        if (parts[i] === "Mod" || parts[i] === "Super") m.super = true;
+        else if (parts[i] === "Ctrl" || parts[i] === "Control") m.ctrl = true;
+        else if (parts[i] === "Alt") m.alt = true;
+        else if (parts[i] === "Shift") m.shift = true;
+    }
+    return m;
+}
+var _MOD_ORDER = [["super", "Super"], ["ctrl", "Ctrl"], ["alt", "Alt"], ["shift", "Shift"]];
+function _heldFits(keys, held) {
+    if (!heldLabel(held)) return true;
+    var m = _mods(keys);
+    return _MOD_ORDER.every(function (o) { return !!m[o[0]] === !!held[o[0]]; });
+}
+
+// Qt's keys for the modifiers.
+var _HELD_KEY = { 0x01000020: "shift", 0x01000021: "ctrl", 0x01000022: "super", 0x01000023: "alt", 0x01000053: "super", 0x01000054: "super" };
+// held after a key went down or up; the same object when it is not a modifier.
+function heldKeys(held, qtKey, down) {
+    var name = _HELD_KEY[qtKey];
+    if (!name) return held;
+    var out = {};
+    for (var k in held) out[k] = held[k];
+    if (down) out[name] = true; else delete out[name];
+    return out;
+}
+// "Super + Shift", "" when nothing is held.
+function heldLabel(held) {
+    return _MOD_ORDER.filter(function (o) { return held && held[o[0]]; })
+                     .map(function (o) { return o[1]; }).join(" + ");
+}
+
+// → [{ section, rows: [{ title, alts: [caps…], find }] }], sections and rows in
 // file order. Binds with the same title in a section are one row with every
-// key set (arrows and HJKL); a row matches if any of them does.
-function group(binds, query) {
+// key set (arrows and HJKL); a row matches if any of them does. held (optional):
+// only binds with exactly these modifiers. find: what finds the row in Settings.
+function group(binds, query, held) {
     var words = _words(query);
     var order = [], by = {};
     var all = binds || [];
@@ -69,21 +184,56 @@ function group(binds, query) {
         if (!b) continue;
         if (b.hidden) continue;
         var s = b.section || "Other";
-        var title = b.title || b.action || "";
+        var title = plainTitle(b.title || b.action || "");
         if (!by[s]) { by[s] = { section: s, rows: [], index: {} }; order.push(s); }
         var sec = by[s];
         var row = sec.index[title];
-        if (!row) { row = sec.index[title] = { title: title, alts: [], hit: false }; sec.rows.push(row); }
+        if (!row) { row = sec.index[title] = { title: title, alts: [], hit: false, find: title }; sec.rows.push(row); }
         row.alts.push(keyCaps(b.keys));
-        if (_matches(b, words)) row.hit = true;
+        if (_matches(b, words) && _heldFits(b.keys, held)) row.hit = true;
     }
     var out = [];
     for (var j = 0; j < order.length; j++) {
-        var rows = by[order[j]].rows.filter(function (r) { return r.hit; })
-                                     .map(function (r) { return { title: r.title, alts: r.alts }; });
+        var merged = by[order[j]].rows;
+        for (var f = 0; f < FAMILIES.length; f++) merged = _mergeFamily(merged, FAMILIES[f]);
+        var rows = merged.filter(function (r) { return r.hit; })
+                         .map(function (r) { return { title: r.title, alts: _digitRange(r.alts), find: r.find }; });
         if (rows.length) out.push({ section: order[j], rows: rows });
     }
     return out;
+}
+
+// What most people reach for, first when the sheet opens.
+var ESSENTIALS = ["Launcher", "Overview", "Window switcher", "Move focus", "Go to workspace", "Close window",
+                  "Toggle fullscreen", "Terminal", "Browser", "Files", "Settings", "Control Centre",
+                  "Notification Centre", "Clipboard history", "Region screenshot", "Lock screen"];
+
+// The sheet: group()'s sections, under the essentials (wide: true) while nothing narrows them.
+function sheet(binds, query, held) {
+    var sections = group(binds, query, held);
+    if (_words(query).length || heldLabel(held)) return sections;
+    var rows = [];
+    ESSENTIALS.forEach(function (title) {
+        for (var i = 0; i < sections.length; i++) {
+            var r = sections[i].rows.filter(function (x) { return x.title === title; })[0];
+            if (r) { rows.push(r); return; }
+        }
+    });
+    return rows.length ? [{ section: "Essentials", rows: rows, wide: true }].concat(sections) : sections;
+}
+
+// Sections into n columns, in order, each to the shortest so far: no holes
+// under a short section beside a long one.
+function columns(sections, n) {
+    var cols = [], heights = [];
+    for (var i = 0; i < Math.max(1, n); i++) { cols.push([]); heights.push(0); }
+    (sections || []).forEach(function (s) {
+        var at = 0;
+        for (var c = 1; c < cols.length; c++) if (heights[c] < heights[at]) at = c;
+        cols[at].push(s);
+        heights[at] += s.rows.length + 2;      // the title and the gap count as rows
+    });
+    return cols;
 }
 
 // ---------------------------------------------------- the user's own binds ---
@@ -151,7 +301,7 @@ function effective(catalogue, changes, own) {
         if (!b || b.hidden) continue;
         var has = Object.prototype.hasOwnProperty.call(ch, b.keys);
         var off = has && !ch[b.keys];
-        out.push({ section: b.section, title: b.title || b.action, default: b.keys,
+        out.push({ section: b.section, title: plainTitle(b.title || b.action), default: b.keys,
                    keys: off ? "" : (has ? String(ch[b.keys]) : b.keys), changed: has && !off, off: off });
     }
     var o = own || [];

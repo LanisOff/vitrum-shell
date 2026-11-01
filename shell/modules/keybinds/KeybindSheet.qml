@@ -8,9 +8,11 @@ import qs.components
 import "../../lib/keybinds.js" as Lib
 
 /*
- * Every keybind, on Mod+/: the sections of KEYBINDS.md in columns, each bind
- * with its keys as caps. Typing filters — by what a bind does, its section, or
- * the keys ("super q"). Escape, Mod+/ again or a click outside closes it.
+ * Every keybind, on Mod+/: the essentials, then the sections of KEYBINDS.md in
+ * columns, each bind with its keys as caps. Typing filters — by what a bind
+ * does, its section, or the keys ("super q") — and holding modifiers leaves the
+ * binds that use just those. A click on a bind, or Enter on the first one found,
+ * opens it in Settings → Keyboard. Escape, Mod+/ again or a click outside closes it.
  *
  * Reads ~/.config/vitrum/binds.json, which the installer writes from
  * KEYBINDS.md together with niri's binds, so the sheet is the keymap; and
@@ -77,9 +79,101 @@ PanelWindow {
         onLoadFailed: root.tmuxBinds = []
     }
     property string query: ""
-    readonly property var sections: Lib.group(binds, query)
+    /// The modifiers held down now: { super, ctrl, alt, shift }.
+    property var held: ({})
+    readonly property string heldText: query ? "" : Lib.heldLabel(held)
+    // Only while nothing is typed: Shift is for capitals too.
+    readonly property var sections: Lib.sheet(binds, query, heldText ? held : null)
+    readonly property var essentials: sections.length && sections[0].wide ? sections[0] : null
+    readonly property var columns: Lib.columns(sections.filter(s => !s.wide), card.cols)
+    // Enter takes it, and it is lit to say so.
+    readonly property var firstFound: query && sections.length ? sections[0].rows[0] : null
 
-    onOpenChanged: if (open) { query = ""; search.text = ""; search.forceActiveFocus(); list.contentY = 0; }
+    onOpenChanged: if (open) { query = ""; held = {}; search.text = ""; search.forceActiveFocus(); list.contentY = 0; }
+
+    /// The bind in Settings → Keyboard: the window that is open, else a new one.
+    function edit(find) {
+        UiState.keybinds = false;
+        const w = Niri.windowList.find(x => x.appId === "vitrum-settings");
+        if (w) Quickshell.execDetached(["sh", "-c", 'q=$(command -v qs || echo quickshell); "$q" -p "${XDG_CONFIG_HOME:-$HOME/.config}/quickshell/vitrum-settings/shell.qml" ipc call settings keybind "$1"; niri msg action focus-window --id "$2"',
+                                        "_", find, String(w.id)]);
+        else Quickshell.execDetached(["env", "VITRUM_KEY_FIND=" + find, "vitrum-settings", "--pane", "keyboard"]);
+    }
+
+    component SectionTitle: Label {
+        role: "dim"
+        size: Tokens.textSmall
+        font.weight: Font.DemiBold
+        font.letterSpacing: 1.2
+        bottomPadding: Tokens.gap * 0.4
+    }
+
+    component BindRow: Item {
+        id: row
+        required property var bind
+        readonly property bool lit: !!root.firstFound && root.firstFound.title === bind.title
+        width: card.colW
+        height: Math.max(caps.height, title.implicitHeight) + Tokens.gap * 0.5
+        // Lit glass, reaching a little past the text.
+        Rectangle {
+            anchors { fill: parent; leftMargin: -Tokens.gap * 0.5; rightMargin: -Tokens.gap * 0.5 }
+            radius: Tokens.radiusButton
+            color: Colors.alpha(Colors.text, mouse.containsMouse || row.lit ? 0.09 : 0)
+            Behavior on color { enabled: Motion.enabled; ColorAnim { duration: Motion.fast } }
+        }
+        Label {
+            id: title
+            anchors { left: parent.left; right: caps.left; rightMargin: Tokens.gap; verticalCenter: parent.verticalCenter }
+            text: row.bind.title
+            elide: Text.ElideRight
+        }
+        // What a click does; over the end of a long title, not taking its room.
+        Icon {
+            id: pencil
+            anchors { right: caps.left; rightMargin: Tokens.gap * 0.6; verticalCenter: parent.verticalCenter }
+            name: "edit"; size: Tokens.iconSize * 0.8; color: Colors.textDim
+            opacity: mouse.containsMouse || row.lit ? 1 : 0
+            Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
+        }
+        // Every key set for this action: "Super ←  or  Super H".
+        Row {
+            id: caps
+            anchors { right: parent.right; verticalCenter: parent.verticalCenter }
+            spacing: Tokens.gap * 0.6
+            Repeater {
+                model: row.bind.alts
+                delegate: Row {
+                    id: alt
+                    required property var modelData
+                    required property int index
+                    spacing: 3
+                    Label { visible: alt.index > 0; text: "or"; role: "dim"; size: Tokens.textSmall; anchors.verticalCenter: parent.verticalCenter; rightPadding: 3 }
+                    Repeater {
+                        model: alt.modelData
+                        delegate: Rectangle {
+                            required property string modelData
+                            readonly property bool then: modelData === "›"
+                            height: Tokens.textSize * 1.7
+                            width: then ? thenLabel.implicitWidth : Math.max(height, capLabel.implicitWidth + Tokens.gap * 1.2)
+                            radius: Tokens.radiusInner * 0.7
+                            color: then ? "transparent" : Colors.alpha(Colors.text, 0.08)
+                            border.width: then ? 0 : 1
+                            border.color: Colors.alpha(Colors.text, 0.14)
+                            Label { id: capLabel; visible: !parent.then; anchors.centerIn: parent; text: parent.modelData; size: Tokens.textSmall; font.weight: Font.DemiBold }
+                            Label { id: thenLabel; visible: parent.then; anchors.centerIn: parent; text: "›"; role: "dim" }
+                        }
+                    }
+                }
+            }
+        }
+        MouseArea {
+            id: mouse
+            anchors.fill: parent
+            hoverEnabled: true
+            cursorShape: Qt.PointingHandCursor
+            onClicked: root.edit(row.bind.find)
+        }
+    }
 
     // ----------------------------------------------------------- surface ---
     Rectangle {
@@ -143,17 +237,21 @@ PanelWindow {
                         focus: root.open
                         onTextChanged: root.query = text
                         Keys.onEscapePressed: { if (text) text = ""; else UiState.keybinds = false; }
+                        Keys.onReturnPressed: if (root.firstFound) root.edit(root.firstFound.find)
+                        Keys.onEnterPressed: if (root.firstFound) root.edit(root.firstFound.find)
+                        Keys.onReleased: event => root.held = Lib.heldKeys(root.held, event.key, false)
                         Keys.onPressed: event => {
+                            root.held = Lib.heldKeys(root.held, event.key, true);
                             if (event.key === Qt.Key_Down || event.key === Qt.Key_PageDown) { list.flick(0, -2000); event.accepted = true; }
                             else if (event.key === Qt.Key_Up || event.key === Qt.Key_PageUp) { list.flick(0, 2000); event.accepted = true; }
                         }
-                        Label { visible: !search.text; text: "Search: what it does, or keys (super q)"; role: "dim"; anchors.verticalCenter: parent.verticalCenter }
+                        Label { visible: !search.text; text: root.heldText || "Search: what it does, or keys (super q)"; role: "dim"; anchors.verticalCenter: parent.verticalCenter }
                     }
                 }
             }
         }
 
-        // The sections, in columns.
+        // The essentials across the card, then the sections, in columns.
         Flickable {
             id: list
             x: Tokens.padding * 1.5
@@ -161,70 +259,46 @@ PanelWindow {
             width: card.width - 2 * x
             height: card.height - y - Tokens.padding * 1.5
             contentWidth: width
-            contentHeight: flow.implicitHeight
+            contentHeight: content.implicitHeight
             clip: true
             boundsBehavior: Flickable.StopAtBounds
-            Flow {
-                id: flow
+            Column {
+                id: content
                 width: list.width
                 spacing: Tokens.gap * 2
-                Repeater {
-                    model: root.sections
-                    delegate: Column {
-                        id: section
-                        required property var modelData
-                        width: card.colW
-                        spacing: Tokens.gap * 0.4
-                        Label {
-                            text: section.modelData.section.toUpperCase()
-                            role: "accent"
-                            size: Tokens.textSmall
-                            font.weight: Font.DemiBold
-                            font.letterSpacing: 1.2
-                            bottomPadding: Tokens.gap * 0.4
-                        }
+                Column {
+                    visible: !!root.essentials
+                    spacing: Tokens.gap * 0.4
+                    SectionTitle { text: "ESSENTIALS" }
+                    Grid {
+                        columns: card.cols
+                        columnSpacing: Tokens.gap * 2
+                        rowSpacing: Tokens.gap * 0.4
                         Repeater {
-                            model: section.modelData.rows
-                            delegate: Item {
-                                id: row
-                                required property var modelData
-                                width: section.width
-                                height: Math.max(caps.height, title.implicitHeight) + Tokens.gap * 0.5
-                                Label {
-                                    id: title
-                                    anchors { left: parent.left; right: caps.left; rightMargin: Tokens.gap; verticalCenter: parent.verticalCenter }
-                                    text: row.modelData.title
-                                    elide: Text.ElideRight
-                                }
-                                // Every key set for this action: "Super ←  or  Super H".
-                                Row {
-                                    id: caps
-                                    anchors { right: parent.right; verticalCenter: parent.verticalCenter }
-                                    spacing: Tokens.gap * 0.6
+                            model: root.essentials ? root.essentials.rows : []
+                            delegate: BindRow { required property var modelData; bind: modelData }
+                        }
+                    }
+                }
+                Row {
+                    spacing: Tokens.gap * 2
+                    Repeater {
+                        model: root.columns
+                        delegate: Column {
+                            id: column
+                            required property var modelData
+                            width: card.colW
+                            spacing: Tokens.gap * 2
+                            Repeater {
+                                model: column.modelData
+                                delegate: Column {
+                                    id: section
+                                    required property var modelData
+                                    spacing: Tokens.gap * 0.4
+                                    SectionTitle { text: section.modelData.section.toUpperCase() }
                                     Repeater {
-                                        model: row.modelData.alts
-                                        delegate: Row {
-                                            id: alt
-                                            required property var modelData
-                                            required property int index
-                                            spacing: 3
-                                            Label { visible: alt.index > 0; text: "or"; role: "dim"; size: Tokens.textSmall; anchors.verticalCenter: parent.verticalCenter; rightPadding: 3 }
-                                            Repeater {
-                                                model: alt.modelData
-                                                delegate: Rectangle {
-                                                    required property string modelData
-                                                    readonly property bool then: modelData === "›"
-                                                    height: Tokens.textSize * 1.7
-                                                    width: then ? thenLabel.implicitWidth : Math.max(height, capLabel.implicitWidth + Tokens.gap * 1.2)
-                                                    radius: Tokens.radiusInner * 0.7
-                                                    color: then ? "transparent" : Colors.alpha(Colors.text, 0.08)
-                                                    border.width: then ? 0 : 1
-                                                    border.color: Colors.alpha(Colors.text, 0.14)
-                                                    Label { id: capLabel; visible: !parent.then; anchors.centerIn: parent; text: parent.modelData; size: Tokens.textSmall; font.weight: Font.DemiBold }
-                                                    Label { id: thenLabel; visible: parent.then; anchors.centerIn: parent; text: "›"; role: "dim" }
-                                                }
-                                            }
-                                        }
+                                        model: section.modelData.rows
+                                        delegate: BindRow { required property var modelData; bind: modelData }
                                     }
                                 }
                             }
@@ -233,10 +307,21 @@ PanelWindow {
                 }
             }
         }
+        // There is more below.
+        Rectangle {
+            anchors { left: list.left; right: list.right; bottom: list.bottom }
+            height: Tokens.islandHeight * 1.4
+            visible: list.contentY + list.height < list.contentHeight - 1
+            gradient: Gradient {
+                GradientStop { position: 0; color: "transparent" }
+                GradientStop { position: 1; color: Colors.alpha(Colors.surface, 0.92) }
+            }
+        }
         Label {
             anchors.centerIn: list
             visible: root.sections.length === 0
-            text: root.binds.length ? "No keybind matches “" + root.query + "”" : "No binds.json yet — run ./install.sh --only session"
+            text: !root.binds.length ? "No binds.json yet — run ./install.sh --only session"
+                : root.heldText ? "No keybind uses just " + root.heldText : "No keybind matches “" + root.query + "”"
             role: "dim"
         }
     }

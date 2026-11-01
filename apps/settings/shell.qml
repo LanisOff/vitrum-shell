@@ -27,6 +27,9 @@ ShellRoot {
 
     property string current: Panes.resolve(Quickshell.env("VITRUM_PANE") || "")
     property string query: ""
+    // A shortcut to show, from the keybind sheet (VITRUM_KEY_FIND, or IPC).
+    property string keyFind: Quickshell.env("VITRUM_KEY_FIND") || ""
+    function _showKey(page) { if (keyFind && page.findShortcut) { page.findShortcut(keyFind); keyFind = ""; } }
 
     readonly property var allKeys: Ui.leafKeys(Settings.defaults)
     function matches(p) { return Panes.matches(p, query, allKeys, Ui.label); }
@@ -38,6 +41,13 @@ ShellRoot {
         target: "settings"
         function pane(id: string): void { if (Panes.known(id)) { app.query = ""; app.current = Panes.resolve(id); } }
         function current(): string { return app.current; }
+        /// The keybind sheet: open Keyboard on the shortcuts this finds.
+        function keybind(find: string): void {
+            app.keyFind = find;
+            app.query = "";
+            if (app.current === "keyboard" && pane.item) app._showKey(pane.item);
+            else app.current = "keyboard";
+        }
         /// Tests: type into the search; → the sections left in the sidebar.
         function search(q: string): string { app.query = q; return app.shown.map(p => p.id).join(","); }
         /// Tests: set one key through the app (what any control does).
@@ -172,6 +182,7 @@ ShellRoot {
                 width: parent.width
                 height: parent.height - broken.height
                 source: Panes.paneFile(app.current)
+                onLoaded: app._showKey(item)
                 opacity: status === Loader.Ready ? 1 : 0
                 Behavior on opacity { enabled: Motion.enabled; EaseAnim { duration: Motion.fast } }
             }

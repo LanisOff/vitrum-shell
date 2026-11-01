@@ -51,6 +51,15 @@ Page {
         const vit = list.filter(b => b.own === undefined);
         return q ? vit.filter(b => (b.keys + " " + b.default + " " + b.title + " " + b.section).toLowerCase().indexOf(q) >= 0) : vit;
     }
+    /// From the keybind sheet: the list narrowed to this, in view, and a lone
+    /// bind already open for its new keys.
+    function findShortcut(find) {
+        f.text = find;
+        Qt.callLater(() => {
+            page.contentY = Math.max(0, Math.min(page.contentHeight - page.height, filterBox.mapToItem(page.contentItem, 0, 0).y - Tokens.gap));
+            if (page.shown.length === 1 && !page.shown[0].off) { page.editFrom = ""; page.editing = page.shown[0].default; }
+        });
+    }
     property string editFrom: ""       // keys the open editor starts at (the default keys after a clashing Reset / Turn on), else the current ones
     // Restore a bind's default keys; when another bind holds them, open the editor there instead.
     function restore(def) {
@@ -150,6 +159,7 @@ Page {
     }
     // The filter: a glass field; focus draws an accent ring.
     Surface {
+        id: filterBox
         width: parent.width; height: Tokens.islandHeight * 1.2
         group: "panels"; level: 1
         radius: Tokens.radiusButton
