@@ -24,6 +24,7 @@ import vitrum_theme as vt  # noqa: E402
 from vitrum_theme import steam  # noqa: E402
 
 THEME_SRC = ROOT / "assets" / "steam" / "vitrum"
+THEME_CSS = ("base.css", "steam.vcss", "friends.css", "web.css", "bigpicture.vcss")
 ORIGINAL_STEAM_PID = steam.steam_pid      # Base patches the attribute; this is the real one
 HELPER = ROOT / "tools" / "vitrum-steam-theme"
 
@@ -38,7 +39,8 @@ BUNDLE = (
     '3:function(e){e.exports={Toggle:"_1tog",ToggleRail:"_2rail",ToggleSwitch:"_3knob",On:"_4on",Disabled:"_5dis"}},'
     '4:function(e){e.exports={Toggle:"_6tog",ToggleRail:"_7rail",ToggleSwitch:"_8knob",On:"_9on",Off:"_0off"}},'
     '5:function(e){e.exports={narrowWidth:"500px","ItemFocusAnim-grey":"_1grey",PagedSettingsDialog_PageListItem:"_1pli",'
-    'Active:"_2act",PageListItem_Icon:"_3icon"}}};'
+    'Active:"_2act",PageListItem_Icon:"_3icon"}},'
+    '6:function(e){e.exports={TransitionMenuDelay:"200",QuickAccessMenu:"_1qamMenu",Tab:"_2qamTab",Selected:"_3qamSel"}}};'
 )
 
 
@@ -116,25 +118,61 @@ class Defaults(unittest.TestCase):
         self.assertFalse(skin["UseDefaultPatches"])
         for patch in skin["Patches"]:
             self.assertIn("MatchRegexString", patch)
-            for f in patch["TargetCss"] + [patch.get("TargetJs", "live.js")]:
+            js = patch.get("TargetJs", [])
+            for f in patch["TargetCss"] + ([js] if isinstance(js, str) else js):
                 self.assertTrue((THEME_SRC / f).is_file(), f)
             self.assertEqual(patch["TargetCss"][0], "colors.css")   # the variables come first
 
-    def test_big_picture_is_left_alone(self):
+    def patches(self):
+        return json.loads((THEME_SRC / "skin.json").read_text())["Patches"]
+
+    def test_the_desktop_patch_leaves_big_picture_out(self):
         import re
-        rx = json.loads((THEME_SRC / "skin.json").read_text())["Patches"][0]["MatchRegexString"]
-        self.assertTrue(re.match(rx, "Steam"))
-        self.assertTrue(re.match(rx, "Steam Settings"))
-        self.assertFalse(re.match(rx, "Steam Big Picture Mode"))
-        self.assertFalse(re.match(rx, "QuickAccess_uid0"))
+        rx = self.patches()[0]["MatchRegexString"]
+        self.assertTrue(re.search(rx, "Steam"))
+        self.assertTrue(re.search(rx, "Steam Settings"))
+        for title in ("Steam Big Picture Mode", "QuickAccess_uid0", "MainMenu_uid0", "SP BPM_uid0",
+                      "SP Overlay: 730", "OverlayBrowser_Browser", "OverlayTab1_Find"):
+            self.assertFalse(re.search(rx, title), title)
+
+    def test_big_picture_has_its_own_patch(self):
+        import re
+        patch = next(p for p in self.patches() if "bigpicture.css" in p["TargetCss"])
+        self.assertEqual(patch["TargetCss"], ["colors.css", "base.css", "steam.css", "bigpicture.css"])
+        self.assertIn("bigpicture.js", patch["TargetJs"])
+        rx = patch["MatchRegexString"]
+        for title in ("Steam Big Picture Mode", "QuickAccess_uid0", "MainMenu_uid0", "SP BPM_uid0",
+                      "SP Overlay: 730", "OverlayBrowser_Browser", "OverlayTab1_Find"):
+            self.assertTrue(re.search(rx, title), title)
+        for title in ("Steam", "Steam Settings", "Steam Big Picture Mode 2"):
+            self.assertFalse(re.search(rx, title), title)
+
+    def test_web_pages_are_matched_by_the_whole_url(self):
+        # Seen on a real Steam with Millennium 3.6.2: the desktop patch's short
+        # regex matched no web page; one spanning the whole URL does.
+        import re
+        web = [p for p in self.patches() if "web.css" in p["TargetCss"]]
+        self.assertEqual(len(web), 2)
+        for patch in web:
+            self.assertEqual(patch["TargetCss"], ["colors.css", "web.css"])
+            self.assertNotIn("TargetJs", patch)      # no script on Valve's pages
+        rxs = [p["MatchRegexString"] for p in web]
+        for url in ("https://store.steampowered.com/", "https://store.steampowered.com/app/730/CounterStrike_2/",
+                    "https://store.steampowered.com/cart/", "https://steamcommunity.com/app/730",
+                    "https://steamcommunity.com/id/someone", "https://steamcommunity.com/workshop/"):
+            self.assertTrue(any(re.fullmatch(rx, url) for rx in rxs), url)
+        # Never the payment pages, nor a look-alike host.
+        for url in ("https://checkout.steampowered.com/checkout/", "https://store.steampowered.com.evil.example/",
+                    "https://storeXsteampowered.com/"):
+            self.assertFalse(any(re.fullmatch(rx, url) for rx in rxs), url)
 
     def test_no_capsules_no_bounce_no_m3_fill(self):
-        for name in ("base.css", "steam.vcss", "friends.css"):
+        for name in THEME_CSS:
             text = (THEME_SRC / name).read_text()
             self.assertNotRegex(text, r"border-radius:\s*(9999|999|50%|1337)", name)
             self.assertNotIn("cubic-bezier(.34", text)          # overshoot
             self.assertNotIn("onAccent", text)
-            self.assertNotRegex(text, r"color:\s*var\(--vt-bg\)", name)   # dark text on the tint
+            self.assertNotRegex(text, r"(?<![-\w])color:\s*var\(--vt-bg\)", name)   # dark text on the tint
 
     def test_shipped_colors_define_every_variable(self):
         text = (THEME_SRC / "colors.css").read_text()
@@ -149,11 +187,12 @@ class Defaults(unittest.TestCase):
 
     def test_no_wallpaper_and_no_see_through_window(self):
         import re
-        for name in ("colors.css", "base.css", "steam.vcss", "friends.css", "live.js"):
+        for name in ("colors.css", "live.js", "bigpicture.js") + THEME_CSS:
             text = (THEME_SRC / name).read_text()
             for gone in ("--vt-wall", "--vt-glass-opacity", "wall.jpg", "url("):
                 self.assertNotIn(gone, text, f"{name}: {gone}")
             self.assertNotIn("backdrop-filter: blur", text, name)
+            self.assertNotRegex(text, r"filter:\s*blur", name)
         # The window's base layer is the palette's bg, solid.
         base = (THEME_SRC / "base.css").read_text()
         window = re.search(r"--vt-window:([^;]+);", base).group(1)
@@ -175,16 +214,76 @@ class Defaults(unittest.TestCase):
         import re
         defined = set(re.findall(r"(--vt-[\w-]+)\s*:", (THEME_SRC / "colors.css").read_text()
                                  + (THEME_SRC / "base.css").read_text()))
-        for name in ("base.css", "steam.vcss", "friends.css"):
+        for name in ("base.css", "steam.vcss", "friends.css", "bigpicture.vcss"):
             used = set(re.findall(r"var\((--vt-[\w-]+)", (THEME_SRC / name).read_text()))
             self.assertEqual(used - defined, set(), name)
+
+    def test_web_css_stands_on_colors_alone(self):
+        # base.css does not load on web pages: web.css brings its own recipes.
+        import re
+        web = (THEME_SRC / "web.css").read_text()
+        defined = set(re.findall(r"(--vt-[\w-]+)\s*:", (THEME_SRC / "colors.css").read_text() + web))
+        self.assertEqual(set(re.findall(r"var\((--vt-[\w-]+)", web)) - defined, set())
+
+    def test_every_colour_in_the_new_sheets_goes_through_the_palette(self):
+        # White and black at an alpha are the glass itself; anything else is a variable.
+        import re
+        for name in ("web.css", "bigpicture.vcss"):
+            text = re.sub(r"/\*.*?\*/", "", (THEME_SRC / name).read_text(), flags=re.S)
+            self.assertNotRegex(text, r"#[0-9a-fA-F]{3,8}\b(?!\s*[,{:])", name)
+            for r, g, b in re.findall(r"rgba?\((\d+), (\d+), (\d+)", text):
+                self.assertIn((r, g, b), {("255", "255", "255"), ("0", "0", "0")}, name)
+
+    def test_on_is_lit_glass_on_the_web_too(self):
+        web = (THEME_SRC / "web.css").read_text()
+        self.assertIn("--vt-lit-frost: linear-gradient(180deg, rgba(255, 255, 255", web)
+        self.assertIn("rgba(var(--vt-glow-rgb), .55)", web.split("--vt-rim-lit:")[1].split(";")[0])
+        # The primary action never turns back into a solid fill.
+        block = web.split(".ds_flag_action {")[1].split("}")[0]
+        self.assertIn("background-color: var(--vt-lit-fill) !important;", block)
+        self.assertIn("color: var(--vt-text) !important;", block)
+
+    def test_unread_counts_are_a_tint_not_a_block(self):
+        # The wrapper painted in the accent turned whole chat rows into solid blocks.
+        friends = (THEME_SRC / "friends.css").read_text()
+        wrapper = friends.split(".ChatUnreadMessageIndicator {")[1].split("}")[0]
+        self.assertIn("background: transparent !important;", wrapper)
+        self.assertNotIn("rgba(var(--vt-glow-rgb), .85)", friends)   # light text on the accent: unreadable
+
+    def test_the_side_window_script_finds_and_stops(self):
+        js = (THEME_SRC / "bigpicture.js").read_text()
+        self.assertIn("m_rgGamepadInputSources", js)
+        self.assertIn("clearInterval(timer)", js)       # nothing runs once they are dressed
+        self.assertNotRegex(js, r"window\.open\s*\(")    # a wrong name would make a new window
+        self.assertNotIn("MutationObserver", js)
+        for name in ("colors.css", "base.css", "steam.css", "bigpicture.css"):
+            self.assertIn(f'"{name}"', js)
+
+
+class BigPictureIsLight(unittest.TestCase):
+    """A gaming machine: no animation of the theme's in Big Picture."""
+
+    def test_the_theme_animations_are_off(self):
+        import re
+        vcss = (THEME_SRC / "bigpicture.vcss").read_text()
+        base = (THEME_SRC / "base.css").read_text().split("@media (prefers-reduced-motion")[0]
+        for var in re.findall(r"(--vt-a-[\w-]+):", base):
+            self.assertRegex(vcss, re.escape(var) + r":\s*none;", var)
+
+    def test_every_template_key_exists_as_written(self):
+        # A signature is what picks the module: the tokens must be well formed.
+        import re
+        text = (THEME_SRC / "bigpicture.vcss").read_text()
+        self.assertRegex(text, r"@\{TransitionMenuDelay/QuickAccessMenu\}")
+        self.assertRegex(text, r"@\{mainMenuCloseDurationMS/Item\}")
+        self.assertEqual(re.findall(r"@\{[^}/]*\}", text), [])
 
 
 class Motion(unittest.TestCase):
     """The theme's animations: damped, 150–400 ms, one-shot, all switched off
     by reduced motion, and every one of them defined."""
 
-    FILES = ("base.css", "steam.vcss", "friends.css")
+    FILES = THEME_CSS
 
     def text(self, name):
         import re
@@ -351,6 +450,15 @@ class Classes(unittest.TestCase):
         self.assertEqual(steam._ident("_3abc"), "_3abc")
         self.assertEqual(steam._ident("-9x"), "\\-9x")
 
+    def test_the_big_picture_template_renders_against_the_fake(self):
+        missing = set()
+        css = steam.render_vcss((THEME_SRC / "bigpicture.vcss").read_text(), steam.parse_class_maps(BUNDLE), missing)
+        self.assertIn("._1qamMenu", css)
+        self.assertIn("._2qamTab._3qamSel", css)
+        self.assertIn("--vt-a-rise: none;", css)        # a rule with no token at all stays
+        self.assertNotIn("@{", css)
+        self.assertNotIn("\x00", css)
+
     def test_the_shipped_template_renders_against_the_fake(self):
         css = steam.render_vcss((THEME_SRC / "steam.vcss").read_text(), steam.parse_class_maps(BUNDLE))
         self.assertIn("._3gleSel._2gleCont", css)
@@ -503,10 +611,25 @@ class Apply(Base):
         self.assertNotIn("wallUrl", state)
         self.assertNotIn("wallStamp", state)
 
+    def test_apply_renders_every_template(self):
+        d = self.install()
+        steam.apply(settings(), palette(), run=no_steam)
+        css = (d / "bigpicture.css").read_text()
+        self.assertIn("Generated by vitrum-theme from bigpicture.vcss", css)
+        self.assertIn("._1qamMenu", css)
+        self.assertIn("Generated by vitrum-theme from steam.vcss", (d / "steam.css").read_text())
+
+    def test_every_new_file_is_installed(self):
+        d = self.install()
+        for name in ("web.css", "bigpicture.vcss", "bigpicture.js", "bigpicture.css", "skin.json"):
+            self.assertTrue((d / name).is_file(), name)
+
     def test_install_keeps_generated_files_reinstall_replaces(self):
         d = self.install()
         steam.apply(settings(), palette(), run=no_steam)
+        rendered = (d / "bigpicture.css").read_text()
         steam.install_theme()
+        self.assertEqual((d / "bigpicture.css").read_text(), rendered)
         self.assertIn("#f2b3e7", (d / "colors.css").read_text())
         (d / "stray.css").write_text("x")
         steam.install_theme(replace=True)

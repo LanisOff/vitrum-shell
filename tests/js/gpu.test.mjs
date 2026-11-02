@@ -78,14 +78,21 @@ function run(shell, sys, { path = bin, want = 1, ms = 20000, after } = {}) {
     const child = spawn(shell, ["-c", g.command(sys)], { detached: true, env: { PATH: path }, stdio: ["ignore", "pipe", "pipe"] });
     let out = "", err = "", seen = 0, done = false;
     const lines = () => out.split("\n").slice(0, -1);
-    const finish = exited => {
+    const finish = async exited => {
       if (done) return;
       done = true;
       clearTimeout(timer);
-      if (!exited) { try { process.kill(-child.pid, "SIGKILL"); } catch (e) { /* gone */ } }
+      const got = lines();
+      // A line means the sampler is about to fork its sleep. On macOS a SIGKILL
+      // in that instant can leave the fork spinning at 100% CPU for good, so
+      // the kill waits until the sleep is running.
+      if (!exited) {
+        await new Promise(r => setTimeout(r, 100));
+        try { process.kill(-child.pid, "SIGKILL"); } catch (e) { /* gone */ }
+      }
       child.stdout.destroy();
       child.stderr.destroy();
-      resolve({ lines: lines(), exited, err });
+      resolve({ lines: got, exited, err });
     };
     const timer = setTimeout(() => finish(false), ms);
     child.stdout.on("data", d => {

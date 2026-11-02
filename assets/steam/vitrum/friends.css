@@ -67,7 +67,8 @@
 }
 
 .requestsNumber {
-  background: rgba(var(--vt-glow-rgb), .85) !important;
+  background: rgba(var(--vt-glow-rgb), .32) !important;
+  box-shadow: var(--vt-rim-switch) !important;
   color: var(--vt-text) !important;
   border-radius: 6px !important;
 }
@@ -285,10 +286,17 @@
   background: radial-gradient(ellipse farthest-corner at 98% 90%, rgba(var(--vt-glow-rgb), .45), transparent 70%) !important;
 }
 
-.chatUnreadCircle,
-.ChatUnreadMessageIndicator {
-  background: rgba(var(--vt-glow-rgb), .85) !important;
+/* The count on a chat: the tint of an on switch, so light text reads on any
+   palette. ChatUnreadMessageIndicator is the whole row's wrapper: it stays
+   clear, or the row turns into a block of the accent. */
+.chatUnreadCircle {
+  background: rgba(var(--vt-glow-rgb), .32) !important;
+  box-shadow: var(--vt-rim-switch) !important;
   color: var(--vt-text) !important;
+}
+
+.ChatUnreadMessageIndicator {
+  background: transparent !important;
 }
 
 /* A friend's list arriving, a chat opening: fade and rise. */

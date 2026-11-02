@@ -1148,6 +1148,16 @@
   box-shadow: var(--vt-rim-hover), 0 10px 24px -14px rgba(var(--vt-glow-rgb), .45) !important;
 }
 
+/* The card sits inside the day's Event, which is already the tile: one piece
+   of glass, not a tile in a tile. */
+@{AppActivityDay/Event} @{AppActivityDay/PartnerEventTextOnly},
+@{AppActivityDay/Event} @{AppActivityDay/PartnerEventMediumImage_Container},
+@{AppActivityDay/Event} @{AppActivityDay/PartnerEventLargeImage_Container} {
+  background: transparent !important;
+  box-shadow: none !important;
+  transform: none !important;
+}
+
 @{AppActivityDay/PartnerEventType},
 @{AppActivityDay/Rule} {
   color: var(--vt-text-dim) !important;
@@ -1763,8 +1773,25 @@
   color: rgba(var(--vt-text-dim-rgb), .7) !important;
 }
 
-@{SnoozeZ/SnoozeZ} {
-  color: inherit !important;
+@{SnoozeZ/SnoozeZ},
+@{SnoozeZ/Z1},
+@{SnoozeZ/Z2},
+@{SnoozeZ/Z3} {
+  color: var(--vt-text-dim) !important;
+}
+
+/* The dot on an avatar: dim, the accent pair for online and in game. */
+@{avatarHolder/avatarStatus} {
+  background: var(--vt-text-dim) !important;
+  background-image: none !important;
+}
+
+.online @{avatarHolder/avatarStatus} {
+  background: var(--vt-accent) !important;
+}
+
+.ingame @{avatarHolder/avatarStatus} {
+  background: var(--vt-accent2) !important;
 }
 
 /* Steam's inset shadow at the top of a list. */
@@ -1844,6 +1871,84 @@
 
 @{SpeakerName_Default/SpeakerName_InGame} {
   color: var(--vt-accent2) !important;
+}
+
+/* ================================================== the collections page === */
+
+/* Steam lays a blue radial wash behind the page. */
+@{ScrollToTopButtonPosition/Body} {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* ============================================ recordings and screenshots === */
+
+/* Its own window, in Steam's slate and bright blue (View > Recordings &
+   Screenshots). Steam's popup manager names it no way Millennium marks, so the
+   window is found by what is in it. */
+html:has(@{listDeckGridRowHeight/TopList}),
+html:has(@{listDeckGridRowHeight/TopList}) body {
+  background: var(--vt-window) !important;
+}
+
+html:has(@{listDeckGridRowHeight/TopList}) body > div,
+html:has(@{listDeckGridRowHeight/TopList}) #popup_target > div,
+html:has(@{listDeckGridRowHeight/TopList}) .DialogContent {
+  background: transparent !important;
+}
+
+@{listDeckGridRowHeight/TopList},
+@{listDeckGridRowHeight/StickyHeader} {
+  background: var(--vt-bar) !important;
+  background-image: none !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+  border: 0 !important;
+}
+
+/* The window's body (Steam's slate) and its explainer. */
+@{listDeckGridRowHeight/ExplainerBox},
+@{listDeckGridRowHeight/SingleLineExplainerBox} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+@{listDeckGridRowHeight/TopListTitle} {
+  color: var(--vt-text) !important;
+  text-transform: none !important;
+  letter-spacing: 0 !important;
+}
+
+@{listDeckGridRowHeight/NewCallout} {
+  color: var(--vt-accent) !important;
+}
+
+@{listDeckGridRowHeight/ButtonBox} {
+  border: 0 !important;
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{listDeckGridRowHeight/ButtonBox}@{listDeckGridRowHeight/Interactable}:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+/* What is on (the view in use) and the main action: lit glass. */
+@{listDeckGridRowHeight/ButtonBox}@{listDeckGridRowHeight/Primary},
+@{listDeckGridRowHeight/ButtonBox}.Active,
+@{listDeckGridRowHeight/IconButton}@{listDeckGridRowHeight/Primary} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+@{listDeckGridRowHeight/ButtonBox}@{listDeckGridRowHeight/Primary} svg {
+  color: var(--vt-accent) !important;
 }
 
 /* ================================================ a game's properties === */

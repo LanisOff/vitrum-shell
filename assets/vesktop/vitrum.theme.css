@@ -10,8 +10,8 @@
 
    The language (vitrum's lit glass, CLAUDE.md "Design language"):
    - the window's ground is solid: vitrum's bg with a faint wash of the accents;
-   - panels are glass layers over it: fixed alphas, a 1 px hairline rim, a
-     faint top light;
+   - panels are solid layers on it, nothing shows through them: layered
+     fills, a 1 px hairline rim, a faint top light;
    - on (the selected channel, server, tab, a primary button, a switch): the
      glass lit from inside, brighter and frostier, a white rim and top light,
      the accent only as a soft glow under it and in the icon; the text stays
@@ -51,6 +51,7 @@
   --vt-warning-rgb: 253, 214, 99;
   --vt-success-rgb: 129, 201, 149;
   --vt-glow-rgb: 72, 138, 244;
+  --vt-glow-hsl: 217 89% 62%;
 }
 /* vitrum:colours end */
 
@@ -66,12 +67,24 @@
   --vt-ground: radial-gradient(1400px 900px at 0% 0%, rgba(var(--vt-accent-rgb), .07), transparent 62%),
                radial-gradient(1200px 800px at 100% 100%, rgba(var(--vt-accent2-rgb), .045), transparent 60%),
                var(--vt-bg);
-  /* Glass layers over it (fixed alphas: the window itself is opaque). */
-  --vt-glass-1: rgba(var(--vt-surface-rgb), .62);
-  --vt-glass-2: rgba(var(--vt-surface-high-rgb), .66);
-  /* What floats over the content (menus, popouts, dialogs) stays readable. */
-  --vt-float: rgba(var(--vt-surface-high-rgb), .94);
-  --vt-float-high: rgba(var(--vt-surface-highest-rgb), .96);
+  /* The panels: solid layers, mixed from the palette. No alpha here: Discord
+     paints popouts with these too, and nothing may show through those. */
+  --vt-glass-1: color-mix(in srgb, var(--vt-surface) 62%, var(--vt-bg));
+  --vt-glass-2: color-mix(in srgb, var(--vt-surface-high) 66%, var(--vt-bg));
+  --vt-tile: color-mix(in srgb, var(--vt-surface-high) 82%, var(--vt-bg));
+  /* What floats over the content (menus, popouts, dialogs): dense and solid. */
+  --vt-float: var(--vt-surface-high);
+  --vt-float-high: var(--vt-surface-highest);
+  /* The glow as Discord's hsl triple. A colour block written by an older
+     vitrum-theme lacks it (and keeps lacking it with sync off), and an empty
+     triple would void every tint made from it, so it falls back to a grey. */
+  --vt-brand-hsl: var(--vt-glow-hsl, 0 0% 62%);
+  /* The accent family as fills under text. */
+  --vt-deep: color-mix(in srgb, rgb(var(--vt-glow-rgb)) 45%, var(--vt-bg));
+  --vt-tint-info: color-mix(in srgb, var(--vt-accent) 18%, var(--vt-surface-high));
+  --vt-tint-good: color-mix(in srgb, var(--vt-success) 18%, var(--vt-surface-high));
+  --vt-tint-warn: color-mix(in srgb, var(--vt-warning) 18%, var(--vt-surface-high));
+  --vt-tint-bad: color-mix(in srgb, var(--vt-danger) 18%, var(--vt-surface-high));
   --vt-rim-panel: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .07);
   --vt-rim-float: inset 0 0 0 1px rgba(255, 255, 255, .10), inset 0 1px 0 rgba(255, 255, 255, .12),
                   0 18px 48px -12px rgba(0, 0, 0, .55);
@@ -169,7 +182,7 @@
   --channeltextarea-background: var(--vt-glass-2);
   --custom-channel-members-bg: var(--vt-glass-1);
   --modal-background: var(--vt-float);
-  --modal-footer-background: rgba(var(--vt-surface-rgb), .6);
+  --modal-footer-background: var(--vt-surface);
   --card-background-default: var(--vt-off);
   --background-code: rgba(0, 0, 0, .22);
   --background-scrim: rgba(var(--vt-bg-rgb), .72);
@@ -333,6 +346,224 @@
   --background-feedback-info: rgba(var(--vt-accent-rgb), .08);
   --border-feedback-critical: rgba(var(--vt-danger-rgb), .35);
 
+  /* The rest of the brand's ramp, its hsl triples (Discord mixes those into
+     tints, so these are what kept blurple alive) and the blurple stops used
+     by name: light is the accent, the middle the glow, deep sinks to the ground. */
+  --brand-100: var(--vt-accent); --brand-130: var(--vt-accent); --brand-160: var(--vt-accent);
+  --brand-200: var(--vt-accent); --brand-230: var(--vt-accent); --brand-300: var(--vt-accent);
+  --brand-330: var(--vt-accent); --brand-345: var(--vt-accent);
+  --brand-430: rgb(var(--vt-glow-rgb)); --brand-460: rgb(var(--vt-glow-rgb)); --brand-530: rgb(var(--vt-glow-rgb));
+  --brand-630: var(--vt-deep); --brand-660: var(--vt-deep); --brand-700: var(--vt-deep);
+  --brand-730: var(--vt-deep); --brand-760: var(--vt-deep); --brand-800: var(--vt-deep);
+  --brand-830: var(--vt-deep); --brand-860: var(--vt-deep); --brand-900: var(--vt-deep);
+  --brand-100-hsl: var(--vt-brand-hsl); --brand-130-hsl: var(--vt-brand-hsl); --brand-160-hsl: var(--vt-brand-hsl);
+  --brand-200-hsl: var(--vt-brand-hsl); --brand-230-hsl: var(--vt-brand-hsl); --brand-260-hsl: var(--vt-brand-hsl);
+  --brand-300-hsl: var(--vt-brand-hsl); --brand-330-hsl: var(--vt-brand-hsl); --brand-345-hsl: var(--vt-brand-hsl);
+  --brand-360-hsl: var(--vt-brand-hsl); --brand-400-hsl: var(--vt-brand-hsl); --brand-430-hsl: var(--vt-brand-hsl);
+  --brand-460-hsl: var(--vt-brand-hsl); --brand-500-hsl: var(--vt-brand-hsl); --brand-530-hsl: var(--vt-brand-hsl);
+  --brand-560-hsl: var(--vt-brand-hsl); --brand-600-hsl: var(--vt-brand-hsl); --brand-630-hsl: var(--vt-brand-hsl);
+  --brand-660-hsl: var(--vt-brand-hsl); --brand-700-hsl: var(--vt-brand-hsl); --brand-730-hsl: var(--vt-brand-hsl);
+  --brand-760-hsl: var(--vt-brand-hsl); --brand-800-hsl: var(--vt-brand-hsl); --brand-830-hsl: var(--vt-brand-hsl);
+  --brand-860-hsl: var(--vt-brand-hsl); --brand-900-hsl: var(--vt-brand-hsl);
+  --blurple-1: var(--vt-accent); --blurple-3: var(--vt-accent); --blurple-5: var(--vt-accent);
+  --blurple-8: var(--vt-accent); --blurple-12: var(--vt-accent); --blurple-13: var(--vt-accent);
+  --blurple-14: var(--vt-accent); --blurple-15: var(--vt-accent); --blurple-19: var(--vt-accent);
+  --blurple-20: var(--vt-accent); --blurple-21: var(--vt-accent); --blurple-23: var(--vt-accent);
+  --blurple-24: var(--vt-accent); --blurple-26: var(--vt-accent); --blurple-28: var(--vt-accent);
+  --blurple-29: var(--vt-accent); --blurple-30: var(--vt-accent); --blurple-33: var(--vt-accent);
+  --blurple-36: var(--vt-accent); --blurple-38: var(--vt-accent); --blurple-40: var(--vt-accent);
+  --blurple-44: var(--vt-accent); --blurple-45: rgb(var(--vt-glow-rgb)); --blurple-49: rgb(var(--vt-glow-rgb));
+  --blurple-50: rgb(var(--vt-glow-rgb)); --blurple-53: rgb(var(--vt-glow-rgb)); --blurple-54: rgb(var(--vt-glow-rgb));
+  --blurple-59: rgb(var(--vt-glow-rgb)); --blurple-60: rgb(var(--vt-glow-rgb)); --blurple-61: var(--vt-deep);
+  --blurple-62: var(--vt-deep); --blurple-63: var(--vt-deep); --blurple-65: var(--vt-deep);
+  --blurple-70: var(--vt-deep); --blurple-71: var(--vt-deep); --blurple-75: var(--vt-deep);
+  --blurple-80: var(--vt-deep); --blurple-82: var(--vt-deep); --blurple-83: var(--vt-deep);
+  --blurple-85: var(--vt-deep); --blurple-91: var(--vt-deep); --blurple-95: var(--vt-deep);
+  --blurple-100: var(--vt-deep);
+
+  /* Discord's newer names for its surfaces (cold greys left alone). */
+  --app-frame-border: rgba(255, 255, 255, .07);
+  --chat-background: var(--vt-glass-1);
+  --chat-border: rgba(255, 255, 255, .07);
+  --channel-background-default: var(--vt-glass-1);
+  --panel-bg: var(--vt-glass-1);
+  --embed-background: var(--vt-tile);
+  --embed-background-alternate: var(--vt-tile);
+  --card-border-default: rgba(255, 255, 255, .08);
+  --card-secondary-bg: var(--vt-off);
+  --card-primary-pressed-bg: var(--vt-off-active);
+  --card-secondary-pressed-bg: var(--vt-off-active);
+  --guild-profile-banner-background-default: var(--vt-surface-high);
+  --user-profile-border: rgba(255, 255, 255, .10);
+  --user-profile-toolbar-background: var(--vt-float-high);
+  --user-profile-toolbar-border: rgba(255, 255, 255, .10);
+  --user-profile-activity-toolbar-background: var(--vt-float-high);
+  --user-profile-background-hover: var(--vt-off-hover);
+  --user-profile-overlay-background: var(--vt-float-high);
+  --user-profile-overlay-background-hover: var(--vt-off-hover);
+  --user-profile-note-background-focus: var(--vt-tile);
+  --spoiler-hidden-background: var(--vt-surface-highest);
+  --spoiler-hidden-background-hover: color-mix(in srgb, var(--vt-text) 18%, var(--vt-surface-highest));
+  --spoiler-revealed-background: var(--vt-off);
+  --spine-default: rgba(255, 255, 255, .14);
+  --thread-channel-spine: rgba(255, 255, 255, .14);
+  --context-menu-backdrop-background: rgba(var(--vt-bg-rgb), .72);
+
+  /* code: the palette's roles, for highlight.js in code blocks */
+  --text-code-keyword: var(--vt-accent);
+  --text-code-tag: var(--vt-accent);
+  --text-code-attribute: var(--vt-accent);
+  --text-code-property: var(--vt-accent);
+  --text-code-bullet: var(--vt-accent);
+  --text-code-section: var(--vt-accent);
+  --text-code-link: var(--vt-accent);
+  --text-code-title: var(--vt-accent2);
+  --text-code-type: var(--vt-accent2);
+  --text-code-builtin: var(--vt-accent2);
+  --text-code-namespace: var(--vt-accent2);
+  --text-code-decorator: var(--vt-accent2);
+  --text-code-string: var(--vt-success);
+  --text-code-addition: var(--vt-success);
+  --text-code-number: var(--vt-warning);
+  --text-code-regexp: var(--vt-warning);
+  --text-code-escape: var(--vt-warning);
+  --text-code-error: var(--vt-danger);
+  --text-code-deletion: var(--vt-danger);
+  --text-code-variable: var(--vt-text);
+  --text-code-operator: var(--vt-text-dim);
+  --text-code-comment: rgba(var(--vt-text-dim-rgb), .72);
+  --background-code-addition: rgba(var(--vt-success-rgb), .12);
+  --background-code-deletion: rgba(var(--vt-danger-rgb), .12);
+
+  /* polls and message highlights */
+  --polls-voted-fill: rgba(var(--vt-glow-rgb), .30);
+  --polls-victor-fill: rgba(var(--vt-glow-rgb), .42);
+  --polls-normal-image-background: var(--vt-off);
+  --keyword-highlight-background: rgba(var(--vt-accent-rgb), .22);
+  --message-highlight-background-default: rgba(var(--vt-glow-rgb), .08);
+  --message-highlight-background-hover: rgba(var(--vt-glow-rgb), .12);
+
+  /* voice: the speaking state is the accent's, muted is vitrum's danger, and
+     a button in the connected state is a tint, not a solid green */
+  --status-speaking: var(--vt-accent);
+  --status-online: var(--vt-success);
+  --status-idle: var(--vt-warning);
+  --status-dnd: var(--vt-danger);
+  --status-positive-background: rgba(var(--vt-success-rgb), .18);
+  --background-voice-muted: rgba(var(--vt-danger-rgb), .14);
+  --border-voice-muted: rgba(var(--vt-danger-rgb), .35);
+  --icon-voice-muted: var(--vt-danger);
+  --control-connected-background-default: rgba(var(--vt-success-rgb), .18);
+  --control-connected-background-hover: rgba(var(--vt-success-rgb), .24);
+  --control-connected-background-active: rgba(var(--vt-success-rgb), .30);
+  --control-connected-border-default: rgba(var(--vt-success-rgb), .45);
+  --control-connected-border-hover: rgba(var(--vt-success-rgb), .55);
+  --control-connected-border-active: rgba(var(--vt-success-rgb), .55);
+  --control-connected-text-default: var(--vt-text);
+  --control-connected-text-hover: var(--vt-text);
+  --control-connected-text-active: var(--vt-text);
+  --control-connected-icon-default: var(--vt-success);
+  --control-connected-icon-hover: var(--vt-success);
+  --control-connected-icon-active: var(--vt-success);
+  --control-critical-primary-border-hover: rgba(var(--vt-danger-rgb), .55);
+  --control-critical-primary-border-active: rgba(var(--vt-danger-rgb), .55);
+  --control-critical-primary-text-active: var(--vt-text);
+  --control-critical-primary-icon-hover: var(--vt-danger);
+  --control-critical-primary-icon-active: var(--vt-danger);
+  --control-critical-secondary-background-default: var(--vt-off);
+  --control-critical-secondary-background-hover: rgba(var(--vt-danger-rgb), .12);
+  --control-critical-secondary-background-active: rgba(var(--vt-danger-rgb), .18);
+  --control-critical-secondary-border-default: rgba(var(--vt-danger-rgb), .25);
+  --control-critical-secondary-border-hover: rgba(var(--vt-danger-rgb), .35);
+  --control-critical-secondary-border-active: rgba(var(--vt-danger-rgb), .35);
+  --control-critical-secondary-text-default: var(--vt-danger);
+  --control-critical-secondary-text-hover: var(--vt-danger);
+  --control-critical-secondary-text-active: var(--vt-danger);
+  --control-critical-secondary-icon-default: var(--vt-danger);
+  --control-critical-secondary-icon-hover: var(--vt-danger);
+  --control-critical-secondary-icon-active: var(--vt-danger);
+  /* Over video: the lit button stays lit, the other one solid so it reads. */
+  --control-overlay-primary-background-default: rgba(255, 255, 255, .16);
+  --control-overlay-primary-background-hover: rgba(255, 255, 255, .21);
+  --control-overlay-primary-background-active: rgba(255, 255, 255, .25);
+  --control-overlay-primary-border-default: rgba(255, 255, 255, .30);
+  --control-overlay-primary-border-hover: rgba(255, 255, 255, .34);
+  --control-overlay-primary-border-active: rgba(255, 255, 255, .34);
+  --control-overlay-primary-text-default: var(--vt-text);
+  --control-overlay-primary-text-hover: var(--vt-text);
+  --control-overlay-primary-text-active: var(--vt-text);
+  --control-overlay-primary-icon-default: var(--vt-accent);
+  --control-overlay-primary-icon-hover: var(--vt-accent);
+  --control-overlay-primary-icon-active: var(--vt-accent);
+  --control-overlay-secondary-background-default: var(--vt-float);
+  --control-overlay-secondary-background-hover: var(--vt-float-high);
+  --control-overlay-secondary-background-active: var(--vt-float-high);
+  --control-overlay-secondary-border-default: rgba(255, 255, 255, .10);
+  --control-overlay-secondary-border-hover: rgba(255, 255, 255, .14);
+  --control-overlay-secondary-border-active: rgba(255, 255, 255, .14);
+  --control-overlay-secondary-text-default: var(--vt-text);
+  --control-overlay-secondary-text-hover: var(--vt-text);
+  --control-overlay-secondary-text-active: var(--vt-text);
+  --control-overlay-secondary-icon-default: var(--vt-text);
+  --control-overlay-secondary-icon-hover: var(--vt-text);
+  --control-overlay-secondary-icon-active: var(--vt-text);
+  /* Toggle buttons (mic, camera, deafen in a call): selected is lit, a muted
+     mic a danger tint. */
+  --togglebutton-background-selected: rgba(255, 255, 255, .16);
+  --togglebutton-background-selected-hover: rgba(255, 255, 255, .21);
+  --togglebutton-background-selected-active: rgba(255, 255, 255, .25);
+  --togglebutton-border-selected: rgba(255, 255, 255, .30);
+  --togglebutton-border-active: rgba(255, 255, 255, .34);
+  --togglebutton-icon-selected: var(--vt-accent);
+  --togglebutton-icon-selected-hover: var(--vt-accent);
+  --togglebutton-icon-active: var(--vt-accent);
+  --togglebutton-icon-only-icon-selected: var(--vt-accent);
+  --togglebutton-icon-only-icon-selected-hover: var(--vt-accent);
+  --togglebutton-icon-only-icon-active: var(--vt-accent);
+  --togglebutton-critical-background-selected: rgba(var(--vt-danger-rgb), .18);
+  --togglebutton-critical-background-selected-hover: rgba(var(--vt-danger-rgb), .24);
+  --togglebutton-critical-border-active: rgba(var(--vt-danger-rgb), .45);
+  --togglebutton-critical-icon-default: var(--vt-danger);
+  --togglebutton-critical-icon-hover: var(--vt-danger);
+  --togglebutton-critical-icon-active: var(--vt-danger);
+  --togglebutton-critical-icon-selected: var(--vt-danger);
+  --togglebutton-critical-icon-selected-hover: var(--vt-danger);
+  --button-border-radius: var(--vt-radius-button);
+  --button-border-radius-lg: var(--vt-radius-tile);
+
+  /* selected controls by Discord's newer names */
+  --switch-background-active: var(--vt-switch-on);
+  --switch-thumb-icon-active: var(--vt-accent);
+  --checkbox-background-active: var(--vt-switch-on);
+  --radio-background-active: var(--vt-switch-on);
+  --radio-background-selected-hover: rgba(var(--vt-glow-rgb), .40);
+  --radio-foreground-active: var(--vt-accent);
+
+  /* badges, chips, notices, toasts: tints under the text colour */
+  --badge-primary-background: color-mix(in srgb, var(--vt-accent) 30%, var(--vt-surface-high));
+  --badge-primary-border: rgba(255, 255, 255, .14);
+  --badge-primary-text: var(--vt-text);
+  --chip-blurple-dark-background: rgba(var(--vt-accent-rgb), .18);
+  --chip-blurple-dark-text: var(--vt-text);
+  --chip-blurple-light-background: rgba(var(--vt-accent-rgb), .18);
+  --chip-blurple-light-text: var(--vt-text);
+  --notice-background-info: var(--vt-tint-info);
+  --notice-background-positive: var(--vt-tint-good);
+  --notice-background-warning: var(--vt-tint-warn);
+  --notice-background-critical: var(--vt-tint-bad);
+  --notice-text-info: var(--vt-text);
+  --notice-text-positive: var(--vt-text);
+  --notice-text-warning: var(--vt-text);
+  --notice-text-critical: var(--vt-text);
+  --inlinenotice-border-info: rgba(var(--vt-accent-rgb), .35);
+  --inlinenotice-border-positive: rgba(var(--vt-success-rgb), .35);
+  --inlinenotice-border-warning: rgba(var(--vt-warning-rgb), .35);
+  --inlinenotice-border-critical: rgba(var(--vt-danger-rgb), .35);
+  --toast-success-background: var(--vt-tint-good);
+  --toast-success-border: rgba(var(--vt-success-rgb), .45);
+  --toast-critical-background: var(--vt-tint-bad);
+  --toast-critical-border: rgba(var(--vt-danger-rgb), .45);
+
   /* scrollbars */
   --scrollbar-auto-thumb: rgba(255, 255, 255, .16);
   --scrollbar-auto-track: transparent;
@@ -404,11 +635,9 @@ body {
   background: var(--vt-glass-1) !important;
 }
 
-/* The user panel floats over the lists' foot: frosted, so they blur under it. */
+/* The user panel floats over the lists' foot: a solid tile with the float's rim. */
 :is([class^="sidebar_"], [class*=" sidebar_"]) :is([class^="panels_"], [class*=" panels_"]) {
   background: var(--vt-glass-2) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
   border: 0 !important;
   box-shadow: var(--vt-rim-float);
   border-radius: var(--vt-radius-tile) !important;
@@ -421,12 +650,10 @@ body {
   box-shadow: var(--vt-rim-off);
 }
 
-/* Menus and dialogs: frosted glass over the content (popouts take the
-   near-opaque float colour from the variables). */
+/* Menus and dialogs: solid, dense, with the float's rim (popouts take the
+   float colour from the variables). */
 [role="menu"],
 [role="dialog"][aria-modal="true"]:is([class^="root_"], [class*=" root_"]) {
-  -webkit-backdrop-filter: blur(24px) saturate(1.25);
-  backdrop-filter: blur(24px) saturate(1.25);
   box-shadow: var(--vt-rim-float) !important;
   border-color: transparent !important;
 }
@@ -470,8 +697,9 @@ body {
 /* ------------------------------------------------------- the on states --- */
 
 /* Everything that is on, in one place: the selected channel and DM, the
-   selected settings row, a selected tab or segment, a toggle button that is pressed, a primary
-   button. The glass lit from inside (--vt-lit and --vt-rim-lit, every alpha
+   selected settings row, a selected tab or segment, a toggle button that is
+   pressed, your reaction, your poll answer, a voice panel button that is on,
+   a sound that is playing, a primary button (a primary text button is a link, not a lit box). The glass lit from inside (--vt-lit and --vt-rim-lit, every alpha
    scaled by --vt-k so the light can fade in and brighten), with a band of
    light on top that rests past the right edge until the sweep runs it
    across once. Top tab bars (an underline under the label) are not boxes;
@@ -481,8 +709,12 @@ body {
 [role="tab"][aria-selected="true"]:not(:is([class^="top_"], [class*=" top_"]) > *),
 [data-settings-sidebar-item] > [aria-current="page"],
 :is([class^="segmentedItemSelected_"], [class*=" segmentedItemSelected_"]),
+:is([class^="reaction_"], [class*=" reaction_"]):is([class*="reactionMe_"]),
+:is([class^="answer_"], [class*=" answer_"]):is([class*="selected_"]),
+:is([class^="button_"], [class*=" button_"]):is([class*="buttonActive_"]),
+:is([class^="soundButton_"], [class*=" soundButton_"]):is([class*="playing_"]),
 :is([class^="toggleButton_"], [class*=" toggleButton_"]):is([aria-pressed="true"], [data-selected]),
-:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"]) {
+:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"], [class*="overlay-primary_"]):not([class*="textButton_"]) {
   background:
     linear-gradient(105deg, transparent 40%, rgba(255, 255, 255, .22) 50%, transparent 60%)
       var(--vt-sweep-x, -20%) 0 / 250% 100% no-repeat,
@@ -501,6 +733,10 @@ body {
 [role="tab"][aria-selected="true"]:not(:is([class^="top_"], [class*=" top_"]) > *),
 [data-settings-sidebar-item] > [aria-current="page"],
 :is([class^="segmentedItemSelected_"], [class*=" segmentedItemSelected_"]),
+:is([class^="reaction_"], [class*=" reaction_"]):is([class*="reactionMe_"]),
+:is([class^="answer_"], [class*=" answer_"]):is([class*="selected_"]),
+:is([class^="button_"], [class*=" button_"]):is([class*="buttonActive_"]),
+:is([class^="soundButton_"], [class*=" soundButton_"]):is([class*="playing_"]),
 :is([class^="toggleButton_"], [class*=" toggleButton_"]):is([aria-pressed="true"], [data-selected]) {
   animation: vt-lit-in var(--vt-dur-slow) var(--vt-ease) backwards;
 }
@@ -514,7 +750,7 @@ body {
 }
 
 /* Hovered or focused, a lit button glows a little brighter. */
-:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"]):is(:hover, :focus-visible) {
+:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"], [class*="overlay-primary_"]):not([class*="textButton_"]):is(:hover, :focus-visible) {
   --vt-k: 1.3;
 }
 
@@ -527,7 +763,7 @@ body {
 :is([class^="modeSelected_"], [class*=" modeSelected_"]) :is([class^="icon_"], [class*=" icon_"]),
 [role="tab"][aria-selected="true"] svg,
 [data-settings-sidebar-item] > [aria-current="page"] svg,
-:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"]) svg {
+:is(button, [role="button"]):is([class*="lookFilled_"][class*="colorBrand_"], [class^="primary_"], [class*=" primary_"], [class*="overlay-primary_"]):not([class*="textButton_"]) svg {
   color: var(--vt-accent) !important;
 }
 
@@ -682,6 +918,7 @@ button:is([class*="lookFilled_"], [class*="lookOutlined_"], [class^="button_"], 
    The track's light fades, the knob glides. */
 :is([class^="switchIndicator_"], [class*=" switchIndicator_"]) {
   background-color: rgba(255, 255, 255, .10) !important;
+  border-radius: 8px !important;
   box-shadow: var(--vt-rim-off);
   transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease) !important;
 }
@@ -691,6 +928,11 @@ button:is([class*="lookFilled_"], [class*="lookOutlined_"], [class^="button_"], 
 .vc-switch-container.vc-switch-checked {
   background-color: var(--vt-switch-on) !important;
   box-shadow: var(--vt-rim-switch), 0 0 12px -2px rgba(var(--vt-glow-rgb), .55) !important;
+}
+
+/* The knob is a rect in an SVG: its corners are rx, not a border-radius. */
+:is([class^="switchIndicator_"], [class*=" switchIndicator_"]) :is([class^="thumb_"], [class*=" thumb_"]) rect {
+  rx: 6px;
 }
 
 :is([class^="switchIndicator_"], [class*=" switchIndicator_"]) :is([class^="thumb_"], [class*=" thumb_"]),
@@ -775,8 +1017,6 @@ li:is([class^="messageListItem_"], [class*=" messageListItem_"]) > :is([class^="
 /* "N new messages" is a lit glass bar, not a brand-coloured one. */
 :is([class^="newMessagesBar_"], [class*=" newMessagesBar_"]) {
   background: rgba(var(--vt-glow-rgb), .26) !important;
-  -webkit-backdrop-filter: blur(18px) saturate(1.2);
-  backdrop-filter: blur(18px) saturate(1.2);
   border-color: transparent !important;
   border-radius: 0 0 var(--vt-radius-tile) var(--vt-radius-tile) !important;
   box-shadow: var(--vt-rim-switch), 0 8px 24px -10px rgba(0, 0, 0, .5) !important;
@@ -789,6 +1029,256 @@ li:is([class^="messageListItem_"], [class*=" messageListItem_"]) > :is([class^="
 :is([class^="numberBadge_"], [class*=" numberBadge_"]),
 :is([class^="typingDots_"], [class*=" typingDots_"]) {
   animation: vt-fade var(--vt-dur) var(--vt-ease) backwards;
+}
+
+/* ---------------------------------------------------- voice and calls --- */
+
+/* A voice channel nobody has joined: Discord draws a blurple shader on a
+   canvas here. It is hidden, so the view stands on the ground and nothing
+   animates behind it. */
+:is([class^="pulseGradient_"], [class*=" pulseGradient_"]) {
+  display: none !important;
+}
+
+:is([class^="callContainer_"], [class*=" callContainer_"]),
+:is([class^="callContainer_"], [class*=" callContainer_"]) > :is([class^="root_"], [class*=" root_"]) {
+  background: var(--vt-ground) !important;
+}
+
+/* The people in a voice channel: rows like the channels'; whoever speaks has
+   a lit ring and keeps the text colour (Discord paints both green). */
+:is([class^="voiceUser_"], [class*=" voiceUser_"]) :is([class^="content_"], [class*=" content_"]) {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+:is([class^="usernameSpeaking_"], [class*=" usernameSpeaking_"]) {
+  color: var(--vt-text) !important;
+}
+
+:is(:is([class^="speaking_"], [class*=" speaking_"]), :is([class^="playingSoundboard_"], [class*=" playingSoundboard_"])) :is([class^="avatarSpeakingOutline_"], [class*=" avatarSpeakingOutline_"]) {
+  outline-color: rgba(255, 255, 255, .75) !important;
+  box-shadow: 0 0 10px 1px rgba(var(--vt-glow-rgb), .65);
+}
+
+/* The panel over the user area while connected: its parts are tiles on it;
+   a button that is on is lit (Discord fills it green). */
+:is([class^="connection_"], [class*=" connection_"]) {
+  border-color: transparent !important;
+  border-radius: var(--vt-radius-button) !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+:is([class^="actionButtons_"], [class*=" actionButtons_"]) {
+  background: var(--vt-tile) !important;
+  border-color: transparent !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+:is([class^="actionButtons_"], [class*=" actionButtons_"]) :is([class^="button_"], [class*=" button_"]) {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+/* Call and stream tiles: vitrum's corners, on the tile and its rim. */
+:is([class^="callContainer_"], [class*=" callContainer_"]) {
+  --custom-base-tile-border-radius: var(--vt-radius-tile);
+}
+
+:is(:is([class^="tile_"], [class*=" tile_"]), :is([class^="streamTile_"], [class*=" streamTile_"]), :is([class^="streamTileZoomWrapper_"], [class*=" streamTileZoomWrapper_"])):not(:is([class^="card_"], [class*=" card_"])) {
+  --custom-base-tile-border-radius: var(--vt-radius-tile);
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+:is([class^="gridChip_"], [class*=" gridChip_"]) {
+  background: var(--vt-float) !important;
+  border-radius: 6px !important;
+  box-shadow: var(--vt-rim-off);
+  color: var(--vt-text) !important;
+}
+
+:is([class^="gridChip_"], [class*=" gridChip_"]):is(:hover, :focus-visible) {
+  background: var(--vt-float-high) !important;
+}
+
+/* Stage: the audience is a tile; a raised hand is lit. */
+:is([class^="audienceContainer_"], [class*=" audienceContainer_"]) {
+  background: var(--vt-tile) !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+:is([class^="speakerRaiseHandButton_"], [class*=" speakerRaiseHandButton_"]) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+/* The soundboard: tiles that take the hover light and a hairline rim. */
+:is([class^="soundButton_"], [class*=" soundButton_"]) {
+  border-color: transparent !important;
+  box-shadow: var(--vt-rim-off);
+  transition: var(--vt-tr-surface) !important;
+}
+
+:is([class^="soundButton_"], [class*=" soundButton_"]):is(:hover, :focus-within, :is([class^="focused_"], [class*=" focused_"])) {
+  background: var(--vt-off-hover) !important;
+}
+
+/* -------------------------------------------------------- message parts --- */
+
+/* Embeds: a tile; the colour bar on their left is the embed's own. */
+:is([class^="embedFull_"], [class*=" embedFull_"]) {
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .05);
+}
+
+/* Code: the block is a tile cut into the panel, the inline kind a small one. */
+:is([class^="markup_"], [class*=" markup_"]) pre,
+:is([class^="markup_"], [class*=" markup_"]) pre > code {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+:is([class^="markup_"], [class*=" markup_"]) pre > code {
+  border-color: transparent !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+:is([class^="markup_"], [class*=" markup_"]) code:not(pre > code) {
+  border-radius: 6px !important;
+}
+
+/* A quote's line takes the accent. */
+:is([class^="blockquoteDivider_"], [class*=" blockquoteDivider_"]) {
+  background: rgba(var(--vt-accent-rgb), .5) !important;
+  border-radius: 2px !important;
+}
+
+/* Mentions: a tint, and text that stays the text colour when hovered
+   (Discord fills them with the brand under white). */
+.mention {
+  border-radius: 6px !important;
+  transition: background-color var(--vt-dur-fast) var(--vt-ease), color var(--vt-dur-fast) var(--vt-ease);
+}
+
+.mention.interactive:hover,
+.mention:hover {
+  background: rgba(var(--vt-accent-rgb), .28) !important;
+  color: var(--vt-text) !important;
+}
+
+/* A message that mentions you: its bar is the accent, not Discord's yellow. */
+:is([class^="mentioned_"], [class*=" mentioned_"])::before {
+  background: var(--vt-accent) !important;
+  box-shadow: none !important;
+}
+
+/* The tag beside a bot's name: a tint with the text colour (white on the
+   accent could not be read). */
+:is([class^="botTagRegular_"], [class*=" botTagRegular_"]) {
+  background: color-mix(in srgb, var(--vt-accent) 30%, var(--vt-surface-high)) !important;
+  border-radius: 5px !important;
+  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+  color: var(--vt-text) !important;
+}
+
+:is([class^="botTagRegular_"], [class*=" botTagRegular_"]) :is([class^="botText_"], [class*=" botText_"]) {
+  color: var(--vt-text) !important;
+}
+
+/* Attachments: a file is a tile; pictures and mosaics take its corners. */
+:is([class^="fileWrapper_"], [class*=" fileWrapper_"]) {
+  background: var(--vt-tile) !important;
+  border-color: transparent !important;
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+:is([class^="mosaicItem_"], [class*=" mosaicItem_"]) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+/* Reactions: glass, and yours is lit (see the on states). */
+:is([class^="reaction_"], [class*=" reaction_"]) {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+/* Polls: answers are tiles; the bar behind the votes keeps Discord's voted
+   and winner fills (the --polls-* variables), and sits at z-index -1, so an
+   answer needs its own stacking context or a lit fill would cover it; the
+   answer you picked is lit (see the on states). */
+:is([class^="answersContainer_"], [class*=" answersContainer_"]) :is([class^="answer_"], [class*=" answer_"]) {
+  border-radius: var(--vt-radius-button) !important;
+  isolation: isolate;
+  transition: var(--vt-tr-surface) !important;
+}
+
+:is([class^="votePercentageBar_"], [class*=" votePercentageBar_"]) {
+  border-radius: inherit;
+}
+
+/* The bar on a message that started a thread. */
+:is([class^="threadMessageAccessory_"], [class*=" threadMessageAccessory_"]) {
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-off);
+}
+
+/* ------------------------------------ forums, threads, friends, members --- */
+
+/* A forum's post: a tile that takes the hover light. */
+:is([class^="container_"], [class*=" container_"]):is([class^="mainCard_"], [class*=" mainCard_"]) {
+  border-radius: var(--vt-radius-tile) !important;
+  box-shadow: var(--vt-rim-off);
+  transition: var(--vt-tr-surface) !important;
+}
+
+:is([class^="container_"], [class*=" container_"]):is([class^="mainCard_"], [class*=" mainCard_"]):hover {
+  background: var(--vt-off-hover) !important;
+}
+
+/* Friends and the member list: rows like the channels'. */
+:is([class^="peopleListItem_"], [class*=" peopleListItem_"]),
+:is([class^="memberInner_"], [class*=" memberInner_"]),
+:is([class^="member_"], [class*=" member_"]) {
+  border-radius: var(--vt-radius-button) !important;
+  transition: var(--vt-tr-surface) !important;
+}
+
+/* The bars that jump to unread channels, a forum's tags, the boost goal, a
+   date in the chat: small parts, so the small radii, not capsules. */
+:is([class^="containerPadding_"], [class*=" containerPadding_"]) > :is([class^="bar_"], [class*=" bar_"]),
+:is([class^="tagsContainer_"], [class*=" tagsContainer_"]) :is([class^="pill_"], [class*=" pill_"]),
+:is([class^="mainCard_"], [class*=" mainCard_"]) :is([class^="pill_"], [class*=" pill_"]),
+:is([class^="progressContainer_"], [class*=" progressContainer_"]) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+:is([class^="divider_"], [class*=" divider_"]) > :is([class^="content_"], [class*=" content_"]) {
+  border-radius: 6px !important;
+}
+
+/* The line and label at the first unread message: vitrum's danger, which
+   reads on these panels where Discord's red does not. */
+:is([class^="isUnread_"], [class*=" isUnread_"]) {
+  --divider-color: var(--vt-danger) !important;
+}
+
+/* --------------------------------------------------------- the log-in --- */
+
+/* Discord's art and its animated stars are blurple and run forever: both go,
+   the page stands on the ground, and the card is a panel. */
+:is([class^="characterBackground_"], [class*=" characterBackground_"]) > :is([class^="artwork_"], [class*=" artwork_"]),
+:is([class^="notAppAsidePanel_"], [class*=" notAppAsidePanel_"]) > :is([class^="canvas_"], [class*=" canvas_"]) {
+  display: none !important;
+}
+
+:is([class^="characterBackground_"], [class*=" characterBackground_"]) {
+  background: var(--vt-ground) !important;
+}
+
+:is([class^="authBox_"], [class*=" authBox_"]) {
+  border-radius: var(--vt-radius-panel) !important;
+  box-shadow: var(--vt-rim-float) !important;
 }
 
 /* ------------------------------------------------------------ floats --- */

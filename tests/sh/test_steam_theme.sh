@@ -139,7 +139,10 @@ test_shell_stage_installs_the_helper_and_the_theme_source() {
   stub python3 'exit 0'
   stage_shell >/dev/null 2>&1
   [[ -x "$HOME/.local/bin/vitrum-steam-theme" ]]
-  [[ -f "$XDG_DATA_HOME/vitrum/steam/vitrum/skin.json" ]]
+  local f
+  for f in skin.json web.css bigpicture.vcss bigpicture.css bigpicture.js; do
+    [[ -f "$XDG_DATA_HOME/vitrum/steam/vitrum/$f" ]] || { echo "missing $f"; return 1; }
+  done
 }
 
 # terpinator's case: Millennium already there, from the AUR. The real helper

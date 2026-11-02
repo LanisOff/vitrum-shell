@@ -1,0 +1,1019 @@
+/* vitrum for Steam: the store and the community, the web pages inside the
+   client. skin.json matches these by URL; Millennium links this file into the
+   page's HTML, so it is here before the page paints.
+
+   These pages are Valve's websites, not Steam's client: their class names are
+   plain and stay put, and steam.vcss's lookup does not apply (the store's newer
+   React parts have hashes from the site's own bundles, which change with a
+   site deploy, so they are reached by element and structure, never by hash).
+
+   Same language as base.css: the page is the palette's solid bg, glass layers
+   sit on it at fixed alphas, on is lit glass, radii 12 / 9 / 20, no capsules,
+   no blur, nothing that runs on its own. colors.css comes first and base.css
+   does not load here, so the few recipes these pages need are below. */
+
+:root {
+  --vt-panel: rgba(var(--vt-surface-rgb), .72);
+  --vt-panel-raised: rgba(var(--vt-surface-high-rgb), .75);
+  --vt-tile: rgba(255, 255, 255, .04);
+  --vt-tile-hover: rgba(255, 255, 255, .07);
+  --vt-well: rgba(0, 0, 0, .18);
+  --vt-hairline: rgba(255, 255, 255, .07);
+  --vt-off: rgba(255, 255, 255, .05);
+  --vt-off-hover: rgba(255, 255, 255, .09);
+  --vt-lit-fill: rgba(255, 255, 255, .14);
+  --vt-lit-fill-hover: rgba(255, 255, 255, .19);
+  --vt-lit-frost: linear-gradient(180deg, rgba(255, 255, 255, .10), rgba(255, 255, 255, .02));
+  --vt-rim-panel: inset 0 0 0 1px rgba(255, 255, 255, .09), inset 0 1px 0 rgba(255, 255, 255, .08);
+  --vt-rim-tile: inset 0 0 0 1px rgba(255, 255, 255, .07), inset 0 1px 0 rgba(255, 255, 255, .06);
+  --vt-rim-off: inset 0 0 0 1px rgba(255, 255, 255, .08), inset 0 1px 0 rgba(255, 255, 255, .05);
+  --vt-rim-hover: inset 0 0 0 1px rgba(255, 255, 255, .13), inset 0 1px 0 rgba(255, 255, 255, .09);
+  --vt-rim-lit: inset 0 0 0 1px rgba(255, 255, 255, .28), inset 0 1px 0 rgba(255, 255, 255, .5),
+                0 4px 16px -6px rgba(var(--vt-glow-rgb), .55);
+  --vt-rim-lit-hover: inset 0 0 0 1px rgba(255, 255, 255, .34), inset 0 1px 0 rgba(255, 255, 255, .6),
+                      0 6px 20px -6px rgba(var(--vt-glow-rgb), .7);
+  --vt-rim-focus: inset 0 0 0 1px rgba(var(--vt-accent-rgb), .65), 0 0 0 3px rgba(var(--vt-glow-rgb), .14);
+  --vt-menu-solid: linear-gradient(180deg, rgba(255, 255, 255, .05), rgba(255, 255, 255, 0) 40%),
+                   var(--vt-surface-highest);
+  /* Parts under about 24 px high: 9 px there would be a capsule. */
+  --vt-radius-small: 6px;
+  --vt-bar: rgba(var(--vt-surface-rgb), .5);
+  --vt-ease: cubic-bezier(.2, .8, .2, 1);
+  --vt-dur: 220ms;
+  --vt-transition: background-color var(--vt-dur) var(--vt-ease), box-shadow var(--vt-dur) var(--vt-ease),
+                   color var(--vt-dur) var(--vt-ease);
+}
+
+/* ------------------------------------------------------------- the page --- */
+
+html,
+body,
+body.v6,
+body.v7,
+body.game_bg,
+body.apphub_blue,
+body.responsive_page,
+.responsive_page_frame,
+.responsive_page_content,
+.responsive_page_template_content,
+.page_content_ctn,
+.page_background_overlay {
+  background: var(--vt-bg) !important;
+  background-image: none !important;
+}
+
+/* Steam's blue wash behind the pages. A game's own art stays. */
+.page_background_holder,
+.game_background_glow,
+.game_background_lighten,
+.home_page_gutter,
+.apphub_background > .apphub_background_glow {
+  background-image: none !important;
+}
+
+.game_page_background,
+.game_page_background.game,
+.game_page_background_ctn,
+.apphub_background {
+  background-color: var(--vt-bg) !important;
+  background-image: none !important;
+}
+
+body,
+button,
+input,
+select,
+textarea,
+body :is(div, span, a, p, label, li, td, th, h1, h2, h3, h4, h5, h6, b, strong, em, i) {
+  font-family: var(--vt-font) !important;
+}
+
+body {
+  color: var(--vt-text-dim) !important;
+}
+
+a {
+  transition: color var(--vt-dur) var(--vt-ease);
+}
+
+::selection {
+  background: rgba(var(--vt-accent-rgb), .35);
+  color: var(--vt-text);
+}
+
+::-webkit-scrollbar {
+  width: 12px;
+  height: 12px;
+  background: transparent !important;
+}
+
+::-webkit-scrollbar-thumb {
+  background-color: rgba(255, 255, 255, .14) !important;
+  border-radius: 6px !important;
+  border: 3px solid transparent !important;
+  background-clip: padding-box !important;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background-color: rgba(255, 255, 255, .26) !important;
+}
+
+::-webkit-scrollbar-track,
+::-webkit-scrollbar-corner {
+  background: transparent !important;
+}
+
+/* ------------------------------------------------------------ the text --- */
+
+/* A plain text link: Steam's blue, in the accent. */
+body a:not([class]) {
+  color: var(--vt-accent);
+}
+
+#footer,
+footer {
+  background: var(--vt-bar) !important;
+  background-image: none !important;
+}
+
+#footer a,
+footer a {
+  color: var(--vt-text-dim) !important;
+}
+
+/* Steam's two blues, wherever the site spells them as a class. */
+.game_review_summary.positive,
+.game_review_summary,
+.apphub_CardRating.rateUp,
+.review_award_aggregated,
+.apphub_MostPopularLink,
+.linkbar,
+.all_languages,
+.reviewDate,
+.glance_ctn .dev_row a,
+.glance_details a,
+.app_reviews_area a,
+.app_reviews_area span,
+.large_title,
+.discussion_primary_header,
+.profile_in_game_header,
+.commentthread_subscribe_hint_q,
+.workshop_apps_paging_pagelink.active,
+.bb_h2,
+.market_search_sidebar_section_tip_small {
+  color: var(--vt-accent) !important;
+}
+
+.game_review_summary.mixed {
+  color: var(--vt-text-dim) !important;
+}
+
+.game_review_summary.negative {
+  color: var(--vt-danger) !important;
+}
+
+/* Text Steam leaves a little too dark to read on the palette's bg. */
+.glance_tags_label,
+.user_reviews_summary_row .subtitle,
+.dev_row .subtitle,
+.game_description_snippet,
+.apphub_CardContentTitle,
+.apphub_CardContentDiscussionType,
+.apphub_CardContentDiscussionDate,
+.apphub_CardContentMoreLink,
+.apphub_CardContentAuthorName,
+.apphub_CardContentAuthorName a,
+.apphub_more_friends_who_play,
+.apphub_Card a,
+.found_helpful,
+.blockbg,
+.blockbg a,
+.sysreq_tab,
+.game_area_description,
+.reviewPostedDate,
+.pipe_separator,
+.copyIcon,
+.copyright,
+.link_ssa,
+.game_area_features_list_ctn .label,
+.game_area_features_list_ctn span,
+.game_area_features_list_ctn summary,
+.comment_hidden_description,
+.marketBetaNoteText,
+.market_listing_item_name {
+  color: var(--vt-text-dim) !important;
+}
+
+.apphub_CardContentTitle,
+.apphub_CardTextContent,
+.game_area_description h2,
+.apphub_AppName,
+.apphub_CardContentGuideTitle,
+.pageheader,
+.pageheader_ctn,
+.page_title_area {
+  color: var(--vt-text) !important;
+}
+
+/* ------------------------------------------------------------- buttons --- */
+
+/* A clear glass button. The span inside carries Steam's own fill. */
+.btn_medium,
+.btn_small,
+.btn_small_thin,
+.btn_large,
+.btn_grey_black,
+.btn_grey_grey,
+.btn_grey_white_innerfade,
+.btn_darkblue_white_innerfade,
+.btn_blue_white_innerfade,
+.btn_profile_action,
+.btnv6_blue_hoverfade,
+.btnv6_lightblue_blue,
+.btnv6_blue_blue_innerfade,
+.btnv6_white_transparent,
+.pagebtn,
+.queue_btn_inactive,
+.queue_menu_arrow,
+.apphub_OtherSiteInfo > a,
+.btn_blue_steamui {
+  border: 0 !important;
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+  text-shadow: none !important;
+  transition: var(--vt-transition) !important;
+}
+
+.btn_medium:hover,
+.btn_small:hover,
+.btn_small_thin:hover,
+.btn_large:hover,
+.btn_grey_black:hover,
+.btn_grey_grey:hover,
+.btn_grey_white_innerfade:hover,
+.btn_darkblue_white_innerfade:hover,
+.btn_blue_white_innerfade:hover,
+.btn_profile_action:hover,
+.btnv6_blue_hoverfade:hover,
+.btnv6_lightblue_blue:hover,
+.btnv6_blue_blue_innerfade:hover,
+.btnv6_white_transparent:hover,
+.pagebtn:hover,
+.queue_btn_inactive:hover,
+.queue_menu_arrow:hover,
+.btn_blue_steamui:hover {
+  background: var(--vt-off-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+:is(.btn_medium, .btn_small, .btn_small_thin, .btn_large, .btn_grey_black, .btn_grey_grey, .btn_grey_white_innerfade,
+    .btn_darkblue_white_innerfade, .btn_blue_white_innerfade, .btn_profile_action, .btnv6_blue_hoverfade,
+    .btnv6_lightblue_blue, .btnv6_blue_blue_innerfade, .btnv6_white_transparent, .btn_blue_steamui) > span {
+  border: 0 !important;
+  border-radius: inherit !important;
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: inherit !important;
+  text-shadow: none !important;
+}
+
+/* The primary action (Buy, Add to Cart, Play) is lit glass: frosted, a bright
+   rim, the accent only as the glow under it, the text stays the text colour. */
+.btn_green_steamui,
+.btn_green_white_innerfade,
+.btnv6_green_white_innerfade,
+.btn_addtocart > a,
+.btn_addtocart .btn_green_steamui,
+.queue_btn_active,
+.ds_flag_action {
+  border: 0 !important;
+  border-radius: var(--vt-radius-button) !important;
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+  text-shadow: none !important;
+  transition: var(--vt-transition) !important;
+}
+
+.btn_green_steamui:hover,
+.btn_green_white_innerfade:hover,
+.btnv6_green_white_innerfade:hover,
+.btn_addtocart > a:hover,
+.queue_btn_active:hover {
+  background-color: var(--vt-lit-fill-hover) !important;
+  box-shadow: var(--vt-rim-lit-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+:is(.btn_green_steamui, .btn_green_white_innerfade, .btnv6_green_white_innerfade, .btn_addtocart) span {
+  border: 0 !important;
+  background: transparent !important;
+  background-image: none !important;
+  color: inherit !important;
+  text-shadow: none !important;
+}
+
+/* Low buttons: 9 px on these would be a capsule. */
+.btn_small,
+.btn_small_thin,
+.pagebtn,
+.queue_menu_arrow {
+  border-radius: var(--vt-radius-small) !important;
+}
+
+/* ---------------------------------------------------------- fields --- */
+
+input[type="text"],
+input[type="search"],
+input[type="password"],
+input[type="email"],
+input[type="number"],
+textarea,
+select,
+.gray_bevel,
+.gray_bevel.fullwidth,
+.searchbox,
+.apphub_SearchBox {
+  border: 0 !important;
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-well) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+  transition: box-shadow var(--vt-dur) var(--vt-ease) !important;
+}
+
+/* Steam's fields are about 20 px high: 9 px there would be a capsule. */
+input[type="text"],
+input[type="search"],
+.apphub_SearchBox,
+.game_area_dlc_row {
+  border-radius: var(--vt-radius-small) !important;
+}
+
+input[type="text"]:focus,
+input[type="search"]:focus,
+textarea:focus,
+select:focus {
+  outline: none !important;
+  box-shadow: var(--vt-rim-focus) !important;
+}
+
+input::placeholder,
+textarea::placeholder {
+  color: var(--vt-text-dim) !important;
+}
+
+/* The store's top bar and its search (React, hashed): the bar is the panel
+   that holds the search form. */
+.Panel.Focusable:has(form input) {
+  background: var(--vt-surface) !important;
+  background-image: none !important;
+  box-shadow: inset 0 -1px 0 var(--vt-hairline) !important;
+}
+
+form:has(input) {
+  border-radius: var(--vt-radius-button) !important;
+}
+
+[id^="searchSuggestions_"] {
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-menu-solid) !important;
+  box-shadow: var(--vt-rim-panel) !important;
+}
+
+[id^="searchSuggestions_"] a {
+  border-radius: var(--vt-radius-button) !important;
+  background: transparent !important;
+  color: var(--vt-text) !important;
+}
+
+[id^="searchSuggestions_"] a:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+/* The way to the payment page (React, hashed, Steam's bright blue): lit glass,
+   found by where it leads. */
+a[href*="checkout.steampowered.com"] {
+  border-radius: var(--vt-radius-button) !important;
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+/* The store's search button (React, hashed): the submit inside the header. */
+header button[type="submit"],
+form[role="search"] button,
+#store_nav_search_term + a {
+  border-radius: var(--vt-radius-button) !important;
+  background: var(--vt-off) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-off) !important;
+}
+
+/* ------------------------------------------------- the store's panels --- */
+
+.game_area_purchase_game,
+.game_area_purchase_game_wrapper .game_area_purchase_game,
+.game_area_purchase_not_refundable,
+.game_area_dlc_section,
+.game_area_already_owned,
+.game_area_already_owned.page_content,
+.responsive_apppage_details_left,
+.responsive_apppage_details_right,
+.review_box,
+.user_reviews_filter_section,
+.user_reviews_filter_menu,
+.home_cluster_ctn,
+.home_tabs_content,
+.tab_preview,
+.search_results_filter_row,
+.searchbar,
+#additional_search_options,
+.search_filter_ctn,
+.cart_area_body,
+.cart_item_list,
+.cart_status_flex,
+.wishlist_row,
+.store_nav,
+.store_nav_bg {
+  border: 0 !important;
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+.game_area_already_owned,
+.game_area_already_owned.page_content {
+  color: var(--vt-text) !important;
+}
+
+.game_area_already_owned_btn a,
+.already_in_library {
+  color: var(--vt-text) !important;
+}
+
+.block,
+.block_content,
+.block_content_inner,
+.block_responsive_horizontal_scroll,
+.game_area_play_stats,
+.game_purchase_action_bg,
+.game_purchase_action,
+.game_area_dlc_row,
+.game_area_dlc_row.odd,
+.sysreq_tabs,
+.game_area_sys_req,
+.tab_content_ctn,
+.tab_content_items,
+.store_main_capsule .info,
+.carousel_items .info,
+.responsive_page_template_content .info {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+/* A row in a list (search results, tabs, DLC): a tile that lights on hover. */
+.tab_item,
+.search_result_row,
+.game_area_dlc_row,
+.cart_row {
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  transition: var(--vt-transition) !important;
+}
+
+.tab_item:hover,
+.tab_item.focus,
+.search_result_row:hover,
+.game_area_dlc_row:hover {
+  background: var(--vt-tile-hover) !important;
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+.tab_row_item,
+.home_tab,
+.sysreq_tab {
+  border-radius: var(--vt-radius-small) !important;
+  background: transparent !important;
+  background-image: none !important;
+  transition: var(--vt-transition) !important;
+}
+
+.tab_row_item:hover,
+.home_tab:hover,
+.sysreq_tab:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+/* The search page's filters and sorting. */
+.page_header_ctn.search {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.search_result_row .title,
+.tab_filter_control_label,
+#sort_by_trigger,
+#price_range_display {
+  color: var(--vt-text) !important;
+}
+
+.search_released,
+.search_result_row .label,
+.responsive_search_name_combined .label {
+  color: var(--vt-text-dim) !important;
+}
+
+.tab_filter_control_row {
+  border-radius: var(--vt-radius-small) !important;
+  transition: var(--vt-transition) !important;
+}
+
+/* A filter that is on: lit, its tick in the accent. */
+.tab_filter_control_row.checked {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+}
+
+.tab_filter_control_row.checked .tab_filter_control_label {
+  color: var(--vt-text) !important;
+}
+
+.tab_filter_control_row.checked .tab_filter_control_checkbox {
+  color: var(--vt-accent) !important;
+}
+
+/* The open tab: lit glass. */
+.tab_row_item.focus,
+.tab_row_item.active,
+.home_tab.active,
+.sysreq_tab.active {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+.app_tag,
+.app_tag.add_button,
+.deep_dive_tag {
+  border: 0 !important;
+  border-radius: var(--vt-radius-small) !important;
+  background: var(--vt-off) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-transition) !important;
+}
+
+.app_tag:hover,
+.deep_dive_tag:hover {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+.deep_dive_key_tags {
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+/* Prices: the discount is the second hue on glass, not a green block. */
+.discount_pct,
+.game_purchase_discount .discount_pct,
+.bundle_base_discount {
+  border-radius: 6px 0 0 6px !important;
+  background: rgba(var(--vt-accent2-rgb), .2) !important;
+  color: var(--vt-text) !important;
+}
+
+.discount_prices,
+.discount_block,
+.discount_block.no_discount,
+.game_purchase_price {
+  border-radius: 6px !important;
+  background: var(--vt-off) !important;
+  background-image: none !important;
+  color: var(--vt-text) !important;
+}
+
+.discount_original_price {
+  color: var(--vt-text-dim) !important;
+}
+
+.discount_final_price {
+  color: var(--vt-text) !important;
+}
+
+/* The flags on a capsule. */
+.ds_flag,
+.ds_owned_flag,
+.ds_wishlist_flag,
+.package_in_library_flag,
+.in_own_library {
+  border-radius: 6px !important;
+  background: var(--vt-menu-solid) !important;
+  box-shadow: var(--vt-rim-off) !important;
+  color: var(--vt-text) !important;
+}
+
+/* A game's feature list and the media carousel's track (React, hashed: by
+   their stable parents). */
+.game_area_details_specs_ctn,
+.game_area_features_list_ctn summary,
+.game_area_features_list_ctn summary > span {
+  border-radius: var(--vt-radius-small) !important;
+  background: var(--vt-tile) !important;
+}
+
+.game_area_features_list_ctn .label {
+  background: transparent !important;
+}
+
+.game_area_features_list_ctn summary > div {
+  background: transparent !important;
+}
+
+.gamehighlight_desktopcarousel div[class] {
+  border-color: var(--vt-hairline);
+}
+
+/* The newer React pages (the wishlist, the achievements) have only hashed
+   classes. Two things hold still there: Steam's "Panel" and plain buttons. */
+.Panel:has(button):has(a[href*="/app/"]) {
+  background-color: var(--vt-tile) !important;
+  background-image: none !important;
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+.Panel button {
+  border-color: var(--vt-hairline) !important;
+  background-color: var(--vt-off) !important;
+  color: var(--vt-text-dim) !important;
+}
+
+.Panel button:hover {
+  background-color: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* Section headers Steam draws with an image strip. */
+.game_page_autocollapse h2,
+.game_area_description h2,
+.gradientbg,
+h2.gradientbg,
+.home_section_title,
+.rule {
+  background: none !important;
+  color: var(--vt-text) !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+/* ------------------------------------------------------------ popups --- */
+
+.popup_block_new,
+.popup_block,
+.popup_body,
+.popup_menu,
+.popup_menu_browse,
+.newmodal,
+.newmodal_content_border,
+.newmodal_content,
+.newmodal_header_border,
+.newmodal_header,
+.modal_top_bar {
+  border: 0 !important;
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-menu-solid) !important;
+  background-image: var(--vt-menu-solid) !important;
+  box-shadow: var(--vt-rim-panel) !important;
+  color: var(--vt-text) !important;
+}
+
+.popup_menu_item,
+.popup_menu_item.tight {
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text) !important;
+  transition: var(--vt-transition) !important;
+}
+
+.popup_menu_item:hover {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+}
+
+.newmodal_background {
+  background: rgba(var(--vt-bg-rgb), .6) !important;
+}
+
+/* -------------------------------------------------------- the community --- */
+
+.apphub_HomeHeaderContent,
+.apphub_HeaderBottomBG,
+.apphub_HeaderTop,
+.apphub_HubDivider,
+.apphub_HomeHeader {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+.apphub_sectionTab {
+  border-radius: var(--vt-radius-small) !important;
+  transition: var(--vt-transition) !important;
+}
+
+.apphub_sectionTab:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+.apphub_sectionTab.active {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+/* A hub card. */
+.apphub_Card,
+.apphub_Card.modalContentLink {
+  border: 0 !important;
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-panel) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-tile) !important;
+  overflow: hidden;
+  transition: var(--vt-transition) !important;
+}
+
+.apphub_Card.interactable:hover {
+  box-shadow: var(--vt-rim-hover) !important;
+}
+
+.apphub_CardContentGuideTitle,
+.apphub_CardBG,
+.apphub_CardAnnouncementBG,
+.apphub_CardContentNewsFade {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+.apphub_CardContentAuthorBlock,
+.apphub_CardContentDiscussionType {
+  background: transparent !important;
+  background-image: none !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+.apphub_CardContentAuthorBlock .gradient,
+.apphub_Card .gradient {
+  background: linear-gradient(rgba(var(--vt-surface-rgb), 0) 5%, var(--vt-surface) 95%) !important;
+}
+
+.apphub_ForumBox,
+.apphub_OtherSiteInfo,
+.apphub_friends_who_play,
+.apphub_FriendsAndStats {
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+/* A friend's state: the accent pair, as in the client. */
+.playerAvatar.online,
+.appHubIconHolder.online {
+  background: var(--vt-accent) !important;
+  background-image: none !important;
+}
+
+.playerAvatar.in-game,
+.appHubIconHolder.in-game {
+  background: var(--vt-accent2) !important;
+  background-image: none !important;
+}
+
+.appHubIconExtra,
+.appHubShadow {
+  background: var(--vt-off) !important;
+}
+
+/* A profile: its own artwork and showcases stay; the plates around them are
+   glass. */
+.profile_page,
+.profile_page.has_profile_background,
+.no_header.profile_page {
+  background-color: var(--vt-bg) !important;
+}
+
+.profile_header_bg,
+.profile_header_bg_texture,
+.profile_content,
+.profile_content.has_profile_background {
+  background-color: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.commentthread_header {
+  background: var(--vt-bar) !important;
+  background-image: none !important;
+}
+
+.profile_rightcol,
+.profile_customization,
+.profile_leftcol .showcase_content_bg,
+.profile_customization_header,
+.profile_comment_area,
+.commentthread_comment_container,
+.commentthread_area,
+.commentthread_comment,
+.game_info_stats,
+.recent_game,
+.recent_games,
+.profile_count_link,
+.responsive_count_link_area {
+  background-color: var(--vt-panel) !important;
+  background-image: none !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+.profile_rightcol,
+.profile_customization,
+.recent_games,
+.commentthread_area {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+.profile_in_game,
+.profile_in_game.persona {
+  background: transparent !important;
+}
+
+.profile_header_summary,
+.actual_persona_name,
+.persona_name,
+.profile_customization_header {
+  color: var(--vt-text) !important;
+}
+
+.profile_count_link_total {
+  color: var(--vt-accent) !important;
+}
+
+/* Workshop. */
+.workshopBrowseItems,
+.workshopBrowseItemsCtn,
+.workshop_browse_menu_area,
+.browseOptions,
+.browseOption,
+.rightSectionHolder,
+.rightDetailsBlock,
+.workshopItemDescription,
+.detailBox,
+.workshopTags,
+.workshop_items_ctn {
+  background-color: transparent !important;
+  background-image: none !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+.workshop_browse_menu_area,
+.detailBox,
+.rightDetailsBlock {
+  border-radius: var(--vt-radius-tile) !important;
+  background-color: var(--vt-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+.workshopItem,
+.workshopItemPreviewHolder,
+.ugc {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+.workshopItemTitle {
+  color: var(--vt-text) !important;
+}
+
+.browseOption.selected,
+.browseOption.active {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  border-radius: var(--vt-radius-button) !important;
+}
+
+/* The Workshop's front page. */
+#BG_top_workshop,
+.primary_panel,
+.primary_panel_border,
+.rightbox_list_selection_background,
+.searchApps,
+.browseApps {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  border-color: var(--vt-hairline) !important;
+}
+
+.primary_panel_border {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+/* Discussions: the tabs and the rows. */
+.group_content,
+.discussionSearchTextContainer {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+}
+
+.recent_game_discussion,
+.discussions_forum_row,
+.discussions_forum_row.unread {
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-tile) !important;
+  background-image: none !important;
+  transition: var(--vt-transition) !important;
+}
+
+.recent_game_discussion:hover,
+.discussions_forum_row:hover {
+  background: var(--vt-tile-hover) !important;
+}
+
+.group_tab {
+  border-radius: var(--vt-radius-small) !important;
+  background: transparent !important;
+  background-image: none !important;
+  transition: var(--vt-transition) !important;
+}
+
+.group_tab:hover {
+  background: var(--vt-off-hover) !important;
+}
+
+.group_tab.active {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+/* The market's green header and its note. */
+.market_header_bg,
+#BG_top,
+.market_tab_well_tab_contents {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+#marketBetaNoteCtn {
+  border-radius: var(--vt-radius-tile) !important;
+  background: var(--vt-tile) !important;
+  box-shadow: var(--vt-rim-tile) !important;
+}
+
+/* Discussions and the market. */
+.forum_topic,
+.forum_topic.unread,
+.forum_op,
+.commentthread_comment,
+.market_listing_row,
+.market_recent_listing_row,
+.market_home_listing_table,
+.market_content_block,
+.market_search_sidebar,
+.my_market_header {
+  border-color: var(--vt-hairline) !important;
+  background-color: var(--vt-tile) !important;
+  background-image: none !important;
+}
+
+.forum_topic:hover,
+.market_listing_row:hover {
+  background-color: var(--vt-tile-hover) !important;
+}
+
+/* ---------------------------------------------------- reduced motion --- */
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --vt-dur: 0ms;
+    --vt-transition: none;
+  }
+}

@@ -1,0 +1,204 @@
+/* vitrum for Steam: Big Picture, Quick Access, the main menu, and the in-game
+   overlay, which is Big Picture's code in a smaller window. A template like
+   steam.vcss (@{Signature/Key}); it loads after base.css and steam.css, so the
+   recipes and most controls are already there. This file is the gamepad UI's
+   own frame and pieces.
+
+   Same language as the desktop: the palette's solid bg, glass layers on it, on
+   is lit glass, no capsules. Big Picture runs on a gaming machine, so nothing
+   here moves on its own and nothing blurs: the theme's page and menu animations
+   are off (Steam's own focus and scroll motion stays). */
+
+:root {
+  --vt-a-rise: none;
+  --vt-a-pop: none;
+  --vt-a-fade: none;
+  --vt-a-menu: none;
+  --vt-a-sweep: none;
+  --vt-a-sweep-one: none;
+}
+
+/* ============================================================ the frame === */
+
+/* Steam paints a navy radial gradient on the root and again on most pages. */
+html,
+body,
+#GamepadUI_Full_Root,
+@{HeaderHeightVisible/BasicHome},
+@{HeaderHeightVisible/OpaqueBackground},
+@{GamepadLibrary/GamepadLibrary},
+@{gamepad-page-content-max-width-default/GamepadPage},
+@{NavRoot/NavRoot},
+@{NavRoot/Browser} {
+  background: var(--vt-bg) !important;
+  background-image: none !important;
+}
+
+@{AppDetailsContent/AppDetailsRoot},
+@{AppDetailsContent/AppDetailsContainer},
+@{AppDetailsContent/AppDetailsContent} {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* ============================================================== the tabs === */
+
+/* Steam's 64 px pills become vitrum's plates. */
+@{headerHeight/Tab} {
+  border-radius: var(--vt-radius-button) !important;
+  background: transparent !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{headerHeight/Tab}:hover,
+@{headerHeight/Tab}.gpfocus {
+  background: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+@{headerHeight/Tab}@{headerHeight/Selected} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+@{headerHeight/TabHeaderRowWrapper},
+@{headerHeight/TabRow} {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+/* ========================================================== a game tile === */
+
+@{LandscapeImage/GreyBackground} {
+  background: var(--vt-surface) !important;
+}
+
+/* ===================================================== the settings page === */
+
+/* The open page: lit glass; Steam also rings it in its blue. */
+@{PagedSettingsDialog_PageList_ShowTitle/PagedSettingsDialog_PageListItem}@{PagedSettingsDialog_PageList_ShowTitle/Active} {
+  border-color: transparent !important;
+}
+
+/* ========================================================= the main menu === */
+
+@{mainMenuCloseDurationMS/PopupBody},
+@{mainMenuCloseDurationMS/Container} {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+@{mainMenuCloseDurationMS/Menu} {
+  background: var(--vt-menu-solid) !important;
+  box-shadow: inset -1px 0 0 var(--vt-hairline) !important;
+}
+
+@{mainMenuCloseDurationMS/Item},
+@{mainMenuCloseDurationMS/ItemOuter} {
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{mainMenuCloseDurationMS/Item}:hover,
+@{mainMenuCloseDurationMS/Item}.gpfocus {
+  background-color: var(--vt-off-hover) !important;
+  background-image: none !important;
+  color: var(--vt-text) !important;
+}
+
+@{mainMenuCloseDurationMS/Item}@{mainMenuCloseDurationMS/Active} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-text) !important;
+}
+
+@{mainMenuCloseDurationMS/Item}@{mainMenuCloseDurationMS/Active} @{mainMenuCloseDurationMS/ItemIcon} {
+  color: var(--vt-accent) !important;
+}
+
+@{mainMenuCloseDurationMS/ActiveDot} {
+  background: var(--vt-accent) !important;
+}
+
+/* ========================================================= Quick Access === */
+
+@{TransitionMenuDelay/PopupBody},
+@{TransitionMenuDelay/Container},
+@{TransitionMenuDelay/QuickAccessMenuEmbeddedContainer},
+@{TransitionMenuDelay/AllTabContents},
+@{TransitionMenuDelay/TabGroupPanel} {
+  background: transparent !important;
+  background-image: none !important;
+}
+
+@{TransitionMenuDelay/QuickAccessMenu} {
+  background: var(--vt-menu-solid) !important;
+  box-shadow: inset 1px 0 0 var(--vt-hairline) !important;
+}
+
+/* The title bar stands on the panel, so its shadow goes with Steam's navy. */
+@{TransitionMenuDelay/Title},
+@{TransitionMenuDelay/HeaderContainer},
+@{TransitionMenuDelay/Menu},
+@{TransitionMenuDelay/Footer} {
+  background: transparent !important;
+  background-image: none !important;
+  box-shadow: none !important;
+  color: var(--vt-text) !important;
+}
+
+@{TransitionMenuDelay/FooterBoxShadow} {
+  display: none !important;
+}
+
+@{TransitionMenuDelay/Tabs},
+@{TransitionMenuDelay/TabsWithFooter},
+@{TransitionMenuDelay/TabList},
+@{TransitionMenuDelay/BottomTabs} {
+  background: rgba(0, 0, 0, .12) !important;
+  background-image: none !important;
+  box-shadow: inset -1px 0 0 var(--vt-hairline) !important;
+}
+
+@{TransitionMenuDelay/Tab} {
+  margin: 2px 4px !important;
+  border-radius: var(--vt-radius-button) !important;
+  color: var(--vt-text-dim) !important;
+  transition: var(--vt-glass-transition) !important;
+}
+
+@{TransitionMenuDelay/Tab}:hover {
+  background-color: var(--vt-off-hover) !important;
+  color: var(--vt-text) !important;
+}
+
+/* The open tab: lit, its icon in the accent. */
+@{TransitionMenuDelay/Tab}@{TransitionMenuDelay/Selected} {
+  background-color: var(--vt-lit-fill) !important;
+  background-image: var(--vt-lit-frost) !important;
+  box-shadow: var(--vt-rim-lit) !important;
+  color: var(--vt-accent) !important;
+}
+
+@{TransitionMenuDelay/Tab}@{TransitionMenuDelay/Selected} svg {
+  color: var(--vt-accent) !important;
+}
+
+@{TransitionMenuDelay/PanelSection} {
+  border-radius: var(--vt-radius-tile) !important;
+}
+
+@{TransitionMenuDelay/PanelSectionTitle} {
+  color: var(--vt-text-dim) !important;
+  letter-spacing: .06em !important;
+}
+
+/* A timestamp in a list (Steam's is too dark to read). */
+@{DownloadCompleteText/Timestamp} {
+  color: var(--vt-text-dim) !important;
+}

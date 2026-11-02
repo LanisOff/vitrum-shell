@@ -291,6 +291,8 @@ test_stage_with_the_real_helper_installs_and_activates_the_theme() {
   out="$(_shell_vesktop_theme 2>&1)" || { echo "$out"; return 1; }
   assert_contains "$out" "Vesktop theme installed"
   [[ -f "$XDG_CONFIG_HOME/vesktop/themes/vitrum.theme.css" ]]
+  # the glow as Discord's hsl triple, or its brand tints fall back to grey
+  assert_contains "$(cat "$XDG_CONFIG_HOME/vesktop/themes/vitrum.theme.css")" "--vt-glow-hsl:"
   assert_contains "$(_vencord)" "vitrum.theme.css"
   assert_contains "$(_vencord)" '"Mine"'
   # an update: the same again, no error

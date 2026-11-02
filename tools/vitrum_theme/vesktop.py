@@ -20,8 +20,9 @@ Vencord main, and checked on an installed vesktop-bin 1.6.8):
   window      Vesktop's window has the app id "vesktop" (StartupWMClass too).
 
 No transparency: Vencord's `transparent` setting is left as the user has it.
-The window's background is vitrum's solid bg; Discord's panels are glass
-layers over it (fixed alphas, hairline rims, lit glass for "on").
+The window's background is vitrum's solid bg; Discord's panels are solid layers
+in vitrum's style (layered fills, hairline rims, lit glass for "on"), so nothing
+shows through a panel, a menu or a popout.
 
 The theme is one file, assets/vesktop/vitrum.theme.css. Its colours sit in a
 generated block between BEGIN and END that apply() rewrites; the rest of the
@@ -218,6 +219,12 @@ def _cap_lightness(hex_: str, cap: float) -> str:
     return "#" + "".join(f"{round(c * 255):02x}" for c in colorsys.hls_to_rgb(h, min(l, cap), s))
 
 
+def _hsl(hex_: str) -> str:
+    """As Discord's --brand-*-hsl hold a colour: "216 88% 62%", for hsl(var(--x)/.2)."""
+    h, l, s = colorsys.rgb_to_hls(*(c / 255 for c in _rgb(hex_)))
+    return f"{round(h * 360)} {round(s * 100)}% {round(l * 100)}%"
+
+
 def _roles(palette: dict) -> dict:
     """The dark scheme's roles, with accent2 (computed if the palette predates
     it) and the roles an old palette may lack."""
@@ -233,12 +240,15 @@ def _roles(palette: dict) -> dict:
 
 def colours_block(roles: dict, note: str = "") -> str:
     """The generated block: the palette roles as --vt-* (hex and "r, g, b") and
-    the glow colour, between BEGIN and END."""
+    the glow colour (as "r, g, b" and as "h s% l%"), between BEGIN and END."""
     lines = [f"  --vt-{var}: {roles[role]};" for var, role in ROLE_VARS]
     lines += [f"  --vt-{var}-rgb: {_triplet(roles[role])};" for var, role in ROLE_VARS]
     # The glow under lit glass and an on switch's track: the accent, kept from
-    # going pastel so "on" still reads on a dark pane.
-    lines.append(f"  --vt-glow-rgb: {_triplet(_cap_lightness(roles['accent'], GLOW_CAP))};")
+    # going pastel so "on" still reads on a dark pane. Discord also mixes its
+    # brand from hsl triples, so the glow comes in that form too.
+    glow = _cap_lightness(roles["accent"], GLOW_CAP)
+    lines.append(f"  --vt-glow-rgb: {_triplet(glow)};")
+    lines.append(f"  --vt-glow-hsl: {_hsl(glow)};")
     head = f"/* palette: {note} */\n" if note else ""
     return f"{BEGIN}\n{head}:root {{\n" + "\n".join(lines) + f"\n}}\n{END}"
 

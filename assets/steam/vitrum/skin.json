@@ -2,12 +2,12 @@
     "name": "vitrum",
     "author": "vitrum",
     "description": "vitrum's look for Steam: a solid window in the desktop's palette, glass layers on it, lit glass for what is on, vitrum's radii, Inter. Kept in sync by vitrum-theme; change it in vitrum's Settings, not in these files.",
-    "version": "1.0.0",
+    "version": "1.1.0",
     "tags": ["vitrum", "Glass", "Dynamic", "Dark"],
     "UseDefaultPatches": false,
     "Patches": [
         {
-            "MatchRegexString": "^(?!Steam Big Picture Mode$|QuickAccess_|MainMenu_|SP BPM|OverlayBrowser_|OverlayTab).",
+            "MatchRegexString": "^(?!Steam Big Picture Mode$|QuickAccess_|MainMenu_|SP BPM|SP Overlay|OverlayBrowser_|OverlayTab).",
             "TargetCss": ["colors.css", "base.css", "steam.css"],
             "TargetJs": "live.js"
         },
@@ -15,6 +15,19 @@
             "MatchRegexString": ".friendsui-container",
             "TargetCss": ["colors.css", "base.css", "steam.css", "friends.css"],
             "TargetJs": "live.js"
+        },
+        {
+            "MatchRegexString": "^(Steam Big Picture Mode$|QuickAccess_|MainMenu_|SP BPM|SP Overlay|OverlayBrowser_|OverlayTab)",
+            "TargetCss": ["colors.css", "base.css", "steam.css", "bigpicture.css"],
+            "TargetJs": ["live.js", "bigpicture.js"]
+        },
+        {
+            "MatchRegexString": "https://store\\.steampowered\\.com/.*",
+            "TargetCss": ["colors.css", "web.css"]
+        },
+        {
+            "MatchRegexString": "https://steamcommunity\\.com/.*",
+            "TargetCss": ["colors.css", "web.css"]
         }
     ]
 }

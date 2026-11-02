@@ -200,7 +200,7 @@ class Motion(unittest.TestCase):
         css = _css()
         self.assertNotIn("infinite", css)
         self.assertNotRegex(css, r"animation-iteration-count\s*:\s*(?!1\b)")
-        self.assertNotRegex(css, r"\balternate\b")
+        self.assertNotRegex(css, r"(?<![\w-])alternate\b")   # the keyword, not --embed-background-alternate
 
     def test_damped_never_overshoots(self):
         """Every curve stays inside 0..1 on the progress axis (no bounce)."""
@@ -294,6 +294,177 @@ class Motion(unittest.TestCase):
             self.assertIn(what, css)
 
 
+# --------------------------------------------------------------- surfaces ---
+
+def _vars():
+    """Everything the theme sets on Discord's theme classes."""
+    css = _css()
+    i = css.index(":is(.theme-dark, .theme-light, .theme-darker, .theme-midnight)")
+    return dict(re.findall(r"(--[\w-]+)\s*:\s*([^;]+);", _block(css[i:], css[i:css.index("{", i)].strip())))
+
+
+def _rule(css, selector_part):
+    """The declarations of the first rule whose selector holds selector_part."""
+    i = css.index(selector_part)
+    j = css.index("{", i)
+    return css[j + 1:css.index("}", j)]
+
+
+class Solid(unittest.TestCase):
+    """The user's decision: no transparency, menus dense and readable. Popouts
+    are painted with the panels' tokens, so an alpha in those let the channel
+    show through a popout."""
+
+    def test_the_panel_and_float_tokens_have_no_alpha(self):
+        tokens = _decls(_tokens(_css()))
+        for name in ("--vt-glass-1", "--vt-glass-2", "--vt-tile", "--vt-float", "--vt-float-high"):
+            self.assertNotIn("rgba", tokens[name], name)
+
+    def test_nothing_blurs_what_is_behind_it(self):
+        self.assertNotIn("backdrop-filter", _css())
+
+    def test_the_tokens_are_mixed_from_the_palette(self):
+        for value in _decls(_tokens(_css())).values():
+            self.assertNotRegex(value, r"#[0-9a-fA-F]{3,8}\b", "colours come from the generated block")
+
+
+class Brand(unittest.TestCase):
+    """Discord keeps its brand in three places; all three are vitrum's."""
+
+    def test_the_whole_ramp_and_its_hsl_triples(self):
+        v = _vars()
+        for n in (100, 130, 160, 200, 230, 260, 300, 330, 345, 360, 400, 430, 460, 500, 530, 560, 600,
+                  630, 660, 700, 730, 760, 800, 830, 860, 900):
+            self.assertIn(f"--brand-{n}", v)
+            self.assertEqual(v.get(f"--brand-{n}-hsl"), "var(--vt-brand-hsl)", n)
+
+    def test_an_older_colour_block_cannot_void_the_tints(self):
+        """With sync off a theme keeps a block written before --vt-glow-hsl."""
+        self.assertIn("--vt-brand-hsl: var(--vt-glow-hsl, 0 0% 62%);", _tokens(_css()))
+
+    def test_the_shipped_block_has_the_triple(self):
+        self.assertRegex(vesktop.read_block(THEME_SRC.read_text()), r"--vt-glow-hsl: \d+ \d+% \d+%;")
+
+    def test_blurple_by_name_is_vitrums(self):
+        v = _vars()
+        self.assertEqual(v["--blurple-50"], "rgb(var(--vt-glow-rgb))")
+        self.assertEqual(v["--blurple-65"], "var(--vt-deep)")
+        self.assertEqual(v["--blurple-15"], "var(--vt-accent)")
+
+    def test_the_voice_view_has_no_shader(self):
+        """A voice channel's preview draws blurple on a canvas, past any variable."""
+        css = _css()
+        self.assertIn("display: none", _rule(css, '[class^="pulseGradient_"]'))
+
+
+class Variables(unittest.TestCase):
+    def test_every_variable_is_a_real_value(self):
+        for name, value in _vars().items():
+            self.assertTrue(value.strip(), name)
+
+    def test_code_uses_the_palette(self):
+        v = _vars()
+        self.assertEqual(v["--text-code-keyword"], "var(--vt-accent)")
+        self.assertEqual(v["--text-code-string"], "var(--vt-success)")
+        self.assertEqual(v["--text-code-number"], "var(--vt-warning)")
+        self.assertEqual(v["--text-code-title"], "var(--vt-accent2)")
+        self.assertEqual(v["--text-code-deletion"], "var(--vt-danger)")
+
+    def test_connected_and_critical_are_tints_not_solid_fills(self):
+        v = _vars()
+        for name in ("--control-connected-background-default", "--control-critical-primary-background-default"):
+            self.assertRegex(v[name], r"^rgba\(var\(--vt-(success|danger)-rgb\), \.\d+\)$", name)
+        self.assertEqual(v["--control-connected-text-default"], "var(--vt-text)")
+
+    def test_the_overlay_button_is_lit_and_the_other_is_solid(self):
+        v = _vars()
+        self.assertEqual(v["--control-overlay-primary-background-default"], v["--control-primary-background-default"])
+        self.assertEqual(v["--control-overlay-primary-icon-default"], "var(--vt-accent)")
+        self.assertEqual(v["--control-overlay-secondary-background-default"], "var(--vt-float)")
+
+    def test_voice_states_are_vitrums(self):
+        v = _vars()
+        self.assertEqual(v["--status-speaking"], "var(--vt-accent)")
+        self.assertEqual(v["--icon-voice-muted"], "var(--vt-danger)")
+        self.assertEqual(v["--togglebutton-icon-selected"], "var(--vt-accent)")
+
+    def test_text_on_tints_stays_the_text_colour(self):
+        v = _vars()
+        for name in ("--badge-primary-text", "--notice-text-info", "--notice-text-positive",
+                     "--notice-text-warning", "--notice-text-critical", "--chip-blurple-dark-text"):
+            self.assertEqual(v[name], "var(--vt-text)", name)
+
+
+class Shapes(unittest.TestCase):
+    """Every part the theme shapes, by the stable part of its class."""
+
+    def test_each_surface_is_reached(self):
+        css = _css()
+        for part in ("pulseGradient_", "callContainer_", "voiceUser_", "usernameSpeaking_", "avatarSpeakingOutline_",
+                     "connection_", "actionButtons_", "streamTile_", "gridChip_", "audienceContainer_",
+                     "speakerRaiseHandButton_", "soundButton_", "embedFull_", "blockquoteDivider_", "mentioned_",
+                     "botTagRegular_", "fileWrapper_", "mosaicItem_", "reaction_", "answersContainer_",
+                     "votePercentageBar_", "threadMessageAccessory_", "mainCard_", "peopleListItem_", "memberInner_",
+                     "tagsContainer_", "progressContainer_", "containerPadding_"):
+            self.assertIn(f'[class^="{part}"]', css, part)
+
+    def test_what_is_on_is_in_the_one_on_rule(self):
+        css = _css()
+        on_rule = css[:css.index("calc(.20 * var(--vt-k, 1))")]
+        on_rule = on_rule[on_rule.rindex("}"):]
+        for part in ('[class*="reactionMe_"]', '[class*="selected_"]', '[class*="buttonActive_"]',
+                     '[class*="playing_"]', '[class*="overlay-primary_"]'):
+            self.assertIn(part, on_rule, part)
+
+    def test_a_primary_text_button_is_a_link_not_lit_glass(self):
+        """textButton_ primary_ is Discord's link-styled button: "Forgot your
+        password?" came out as a lit box. Every place that lights a primary
+        button leaves it out."""
+        css = _css()
+        sel = '[class^="primary_"], [class*=" primary_"], [class*="overlay-primary_"])'
+        self.assertGreaterEqual(css.count(sel), 3)
+        self.assertEqual(css.count(sel), css.count(sel + ':not([class*="textButton_"])'),
+                         "a primary selector without the textButton_ exclusion")
+
+    def test_the_login_page_has_no_blurple_art(self):
+        css = _css()
+        for part in ('[class^="artwork_"]', '[class^="canvas_"]'):
+            self.assertIn(part, css)
+        self.assertIn(':is([class^="characterBackground_"], [class*=" characterBackground_"]) > :is([class^="artwork_"], [class*=" artwork_"])', css)
+        self.assertIn("border-radius: var(--vt-radius-panel)", _rule(css, '[class^="authBox_"]'))
+
+    def test_a_tag_in_a_forum_is_not_the_server_rails_pill(self):
+        """Both are pill_: the shape is scoped to a forum's tags."""
+        css = _css()
+        self.assertIn(':is([class^="tagsContainer_"], [class*=" tagsContainer_"]) :is([class^="pill_"], [class*=" pill_"])', css)
+        self.assertIn(':is([class^="mainCard_"], [class*=" mainCard_"]) :is([class^="pill_"], [class*=" pill_"])', css)
+
+    def test_the_poll_bar_keeps_discords_fills_and_shows(self):
+        css = _css()
+        self.assertNotIn("background", _rule(css, '[class^="votePercentageBar_"]'))
+        self.assertIn("isolation: isolate", _rule(css, '[class^="answersContainer_"]'))
+
+    def test_a_small_chip_is_not_a_capsule(self):
+        self.assertIn("border-radius: 6px", _rule(_css(), '[class^="gridChip_"]'))
+
+    def test_switches_are_not_capsules(self):
+        css = _css()
+        self.assertIn("border-radius: 8px", _rule(css, '[class^="switchIndicator_"]'))
+        # the knob is an SVG rect, so rx: a border-radius there changes nothing
+        self.assertRegex(css, r'switchIndicator_"\]\) :is\(\[class\^="thumb_"\], \[class\*=" thumb_"\]\) rect \{\s*rx: 6px')
+
+    def test_the_unread_line_is_readable(self):
+        self.assertIn("--divider-color: var(--vt-danger)", _css())
+
+    def test_the_bot_tag_is_readable(self):
+        rule = _rule(_css(), '[class^="botTagRegular_"]')
+        self.assertIn("color: var(--vt-text)", rule)
+        self.assertIn("color-mix", rule)
+
+    def test_a_hovered_mention_keeps_the_text_colour(self):
+        self.assertIn("color: var(--vt-text)", _rule(_css(), ".mention.interactive:hover"))
+
+
 # ---------------------------------------------------------------- colours ---
 
 class Colours(unittest.TestCase):
@@ -324,6 +495,12 @@ class Colours(unittest.TestCase):
         self.assertLessEqual(colorsys.rgb_to_hls(*rgb)[1], 0.625)
         dark = vesktop.colours_block(vesktop._roles(palette("#3a5fa0")))
         self.assertIn("--vt-glow-rgb: 58, 95, 160;", dark, "a deep accent is left as it is")
+
+    def test_the_glow_comes_as_discords_hsl_triple(self):
+        b = vesktop.colours_block(vesktop._roles(palette("#8ab4f8")))
+        self.assertRegex(b, r"--vt-glow-hsl: \d+ \d+% \d+%;")
+        self.assertEqual(vesktop._hsl("#ff0000"), "0 100% 50%")
+        self.assertEqual(vesktop._hsl("#808080"), "0 0% 50%")
 
     def test_an_old_palette_without_the_newer_roles(self):
         p = {"dark": {"bg": "#000000", "surface": "#111111", "surfaceHigh": "#222222", "text": "#eeeeee",
