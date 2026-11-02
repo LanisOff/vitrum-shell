@@ -5,6 +5,7 @@ import qs.components
 
 // What is new in vitrum since this install: the commits, and Update (vitrum
 // update in a terminal: a snapshot first, then only what changed is rebuilt).
+// It lists them however few there are: the threshold only quiets the island.
 Column {
     id: root
     spacing: Tokens.gap
@@ -18,7 +19,7 @@ Column {
             anchors.verticalCenter: parent.verticalCenter
             Label {
                 font.weight: Font.DemiBold
-                text: VitrumUpdate.behind === 1 ? "1 new commit in vitrum" : VitrumUpdate.behind + " new commits in vitrum"
+                text: VitrumUpdate.title
             }
             Label { width: parent.width; text: VitrumUpdate.url.replace(/^https?:\/\//, ""); role: "dim"; size: Tokens.textSmall; elide: Text.ElideMiddle }
         }

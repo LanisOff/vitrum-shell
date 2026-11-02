@@ -18,7 +18,7 @@ _preflight_free_mb() {
 # preflight_facts — what the screens need to know before anything runs:
 # FACT_FREE_MB (as the disk check below), FACT_DM (the login screen in use,
 # empty for none or SDDM), FACT_SHELL and FACT_FISH_IS_SHELL, and
-# FACT_NIRI_BUILD (1 when the niri stage will build).
+# FACT_NIRI_BUILD (1 when the niri stage has a new niri to put in place).
 # shellcheck disable=SC2034  # read by the confirmation screen
 preflight_facts() {
   FACT_FREE_MB="$(_preflight_free_mb)"
@@ -65,7 +65,7 @@ stage_preflight() {
   step "checking disk space"
   local free_mb
   free_mb="$(_preflight_free_mb)"
-  if [[ "$free_mb" -lt 6000 ]]; then
+  if [[ "$free_mb" -lt 6000 ]] && ! niri_prebuilt_wanted; then
     # shellcheck disable=SC2016  # $HOME is shown as it is, not expanded
     warn 'only %sMB free in $HOME — the niri build alone wants about 5GB' "$free_mb"
   else

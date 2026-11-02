@@ -282,8 +282,18 @@ PanelWindow {
         }
     }
 
-    function move(by) { current = Math.max(0, Math.min(results.length - 1, current + by)); }
+    function move(by) {
+        current = Math.max(0, Math.min(results.length - 1, current + by));
+        // The list's own highlight is off (the tint slides by itself), so the
+        // view does not follow the selection. The keys scroll it; a hover must not.
+        if (!gridMode) list.positionViewAtIndex(current, ListView.Contain);
+    }
     function key(e) {
+        // While a composition is open its keys are the input method's: Enter
+        // confirms it and Escape cancels it, before they mean anything here.
+        // preeditText, not inputMethodComposing: that one stays true after a
+        // cancelled composition (Qt on text-input-v3).
+        if (input.preeditText) return false;
         const cols = gridMode ? columns : 1;
         if (e.key === Qt.Key_Escape) { UiState.launcher = false; return true; }
         if (e.key === Qt.Key_Down) { move(cols); return true; }
@@ -449,7 +459,7 @@ PanelWindow {
                 onTextChanged: root.query = text
                 Keys.onPressed: e => { if (root.key(e)) e.accepted = true; }
                 Label {
-                    visible: input.text.length === 0
+                    visible: input.text.length === 0 && !input.preeditText
                     role: "dim"
                     size: Tokens.textLarge + 4
                     anchors.verticalCenter: parent.verticalCenter

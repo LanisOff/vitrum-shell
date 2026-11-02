@@ -65,6 +65,21 @@ test_other_dm_kept_without_replace_dm_and_nothing_asked() {
   [[ ! -e "$HOME/asked" ]] || { echo "dm_use_sddm asked"; return 1; }
   assert_contains "$(cat "$VITRUM_ROOTFS/etc/conf.d/display-manager")" 'DISPLAYMANAGER="lightdm"'
 }
+# LightDM does not look in /usr/local unless told to: "pick vitrum" would send
+# you looking for a session that is not on its list.
+test_kept_lightdm_is_told_where_vitrum_is() {
+  _dm_world openrc lightdm; export REPLACE_DM=0
+  out="$(dm_use_sddm 2>&1)"
+  assert_contains "$out" "sessions-directory"
+  ! grep -q 'pick the "vitrum" session' <<<"$out"
+  mkdir -p "$VITRUM_ROOTFS/etc/lightdm"
+  printf '[LightDM]\nsessions-directory=/usr/share/xsessions:/usr/local/share/wayland-sessions\n' > "$VITRUM_ROOTFS/etc/lightdm/lightdm.conf"
+  assert_contains "$(dm_use_sddm 2>&1)" 'pick the "vitrum" session'
+}
+test_other_kept_dm_is_told_to_pick_vitrum() {
+  _dm_world systemd gdm; export REPLACE_DM=0
+  assert_contains "$(dm_use_sddm 2>&1)" 'pick the "vitrum" session'
+}
 test_replace_dm_without_yes() {
   _dm_world openrc lightdm; export ASSUME_YES=0 REPLACE_DM=1
   confirm() { echo asked >> "$HOME/asked"; return 1; }

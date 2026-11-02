@@ -81,6 +81,11 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("widgets", blurKick.screen) && !blurKick.on && !root.editing ? effect : blurKick.none
     Region { id: effect }
+    // Glass needs to know each widget's outline: niri takes rectangles as pieces and
+    // rounds them itself (a rounded region reaches it as scanlines, and its glass
+    // would then be this whole screen-sized surface). It has room for 16 pieces.
+    property int platedCount: 0
+    readonly property bool squarePieces: Materials.shaped("widgets", blurKick.screen) && platedCount <= 16
     // Off the screen's top-left pixel: the top-left hot corner sits there, under this layer.
     Item { id: dot; x: 2; y: 2; width: 1; height: 1 }
     Region { id: dotRegion; item: dot }
@@ -103,7 +108,7 @@ PanelWindow {
             width: frame ? frame.width * s : 0
             height: frame ? frame.height * s : 0
             readonly property Region input: Region { item: piece }
-            readonly property Region glass: Region { item: piece; radius: piece.frame ? piece.frame.radius * piece.s : 0 }
+            readonly property Region glass: Region { item: piece; radius: piece.frame && !root.squarePieces ? piece.frame.radius * piece.s : 0 }
         }
     }
     function rebuildRegions() {
@@ -117,6 +122,7 @@ PanelWindow {
         inputMask.regions = editing ? [] : pieces.map(p => p.input);
         // A bare widget is its own glass: niri blurs nothing behind it.
         const plated = pieces.filter(p => !p.frame.bare);
+        platedCount = plated.length;
         effect.regions = plated.length ? plated.map(p => p.glass) : [dotRegion];   // never an empty region
         for (const p of old) p.destroy();
     }
@@ -147,10 +153,14 @@ PanelWindow {
     Timer { id: wallRetry; interval: 1500; onTriggered: root.wallStamp++ }
     readonly property real wallExtra: Wallpaper.parallax ? height * 0.12 : 0
     readonly property var wallSpaces: Niri.workspacesOn(screen.name)
+    // opacity 0, not visible: false: since Qt 6.12 a change inside an invisible
+    // item asks for no frame (see Glass), and the parallax slide would not reach
+    // the digits. Layers draw it all the same. Hidden while nothing looks at it.
     Item {
         id: wallGlass
         anchors.fill: parent
-        visible: false
+        visible: root.wantsGlass || root.editing
+        opacity: 0
         Item {
             width: parent.width
             height: parent.height + root.wallExtra

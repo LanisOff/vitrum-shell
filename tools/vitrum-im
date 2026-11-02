@@ -1,0 +1,64 @@
+#!/usr/bin/env bash
+# vitrum-im — fcitx5 for the session (the input_method component; without it
+# every command here does nothing).
+#
+#   vitrum-im start        start it (vitrum-startup does, once per session)
+#   vitrum-im next|prev    the next layout or engine (niri's Alt+Shift)
+#   vitrum-im current      what is on now
+#   vitrum-im list         everything in fcitx5's profile, in order
+#   vitrum-im hold on|keys|off
+#                          on: next and prev do nothing (game mode); keys: they
+#                          skip the engines (a password field); the shell sets it
+set -uo pipefail
+
+state="${XDG_DATA_HOME:-$HOME/.local/share}/vitrum"
+profile="${XDG_CONFIG_HOME:-$HOME/.config}/fcitx5/profile"
+hold="${XDG_RUNTIME_DIR:-/tmp}/vitrum-im-hold"
+
+enabled() { grep -Eq '"input_method"[[:space:]]*:[[:space:]]*true' "$state/components.json" 2>/dev/null && command -v fcitx5 >/dev/null 2>&1; }
+
+# The first group's input methods, by item number.
+list() {
+  [[ -f "$profile" ]] || return 0
+  awk -F= '
+    /^\[Groups\/0\/Items\/[0-9]+\]/ { split($0, a, "/"); n = a[4] + 0; on = 1; next }
+    /^\[/ { on = 0; next }
+    on && $1 == "Name" { print n "\t" $2 }' "$profile" | sort -n | cut -f2
+}
+
+# step <+1|-1>
+step() {
+  local items=() cur i n mode=""
+  if [[ -e "$hold" ]]; then
+    mode="$(cat "$hold")"
+    [[ "$mode" == keys ]] || return 0
+  fi
+  mapfile -t items < <(list)
+  [[ "$mode" != keys ]] || mapfile -t items < <(printf '%s\n' "${items[@]}" | grep '^keyboard-')
+  n=${#items[@]}
+  (( n > 1 )) || return 0
+  cur="$(fcitx5-remote -n 2>/dev/null)"
+  for (( i = 0; i < n; i++ )); do
+    if [[ "${items[i]}" == "$cur" ]]; then
+      fcitx5-remote -s "${items[(i + n + $1) % n]}"
+      return
+    fi
+  done
+  fcitx5-remote -s "${items[0]}"
+}
+
+case "${1:-}" in
+  start)
+    enabled || exit 0
+    rm -f "$hold"
+    # --replace: a session bus that outlived the last login can hold an fcitx5
+    # whose Wayland connection is gone.
+    exec fcitx5 --replace -d >/dev/null 2>&1
+    ;;
+  next)    enabled && step 1 ;;
+  prev)    enabled && step -1 ;;
+  current) enabled && fcitx5-remote -n ;;
+  list)    enabled && list ;;
+  hold)    case "${2:-}" in on|keys) printf '%s\n' "$2" > "$hold" ;; *) rm -f "$hold" ;; esac ;;
+  *)       sed -n '2,11p' "$0" | sed 's/^# \{0,1\}//' ;;
+esac

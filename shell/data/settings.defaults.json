@@ -13,7 +13,9 @@
     "groups": {
       "bar": "glass",
       "lock": "glass",
-      "launcher": "glass"
+      "launcher": "glass",
+      "widgets": "glass",
+      "dock": "glass"
     },
     "glassAdvanced": {}
   },
@@ -291,7 +293,7 @@
   "updates": {
     "vitrum": {
       "check": true,
-      "threshold": 3,
+      "threshold": 5,
       "hours": 6
     }
   }

@@ -361,11 +361,12 @@ Item {
             numeric: true
         }
         StatusIsland {
-            visible: Niri.keyboardShort.length > 0
+            visible: Layouts.short.length > 0
             icon: "keyboard"
-            text: Niri.keyboardShort
-            clickable: Niri.keyboardLayouts.length > 1
-            onClicked: Niri.switchLayout(true)
+            text: Layouts.short
+            // With fcitx5 this goes through the keymaps only: no engine at the lock.
+            clickable: Layouts.switchable
+            onClicked: Layouts.next(true)
         }
     }
     LockPower {

@@ -64,7 +64,11 @@ def main(argv=None) -> int:
         base_xkb = niri_input.xkb_from_kdl((a.niri_dir.parent / "config.kdl").read_text(encoding="utf-8"))
     except OSError:
         base_xkb = None
-    outputs[a.niri_dir / "input.kdl"] = niri_input.input_kdl(settings, base_xkb)
+    # The input_method component: fcitx5 holds the layouts, niri keeps one.
+    from vitrum_theme import fcitx
+    im = fcitx.applies(a.out_palette.parent, a.niri_dir / "input.kdl", a.all)
+    im_hotkey = im and fcitx.niri_takes_hotkey()
+    outputs[a.niri_dir / "input.kdl"] = niri_input.input_kdl(settings, base_xkb, im, im_hotkey)
     catalogue = niri_input.load_catalogue(a.binds)
     if catalogue is not None:
         outputs[a.niri_dir / "binds.kdl"] = niri_input.binds_kdl(catalogue, settings)
@@ -91,6 +95,11 @@ def main(argv=None) -> int:
     if not a.dry_run:
         from vitrum_theme import steam
         for w in steam.sync(settings, palette, a.out_palette.parent, note=note):
+            say(f"wrote {w}")
+            changed += 1
+    # fcitx5's profile and candidate window: only with the input_method component.
+    if im and not a.dry_run:
+        for w in fcitx.sync(settings, palette, scheme, a.out_palette.parent, base_xkb, im_hotkey):
             say(f"wrote {w}")
             changed += 1
     # Vesktop (Vencord): only with the vesktop_theme component and vesktop.theme.sync.

@@ -66,15 +66,16 @@ PanelWindow {
             anchors.fill: parent
             source: over
             maskEnabled: true
-            maskSource: maskItem
+            maskSource: maskTex
             maskThresholdMin: 0.5
             maskSpreadAtMin: 0.2
         }
+        // Hidden by maskTex's hideSource, not by visible: false: since Qt 6.12 a
+        // change inside an invisible item asks for no frame (see Glass), and the
+        // circle would grow unseen.
         Item {
             id: maskItem
             anchors.fill: parent
-            layer.enabled: true
-            visible: false
             Rectangle {
                 id: circle
                 property real r: 0
@@ -83,6 +84,7 @@ PanelWindow {
                 color: "white"
             }
         }
+        ShaderEffectSource { id: maskTex; sourceItem: maskItem; hideSource: true; smooth: false; visible: false }
     }
 
     QtObject { id: grow; property real cx: root.width / 2; property real cy: root.height / 2 }

@@ -98,6 +98,35 @@ Singleton {
         run(["sh", "-c", 'awww query >/dev/null 2>&1 || { setsid -f awww-daemon >/dev/null 2>&1; i=0; until awww query >/dev/null 2>&1 || [ $i -ge 30 ]; do sleep 0.1; i=$((i+1)); done; }; i=0; until "$@" 2>/dev/null; do [ $i -ge 20 ] && exit 1; sleep 0.5; i=$((i+1)); done', "_"].concat(args));
     }
 
+    // awww's daemon lives apart from the shell: if it died under a running
+    // session, niri's bare background stayed until the next change of wallpaper,
+    // since applyAll saw nothing new. This waits on it (tail looks every 5 s) and
+    // puts the pictures back, which starts it again. Five tries a minute, so a
+    // daemon that cannot live does not spin; it also dies with niri at every
+    // session's end, and the shell goes with it.
+    readonly property bool awwwInUse: checked && !shellDraws && Lib.usesAwww(applied)
+    onAwwwInUseChanged: daemonWatch.running = awwwInUse
+    Process {
+        id: daemonWatch
+        command: ["sh", "-c", 'p=$(pgrep -nxu "$(id -u)" awww-daemon) || exit 0; exec tail --pid="$p" -s 5 -f /dev/null']
+        onExited: if (root.awwwInUse) daemonBack.restart()
+    }
+    Timer {
+        id: daemonBack
+        interval: 5000
+        property real since: 0
+        property int tries: 0
+        onTriggered: {
+            if (!root.awwwInUse) return;
+            const now = Date.now();
+            if (now - since > 60000) { since = now; tries = 0; }
+            if (++tries > 5) { restart(); return; }
+            root.applied = Lib.withoutAwww(root.applied);
+            root.applyAll();
+            daemonWatch.running = true;
+        }
+    }
+
     // ------------------------------------------------------- videos ---
 
     // The video's first frame on awww's layer, under mpvpaper: while the

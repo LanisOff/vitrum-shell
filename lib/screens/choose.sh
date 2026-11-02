@@ -25,10 +25,12 @@ choose_label() {
     terminal)         T "Terminal" ;;
     shell)            T "Shell" ;;
     fastfetch_logo)   T "fastfetch logo" ;;
+    niri_source)      T "niri" ;;
     sddm)             T "Login screen (SDDM)" ;;
     plymouth)         T "Boot splash (Plymouth)" ;;
     live_wallpaper)   T "Video wallpapers" ;;
     phone)            T "Phone (KDE Connect)" ;;
+    input_method)     T "Input method for Japanese, Korean, Chinese (fcitx5)" ;;
     tmux)             T "tmux, themed, with plugins" ;;
     games)            T "Game mode + HUD (gamemode, MangoHud)" ;;
     steam_theme)      T "Steam theme (Millennium)" ;;
@@ -69,6 +71,8 @@ choose_option_label() {
   case "$1" in
     picture) T "picture" ;;
     distro)  T "distribution logo" ;;
+    prebuilt) T "prebuilt" ;;
+    compile)  T "compile, 20–40 min" ;;
     *)       printf '%s' "$1" ;;
   esac
 }
@@ -88,10 +92,12 @@ choose_hint() {
     terminal)         text="$(T "The terminal vitrum sets up and colours from your wallpaper.")" ;;
     shell)            text="$(T "The shell in that terminal, with the Starship prompt.")" ;;
     fastfetch_logo)   text="$(T "What fastfetch shows beside the system facts: the vitrum picture or your distribution's logo.")" ;;
+    niri_source)      text="$(T "Prebuilt downloads in a minute and is checked first; if it cannot run here, niri compiles anyway. Compiling is tuned to this processor.")" ;;
     sddm)             text="$(T "The login screen in the same style as the lock screen; other sessions stay listed.")" ;;
     plymouth)         text="$(T "A boot splash. The initramfs is regenerated with dracut or mkinitcpio, whichever builds it here.")" ;;
     live_wallpaper)   text="$(T "Live wallpapers through mpvpaper. Static ones work either way.")" ;;
     phone)            text="$(T "Notifications from the phone, its battery, a shared clipboard and files. Pulls in part of KDE Frameworks.")" ;;
+    input_method)     text="$(T "Type kana, kanji, hangul and hanzi: Mozc, Hangul and Pinyin through fcitx5, which then holds all your layouts. Alt+Shift still switches them.")" ;;
     tmux)             text="$(T "tmux with a vitrum status bar and its plugins. Without the author's keys it keeps its own (Ctrl+b).")" ;;
     games)            text="$(T "Game mode with its HUD: gamemode and MangoHud.")" ;;
     steam_theme)      text="$(T "Steam theme: vitrum's look for Steam via Millennium, follows your colours.")" ;;
@@ -121,18 +127,18 @@ _choose_blocked() {
   [[ -n "$req" && "$(component_get "$req")" == 0 ]]
 }
 
-# choose_init [id…] — the rows: the picks, then each group's heading and its
-# parts. Given ids, only those parts and no picks (update mode).
+# choose_init [id…] — the rows: the picks that apply here, then each group's
+# heading and its parts. Given ids, only those (update mode).
 choose_init() {
   CHOOSE_ROWS=() CHOOSE_CURSOR=0 CHOOSE_TOP=0 CHOOSE_UPDATE=0
   local only=" $* " entry id group last="" opts var
   (( $# )) && CHOOSE_UPDATE=1
-  if (( ! CHOOSE_UPDATE )); then
-    for entry in "${PICKS[@]}"; do
-      IFS='|' read -r id var opts <<<"$entry"
-      CHOOSE_ROWS+=("pick:$id")
-    done
-  fi
+  for entry in "${PICKS[@]}"; do
+    IFS='|' read -r id var opts <<<"$entry"
+    pick_applies "$id" || continue
+    (( CHOOSE_UPDATE )) && [[ "$only" != *" $id "* ]] && continue
+    CHOOSE_ROWS+=("pick:$id")
+  done
   for entry in "${COMPONENTS[@]}"; do
     IFS='|' read -r id group _ <<<"$entry"
     (( CHOOSE_UPDATE )) && [[ "$only" != *" $id "* ]] && continue

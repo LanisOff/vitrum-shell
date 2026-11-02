@@ -26,6 +26,7 @@
 #    --with-plymouth / --no-plymouth             boot splash
 #    --with-live-wallpaper / --no-live-wallpaper video wallpapers (mpvpaper)
 #    --with-phone / --no-phone                   KDE Connect
+#    --with-input-method / --no-input-method     Japanese, Korean, Chinese (fcitx5)
 #    --with-tmux / --no-tmux                     tmux, themed, with plugins
 #    --with-games / --no-games                   game mode + HUD (gamemode, MangoHud)
 #    --with-steam-theme / --no-steam-theme       vitrum's look for Steam via Millennium (needs games)
@@ -34,6 +35,8 @@
 #    --with-cli-tools / --no-cli-tools           eza, bat, fzf, zoxide, delta
 #    --with-file-manager / --no-file-manager     Dolphin
 #    --with-ocr / --no-ocr                       text from screenshots (tesseract)
+#  How niri gets here, on Arch and Arch-based systems (elsewhere it compiles):
+#    --with-prebuilt-niri / --no-prebuilt-niri   download the checked binary, or compile it
 #  The author's own setup, off unless asked for:
 #    --with-author-nvim / --no-author-nvim       Neovim with the author's config
 #    --with-author-tmux-keys / --no-author-tmux-keys   Ctrl+a, | and - splits, H J K L
@@ -49,7 +52,7 @@
 #    choices are kept; the choice screen comes up only for parts that are new
 #    or still not installed (Esc there keeps the choices and goes on), and not
 #    at all with --only, --from or --skip. Settings are kept, and the
-#    compositor is rebuilt only when its pinned revision moved.
+#    compositor is replaced only when its pinned revision or patches moved.
 #
 set -euo pipefail
 
@@ -381,6 +384,7 @@ if (( USE_TUI )); then
       ;;
   esac
   if [[ -n "$_screen" ]]; then
+    components_suggest
     preflight_facts
     # The disk space for the niri build matters only when niri runs now.
     [[ " ${RUN_STAGES[*]} " == *" niri "* ]] || FACT_NIRI_BUILD=0
@@ -409,7 +413,7 @@ export WANT_LOGIN_SHELL
 [[ "$CHECK_ONLY" == 1 ]] || components_save
 export WANT_SDDM WANT_PLYMOUTH WANT_LIVE_WALLPAPER WANT_PHONE WANT_TMUX WANT_GAMES WANT_UTILITIES \
   WANT_CLI_TOOLS WANT_FILE_MANAGER WANT_OCR WANT_NVIM WANT_AUTHOR_TMUX_KEYS WANT_TMUX_AUTOSTART \
-  WANT_TMUX_KEYS WANT_FISH WANT_STARSHIP VITRUM_TERMINAL VITRUM_SHELL VITRUM_FASTFETCH_LOGO
+  WANT_TMUX_KEYS WANT_FISH WANT_STARSHIP VITRUM_TERMINAL VITRUM_SHELL VITRUM_FASTFETCH_LOGO VITRUM_NIRI_SOURCE
 
 # This run, in short: on the screen in the line-by-line run, and under the
 # screens in the log only, so the log of every run says what it was asked to do.
@@ -419,7 +423,7 @@ run_summary() {
   printf '  %sThis run%s\n' "$C_BOLD" "$C_RESET"
   ui_kv "mode" "$([[ "$MODE_LABEL" == "Update" ]] && echo "update from ${INSTALLED_VERSION:-?}" || echo "fresh install")"
   ui_kv "system" "packages: $PKG_BACKEND, init: $INIT_BACKEND"
-  ui_kv "compositor" "niri $NIRI_TAG_LABEL with liquid glass"
+  ui_kv "compositor" "niri $NIRI_TAG_LABEL with liquid glass$(niri_prebuilt_wanted && echo ", prebuilt")"
   ui_kv "shell + apps" "Quickshell — bar, dock, launcher, Settings, Disk Utility"
   ui_kv "terminal" "$VITRUM_TERMINAL, $VITRUM_SHELL + Starship$([[ "$WANT_TMUX" == 1 ]] && echo ", tmux")$([[ "$WANT_NVIM" == 1 ]] && echo ", Neovim")"
   ui_kv "parts" "$_parts"

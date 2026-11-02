@@ -99,7 +99,9 @@ progress_estimate() {
   if [[ "$1" == niri ]]; then
     # shellcheck source=lib/stages/30-niri.sh
     declare -F niri_needs_build >/dev/null || source "$VITRUM_DIR/lib/stages/30-niri.sh"
-    niri_needs_build || s=5
+    if ! niri_needs_build; then s=5
+    elif niri_prebuilt_wanted; then s=60   # a download, if it can run here
+    fi
   fi
   printf '%s\n' "$s"
 }

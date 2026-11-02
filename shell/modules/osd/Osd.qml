@@ -29,7 +29,7 @@ PanelWindow {
         function onMutedChanged() { root.show("volume"); }
         function onMicMutedChanged() { root.show("mic"); } }
     Connections { target: Power; enabled: root.armed; function onBrightnessChanged() { root.show("brightness"); } }
-    Connections { target: Niri; enabled: root.armed; function onKeyboardLayoutIndexChanged() { root.show("layout"); } }
+    Connections { target: Layouts; enabled: root.armed && !Layouts.held; function onIndexChanged() { root.show("layout"); } }
     Connections { target: UiState; function onOsdRequested(k) { root.show(k); } }
 
     visible: true
@@ -80,7 +80,7 @@ PanelWindow {
             Label {
                 anchors.verticalCenter: parent.verticalCenter
                 numeric: true
-                text: root.kind === "layout" ? Niri.keyboardLayout
+                text: root.kind === "layout" ? Layouts.current
                     : (root.kind === "volume" && Audio.muted) || (root.kind === "mic" && Audio.micMuted) ? "muted"
                     : Math.round(root.value * 100) + "%"
             }

@@ -66,6 +66,9 @@ DialogFrame {
                 anchors.right: layoutChip.left; anchors.rightMargin: Tokens.gap
                 anchors.verticalCenter: parent.verticalCenter
                 echoMode: root.flow && root.flow.responseVisible ? TextInput.Normal : TextInput.Password
+                // Marked sensitive for the input method, even when the answer is
+                // shown. What keeps an engine away is Layouts' hold while this is up.
+                inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                 passwordCharacter: "•"
                 font.family: Tokens.fontText; font.pixelSize: Tokens.textSize
                 color: Colors.text
@@ -80,12 +83,12 @@ DialogFrame {
             }
             Rectangle {
                 id: layoutChip
-                visible: Niri.keyboardShort.length > 0
+                visible: Layouts.short.length > 0
                 anchors.right: parent.right; anchors.rightMargin: Tokens.gap
                 anchors.verticalCenter: parent.verticalCenter
                 width: visible ? Tokens.iconSize * 2 : 0; height: Tokens.iconSize * 1.3; radius: Tokens.radiusKnob
                 color: Colors.alpha(Colors.text, 0.10)
-                Label { anchors.centerIn: parent; text: Niri.keyboardShort; size: Tokens.textSmall; font.weight: Font.DemiBold }
+                Label { anchors.centerIn: parent; text: Layouts.short; size: Tokens.textSmall; font.weight: Font.DemiBold }
             }
         }
         Label {

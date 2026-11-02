@@ -3,7 +3,7 @@
 #
 #   vitrum update [--choose] pull the vitrum checkout and reinstall what changed
 #                            (--choose: the whole choice screen again)
-#   vitrum behind [--json]   how many commits the checkout is behind (nothing pulled)
+#   vitrum behind [--json]   how many commits the install is behind (nothing pulled)
 #   vitrum snapshot [name]   save your vitrum configs (the last ten are kept)
 #   vitrum snapshots         list them
 #   vitrum rollback [name]   put a snapshot back (the newest by default)
@@ -25,7 +25,7 @@ KEEP=10
 # an older state of your configs.
 PATHS=(.config/vitrum .config/quickshell/vitrum .config/kitty .config/fish .config/starship.toml
        .config/tmux .config/fastfetch .config/gtk-3.0 .config/gtk-4.0 .config/MangoHud
-       .config/Kvantum/vitrum .config/qt6ct)
+       .config/Kvantum/vitrum .config/qt6ct .config/fcitx5)
 
 say() { printf '%s\n' "$*"; }
 die() { printf 'vitrum: %s\n' "$*" >&2; exit 1; }
@@ -98,33 +98,52 @@ upstream() {
   return 2
 }
 
-# How far behind the checkout is — for the bar's update island. Local edits
-# do not matter here; nothing is pulled.
+# The version of the last complete install (empty when none is recorded).
+installed_version() {
+  sed -n 's/^ *"version": *"\([^"]*\)".*/\1/p' "$STATE/install.json" 2>/dev/null | head -n 1
+}
+
+# version_at <checkout> <revision> — VERSION there, empty when it has none.
+version_at() {
+  git -C "$1" show "$2:VERSION" 2>/dev/null | head -n 1 | tr -d '[:space:]'
+}
+
+# How far behind the install is — for the bar's update island. It counts from
+# what is installed, not from HEAD: update moves HEAD before the installer runs,
+# and a run that was cancelled leaves it there, with the update still to do.
+# Without a recorded revision the checkout knows, HEAD is all there is. Local
+# edits do not matter here; nothing is pulled. The versions come from what the
+# check already fetched, and stay empty when it could not.
 behind() {
-  local src n=0 err="" log=""
-  src="$(source_dir)"
+  local src n=0 err="" log="" installed="" remote="" base
+  src="$(source_dir)" || exit 1
   if ! git -C "$src" rev-parse --git-dir >/dev/null 2>&1; then err="not a git checkout"
   else
     upstream "$src"; case $? in 1) err="could not reach $(git -C "$src" remote get-url origin)";; 2) err="no branch to follow";; esac
   fi
   if [[ -z "$err" ]]; then
-    n="$(git -C "$src" rev-list --count 'HEAD..@{u}' 2>/dev/null || echo 0)"
-    log="$(git -C "$src" log --no-decorate -n 30 --format='%h%x09%cr%x09%s' 'HEAD..@{u}' 2>/dev/null)"
+    base="$(installed_revision)"
+    git -C "$src" cat-file -e "$base^{commit}" 2>/dev/null || base=HEAD
+    n="$(git -C "$src" rev-list --count "$base..@{u}" 2>/dev/null || echo 0)"
+    log="$(git -C "$src" log --no-decorate -n 30 --format='%h%x09%cr%x09%s' "$base..@{u}" 2>/dev/null)"
+    installed="$(installed_version)"
+    [[ -n "$installed" ]] || installed="$(version_at "$src" HEAD)"
+    remote="$(version_at "$src" '@{u}')"
   fi
   if [[ "${1:-}" != "--json" ]]; then
     [[ -n "$err" ]] && die "$err"
     say "$n new commit(s)"; [[ -n "$log" ]] && printf '%s\n' "$log" | sed 's/^/  /'
     return 0
   fi
-  python3 - "$n" "$err" "$(git -C "$src" remote get-url origin 2>/dev/null)" "$log" <<'PY'
+  python3 - "$n" "$err" "$(git -C "$src" remote get-url origin 2>/dev/null)" "$log" "$installed" "$remote" <<'PY'
 import json, sys
-n, err, url, log = int(sys.argv[1] or 0), sys.argv[2], sys.argv[3], sys.argv[4]
+n, err, url, log, installed, remote = int(sys.argv[1] or 0), *sys.argv[2:7]
 commits = []
 for line in log.splitlines():
     p = line.split("\t", 2)
     if len(p) == 3:
         commits.append({"hash": p[0], "when": p[1], "subject": p[2]})
-out = {"behind": n, "commits": commits, "url": url}
+out = {"behind": n, "commits": commits, "url": url, "installed": installed, "remote": remote}
 if err:
     out["error"] = err
 print(json.dumps(out, indent=1))
@@ -138,7 +157,7 @@ installed_revision() {
 }
 
 update() {
-  local src; src="$(source_dir)"
+  local src; src="$(source_dir)" || exit 1
   if ! git -C "$src" rev-parse --git-dir >/dev/null 2>&1; then
     say "$src is not a git checkout — reinstalling it as it is"
     exec "$src/install.sh" --update "$@"

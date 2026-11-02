@@ -17,7 +17,7 @@
 </p>
 
 <p align="center">
-  <a href="https://github.com/YaLTeR/niri"><img src="https://img.shields.io/badge/compositor-niri%2026.04-4f6fd6?style=flat-square" alt="niri 26.04"></a>
+  <a href="https://github.com/YaLTeR/niri"><img src="https://img.shields.io/badge/compositor-niri-4f6fd6?style=flat-square" alt="niri"></a>
   <a href="https://quickshell.org"><img src="https://img.shields.io/badge/shell-Quickshell-4f6fd6?style=flat-square" alt="Quickshell"></a>
   <img src="https://img.shields.io/badge/Arch-systemd-1793d1?style=flat-square&logo=archlinux&logoColor=white" alt="Arch">
   <img src="https://img.shields.io/badge/Gentoo-OpenRC%20%7C%20systemd-54487a?style=flat-square&logo=gentoo&logoColor=white" alt="Gentoo">
@@ -91,26 +91,27 @@ when something breaks.
 ## What's inside
 
 > [!NOTE]
-> **New in 0.5.0:** vitrum's own glass look instead of Material 3, a drag-and-drop bar editor, a reworked lock screen, a welcome tour, About this computer as spec tiles, new desktop widgets, and optional Steam and Vesktop themes that follow your colours.
+> **New in 0.6.0:** vitrum's own glass, written from scratch and lit by one light across the screen and by what's behind it, so no two panels catch it alike. niri moves to current main, with a ready-made build on Arch. The shell uses far less memory, Japanese, Korean and Chinese input arrive through fcitx5, GPU stats work on AMD, and a crash now tells you what happened.
 
 ### Desktop
 
 - A bar of floating islands, a dock, Spotlight-style search, a control centre and notifications.
-- 40 desktop widgets, from clocks and weather to system graphs and a to-do list, now with an agenda, habits, a stopwatch, the moon, air quality, headlines and top processes. Add your own in QML or as a script, and arrange them right on the desktop.
+- 40 desktop widgets: clocks, weather, system graphs, a to-do list, an agenda, habits, a stopwatch, the moon, air quality, headlines and top processes. Add your own in QML or as a script, and arrange them right on the desktop.
 - A bar editor in Settings. Drag modules between islands and sides on a live bar, pick from a palette of named modules, set each one's options, give each screen its own layout, or reset.
-- A reworked lock screen. The field lights up as you type, Caps Lock gets a hint, your avatar sits in a coloured ring, and it goes quiet when idle.
+- Type Japanese, Korean and Chinese with an optional input method: fcitx5 with Mozc, Hangul and Pinyin takes over your layouts, and Alt+Shift still switches them.
+- A lock screen whose field lights up as you type. Caps Lock gets a hint, your avatar sits in a coloured ring, and it goes quiet when idle.
 - Game mode turns on by itself when a game goes fullscreen. Video wallpapers pause under windows.
 
 ### Apps
 
 - Settings for everyday changes, so config files stay optional.
-- About this computer, redone as spec tiles.
+- About this computer, as spec tiles.
 - A welcome tour on first login, with a live preview of each part of the desktop.
 - Clipboard history, screenshots and recording, synced lyrics, hot corners, a polkit prompt and a login screen that match.
 
 ### Theming
 
-- vitrum's own look replaces Material 3. Anything that's on turns to frosted, lit glass with a soft glow in your accent. No pill shapes, thin Phosphor line icons, and calm motion with no bounce.
+- One look, dichroic glass. Anything that's on turns to frosted, lit glass with a soft glow in your accent. No pill shapes, thin Phosphor line icons, and calm motion with no bounce.
 - Colours from your wallpaper for the shell, kitty, GTK, Qt/KDE, tmux and Neovim, light or dark by sunrise and sunset.
 - A second colour drawn from the accent for rings, graphs and the window focus ring. Shift it in Settings → Appearance.
 - Optional Steam (via Millennium) and Vesktop (Discord) themes that follow your colours. Both are installer choices with a section in Settings.
@@ -118,8 +119,10 @@ when something breaks.
 
 ### Under the hood
 
-- niri 26.04, patched with liquid glass and shaped blur. Choose solid, frosted or glass per surface if your GPU prefers.
+- niri, with our own glass patched in: it bends what's behind it, takes its colour and catches the light, in the shape of each surface. Choose solid, frosted or glass per surface if your GPU prefers.
 - A [Quickshell](https://quickshell.org) shell, one installer for four distributions, and `vitrum doctor` when something's off.
+- GPU load and temperature on NVIDIA and AMD.
+- If the shell crashes, it comes back and tells you why. `vitrum doctor` lists recent crashes.
 
 ---
 
@@ -148,8 +151,10 @@ cd vitrum-shell
 > fish your login shell or replaces another login screen. NetworkManager
 > takes over the network. On Fedora it enables RPM Fusion and a few COPRs,
 > and tells you which. On Void the login screen and network switch over at
-> the next boot. On Gentoo the first run is slow, because niri and some Qt
-> pieces build from source.
+> the next boot. On Arch and Arch-based systems you can take a prebuilt niri,
+> which downloads in about a minute. Everywhere else niri builds from source,
+> which takes 20 to 40 minutes on the first run. On Gentoo some Qt pieces
+> build too.
 
 > [!TIP]
 > A minimal Void may lack bash, curl and sudo. Run
@@ -163,6 +168,16 @@ tools, Dolphin and OCR. Extras holds my own Neovim and tmux setup, off by
 default. If a stage fails, you can retry it, skip it, read its log, or
 carry on later with `./install.sh --from <stage>`. Logs go to
 `~/.local/share/vitrum/`.
+
+On Arch and Arch-based systems the same screen asks how niri gets here:
+prebuilt, the default, or compiled on your machine. The binary is built by
+[GitHub Actions](.github/workflows/niri-binary.yml) against current Arch, so
+it needs an up-to-date system. It's verified and tried before it replaces
+anything, and if it can't run on your system, the installer says why and
+compiles instead. `--with-prebuilt-niri` and `--no-prebuilt-niri` choose
+without the screen. Each release carries the matching source, the pinned
+upstream niri with [`patches/niri`](patches/README.md) applied and its crates
+vendored.
 
 ```sh
 ./install.sh --dry-run   # show what it would do, change nothing
@@ -206,7 +221,12 @@ vitrum doctor           # find out what is broken and how to fix it
 ```
 
 Your choices are kept. You're only asked about parts that are new or still
-unticked. A small island in the bar tells you when there's something to pull.
+unticked. A small island in the bar tells you when a new version is out or
+enough commits have piled up. An update that changes niri downloads the
+prebuilt binary if that's your choice, or compiles it, which takes 20 to 40
+minutes. Either way the new niri applies after you log in again. The first
+update on Arch asks once which one you want, and `vitrum doctor` shows which
+one you have.
 
 ---
 
@@ -226,7 +246,6 @@ delete. NetworkManager stays in charge of the network.
 ## Credits
 
 - [niri](https://github.com/YaLTeR/niri) by YaLTeR, the compositor underneath.
-- [Niri-glass](https://github.com/YeFaDa/Niri-glass) by YeFaDa, the liquid glass it's patched with.
 - [Quickshell](https://quickshell.org), which the shell is written in.
 - [matugen](https://github.com/InioX/matugen), which turns the wallpaper into a palette.
 - [Phosphor Icons](https://phosphoricons.com), the line icons.

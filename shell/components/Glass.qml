@@ -34,13 +34,15 @@ Item {
 
     readonly property real pad: Math.ceil(bevel * 1.5)
 
-    // The body, with room around it for the blur to fall off.
+    // The body, with room around it for the blur to fall off. Hidden by bodySrc's
+    // hideSource, not by visible: false: since Qt 6.12 a change inside an invisible
+    // item asks for no frame, so the clock's rolling digits stood half way until
+    // something else on the window drew.
     Item {
         id: box
         x: -root.pad; y: -root.pad
         width: root.width + 2 * root.pad
         height: root.height + 2 * root.pad
-        visible: false
         Item { id: shape; x: root.pad; y: root.pad; width: root.width; height: root.height }
     }
     // The height map: the body, blurred.
@@ -67,7 +69,7 @@ Item {
         opacity: root.shadow
         transform: Translate { y: root.bevel * 0.35 }
     }
-    ShaderEffectSource { id: bodySrc; sourceItem: box; visible: false }
+    ShaderEffectSource { id: bodySrc; sourceItem: box; hideSource: true; visible: false }
     ShaderEffectSource { id: heightSrc; sourceItem: heightFx; visible: false }
     ShaderEffectSource { id: ownSrc; sourceItem: root.source ? null : root.backdrop; visible: false; hideSource: false }
 

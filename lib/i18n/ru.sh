@@ -39,7 +39,6 @@ I18N_RU['rsync failed: %s -> %s']='ошибка rsync: %s -> %s'
 I18N_RU['copy failed: %s -> %s']='не удалось скопировать: %s -> %s'
 I18N_RU['could not install %s']='не удалось установить %s'
 I18N_RU['could not write %s']='не удалось записать %s'
-I18N_RU['could not copy %s']='не удалось скопировать %s'
 
 # ------------------------------------------------------------- checks -----
 
@@ -76,8 +75,16 @@ I18N_RU['fc-cache failed: %s']='fc-cache завершился с ошибкой:
 
 # --------------------------------------------------------------- niri -----
 
-I18N_RU['overlay file missing: %s (Niri-glass %s)']='нет файла оверлея: %s (Niri-glass %s)'
 I18N_RU['niri did not build — full log: %s (the installed niri, if any, is untouched)']='niri не собрался — полный журнал: %s (уже установленный niri, если он есть, не тронут)'
+I18N_RU['prebuilt niri not used: %s — compiling instead (20–40 minutes)']='готовый niri не подошёл: %s — будет сборка (20–40 минут)'
+I18N_RU['CHECKSUM MISMATCH: the prebuilt niri from %s is not what was published, it was deleted unused — compiling instead (20–40 minutes)']='КОНТРОЛЬНАЯ СУММА НЕ СОВПАЛА: готовый niri с %s — не то, что было опубликовано, файл удалён без запуска — будет сборка (20–40 минут)'
+I18N_RU['this processor is too old for it (it needs x86-64-v2)']='этот процессор слишком старый (нужен x86-64-v2)'
+I18N_RU['there is no binary for this version']='для этой версии нет готового файла'
+I18N_RU['the download failed (curl error %s)']='не удалось скачать (ошибка curl %s)'
+I18N_RU['the archive could not be unpacked']='не удалось распаковать архив'
+I18N_RU['this system lacks %s, which it was built against (a full system update may bring it)']='в системе нет %s, с которым он собран (полное обновление системы может это исправить)'
+I18N_RU['it does not start on this system']='он не запускается в этой системе'
+I18N_RU['it does not accept the glass options']='он не принимает настройки стекла'
 
 # -------------------------------------------------------------- shell -----
 
@@ -111,6 +118,7 @@ I18N_RU["nvim --headless '+Lazy! sync' did not finish cleanly; run :Lazy sync in
 
 # lib/stages/70-boot.sh and lib/dm.sh: the login screen and the splash.
 I18N_RU['keeping %s as the login screen — pick the "vitrum" session there (or re-run with --replace-dm)']='экраном входа остаётся %s — выберите там сеанс «vitrum» (или запустите снова с --replace-dm)'
+I18N_RU['keeping lightdm as the login screen — it does not list vitrum yet: add /usr/local/share/wayland-sessions to sessions-directory in /etc/lightdm/lightdm.conf (or re-run with --replace-dm)']='экраном входа остаётся lightdm — сеанса vitrum в его списке пока нет: добавьте /usr/local/share/wayland-sessions в sessions-directory в /etc/lightdm/lightdm.conf (или запустите снова с --replace-dm)'
 I18N_RU['/etc/sddm.conf sets %s under [Theme], which overrides the vitrum theme — remove that line (or set Current=vitrum)']='в /etc/sddm.conf в разделе [Theme] задано %s, и это перекрывает тему vitrum — удалите эту строку (или укажите Current=vitrum)'
 I18N_RU['no rsvg-convert or ImageMagick — the splash shows only the spinner']='нет ни rsvg-convert, ни ImageMagick — на заставке будет только индикатор загрузки'
 I18N_RU['dracut failed — the splash appears after your next successful initramfs rebuild']='dracut завершился с ошибкой — заставка появится после следующей удачной пересборки initramfs'
@@ -172,9 +180,14 @@ I18N_RU['%s cannot show images']='%s не умеет показывать кар
 I18N_RU['The terminal vitrum sets up and colours from your wallpaper.']='Терминал, который vitrum настраивает и раскрашивает под ваши обои.'
 I18N_RU['The shell in that terminal, with the Starship prompt.']='Оболочка в этом терминале, с приглашением Starship.'
 I18N_RU["What fastfetch shows beside the system facts: the vitrum picture or your distribution's logo."]='Что fastfetch показывает рядом со сведениями о системе: картинку vitrum или логотип дистрибутива.'
+I18N_RU['prebuilt']='готовый'
+I18N_RU['compile, 20–40 min']='собрать, 20–40 мин'
+I18N_RU['Prebuilt downloads in a minute and is checked first; if it cannot run here, niri compiles anyway. Compiling is tuned to this processor.']='Готовый скачивается за минуту и сначала проверяется; если он здесь не запустится, niri всё равно соберётся. Сборка оптимизируется под этот процессор.'
 I18N_RU['The login screen in the same style as the lock screen; other sessions stay listed.']='Экран входа в том же стиле, что и экран блокировки; другие сеансы остаются в списке.'
 I18N_RU['A boot splash. The initramfs is regenerated with dracut or mkinitcpio, whichever builds it here.']='Заставка при загрузке. initramfs пересобирается тем, чем он собирается здесь: dracut или mkinitcpio.'
 I18N_RU['Live wallpapers through mpvpaper. Static ones work either way.']='Живые обои через mpvpaper. Обычные работают в любом случае.'
+I18N_RU['Input method for Japanese, Korean, Chinese (fcitx5)']='Ввод на японском, корейском и китайском (fcitx5)'
+I18N_RU['Type kana, kanji, hangul and hanzi: Mozc, Hangul and Pinyin through fcitx5, which then holds all your layouts. Alt+Shift still switches them.']='Кана, кандзи, хангыль и ханьцзы: Mozc, Hangul и Pinyin через fcitx5, который тогда держит все раскладки. Alt+Shift переключает их как раньше.'
 I18N_RU['Notifications from the phone, its battery, a shared clipboard and files. Pulls in part of KDE Frameworks.']='Уведомления с телефона, его заряд, общий буфер обмена и файлы. Тянет за собой часть KDE Frameworks.'
 I18N_RU["tmux with a vitrum status bar and its plugins. Without the author's keys it keeps its own (Ctrl+b)."]='tmux со строкой состояния vitrum и плагинами. Без клавиш автора у него остаются свои (Ctrl+b).'
 I18N_RU['Game mode with its HUD: gamemode and MangoHud.']='Игровой режим и его HUD: gamemode и MangoHud.'
@@ -212,6 +225,7 @@ I18N_RU['Replace %s with SDDM']='Заменить %s на SDDM'
 I18N_RU['Only %sMB free, niri wants about 5GB: install anyway']='Свободно %s МБ, а niri нужно около 5 ГБ: всё равно установить'
 I18N_RU['Logins and new terminals start fish. Unticked, %s stays the login shell and kitty still opens fish.']='Вход в систему и новые терминалы запускают fish. Без отметки по умолчанию остаётся %s, а kitty всё равно открывает fish.'
 I18N_RU['SDDM with the vitrum theme becomes the login screen; uninstall.sh puts %s back. Unticked, pick the vitrum session in %s.']='Экраном входа станет SDDM с темой vitrum; uninstall.sh вернёт %s. Без отметки выберите сеанс vitrum в %s.'
+I18N_RU['SDDM with the vitrum theme becomes the login screen; uninstall.sh puts %s back. Unticked, add /usr/local/share/wayland-sessions to sessions-directory in lightdm.conf to see the vitrum session.']='Экраном входа станет SDDM с темой vitrum; uninstall.sh вернёт %s. Без отметки добавьте /usr/local/share/wayland-sessions в sessions-directory в lightdm.conf, чтобы увидеть сеанс vitrum.'
 I18N_RU['Building niri takes about 5GB in your home folder; with less it can fail halfway.']='Сборке niri нужно около 5 ГБ в домашней папке; если места меньше, она может прерваться на полпути.'
 I18N_RU['The password for sudo is asked once, after Install.']='Пароль для sudo спросят один раз, после «Установить».'
 I18N_RU['Tick the disk space row to install anyway, or free some space first.']='Отметьте строку про место на диске, чтобы всё равно установить, или сначала освободите место.'
@@ -309,3 +323,4 @@ I18N_RU['Wi-Fi: from the next boot NetworkManager runs it, and the networks wpa_
 I18N_RU['Wi-Fi: wpa_supplicant keeps its own service — without its D-Bus service file (%s) NetworkManager would be left with no Wi-Fi backend']='Wi-Fi: служба wpa_supplicant остаётся — без её файла службы D-Bus (%s) у NetworkManager не осталось бы бэкенда Wi-Fi'
 I18N_RU['COPR %s: could not ask dnf what its packages need — its package list stays as it is (%s)']='COPR %s: не удалось узнать у dnf, что нужно его пакетам — список пакетов из него остаётся как есть (%s)'
 I18N_RU['could not create %s, where /etc/rc.local points — nothing is changed at the next boot']='не удалось создать %s, куда указывает /etc/rc.local — при следующей загрузке ничего не изменится'
+I18N_RU['could not update %s']='не удалось обновить %s'

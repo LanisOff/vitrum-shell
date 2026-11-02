@@ -56,12 +56,12 @@ Rectangle {
     function pair(c) { return Qt.hsla(wrap01(Math.max(0, c.hslHue) - 30 / 360), c.hslSaturation, Math.min(0.9, c.hslLightness + 0.08), 1); }
 
     property int userIndex: userModel.lastIndex >= 0 ? userModel.lastIndex : 0
-    // The remembered session; on a first login (no last user) niri with vitrum, if it is installed.
+    // The remembered session; on a first login (no last user) vitrum, if it is installed.
     property int sessionIndex: {
-        // The remembered one only while it still exists (vitrum.desktop became niri.desktop).
+        // The remembered one only while it still exists.
         if (userModel.lastUser && sessionModel.lastIndex >= 0) return sessionModel.lastIndex;
         for (let i = 0; i < sessionModel.rowCount(); i++)
-            if (String(sessionModel.data(sessionModel.index(i, 0), Qt.UserRole + 2)).indexOf("/usr/local/share/wayland-sessions/niri.desktop") >= 0) return i;
+            if (String(sessionModel.data(sessionModel.index(i, 0), Qt.UserRole + 2)).indexOf("/usr/local/share/wayland-sessions/vitrum.desktop") >= 0) return i;
         return Math.max(0, sessionModel.lastIndex);
     }
     // No users listed (LDAP, SSSD, or outside SDDM's UID range): a name field instead.

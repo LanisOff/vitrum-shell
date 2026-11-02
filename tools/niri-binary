@@ -1,0 +1,129 @@
+#!/usr/bin/env bash
+# The prebuilt niri for Arch and its relatives, made by
+# .github/workflows/niri-binary.yml in a clean Arch container. The pin, the
+# patches, the features and the checks are the installer's own, sourced from
+# lib/stages/30-niri.sh; only what a published binary needs on top is here.
+#
+#   niri-binary deps        install what building takes (as root, with pacman)
+#   niri-binary published   0 when this stamp's binary is already released
+#   niri-binary build       fetch, patch, compile, check, pack the binary and its source
+#   niri-binary publish     create the stamp's release, or replace its assets
+set -euo pipefail
+
+VITRUM_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")/.." && pwd)"
+export VITRUM_DIR
+# shellcheck source=lib/common.sh
+source "$VITRUM_DIR/lib/common.sh"
+# Arch, whatever the machine says: the Arch column of lib/packages.tsv, and the
+# features of a local Arch build (niri_cargo_features).
+PKG_BACKEND=pacman INIT_BACKEND=systemd
+# shellcheck source=lib/packages.sh
+source "$VITRUM_DIR/lib/packages.sh"
+# shellcheck source=lib/stages/30-niri.sh
+source "$VITRUM_DIR/lib/stages/30-niri.sh"
+
+REPO="${GITHUB_REPOSITORY:-LanisOff/vitrum-shell}"
+COMMIT="${GITHUB_SHA:-$(vitrum_checkout_revision)}"
+DIST="$BUILD_DIR/niri-dist"
+
+# A baseline, never native: the build machine's CPU says nothing about the
+# user's. _niri_build keeps a target-cpu it is given.
+export RUSTFLAGS="-C target-cpu=x86-64-v2"
+# The runner has the memory for every core; half is for machines without swap.
+half_jobs() { cpu_count; }
+
+_deps() {
+  local pkgs=() p
+  while IFS= read -r p; do pkgs+=("${p%@*}"); done < <(packages_named \
+    build-base build-rust build-clang build-git mesa libglvnd wayland wayland-protocols \
+    libxkbcommon libinput libdisplay-info seatd pipewire pango cairo pixman)
+  pacman -Syu --noconfirm --needed "${pkgs[@]}" github-cli zstd
+}
+
+# The patched source, as one more asset. The installer never downloads it.
+_source_asset() { printf '%s-source.tar.zst\n' "$(niri_release_tag)"; }
+
+# Both, so that a release from before the source was attached gets it.
+_published() {
+  local names
+  names="$(gh release view "$(niri_release_tag)" --repo "$REPO" --json assets --jq '.assets[].name')" || return 1
+  grep -qxF "$(niri_release_asset).sha256" <<<"$names" && grep -qxF "$(_source_asset).sha256" <<<"$names"
+}
+
+# Beside the binary and in the release notes: niri is GPL-3.0-or-later, and a
+# binary has to say where its corresponding source is.
+_source_note() {
+  cat <<NOTE
+niri built for Arch Linux and Arch-based systems by [vitrum](https://github.com/$REPO), x86-64-v2 baseline. The vitrum installer downloads this; it is not a release of vitrum itself.
+
+niri is free software under the GNU General Public License, version 3 or later (see LICENSE in the archive). Its corresponding source:
+
+- all of it in one file, beside this binary on the release, with its sha256: https://github.com/$REPO/releases/download/$(niri_release_tag)/$(_source_asset). That is the patched tree with every Rust crate vendored; cargo build --release --locked --offline builds it, with the build dependencies Arch packages.
+- niri at commit $NIRI_REV: https://github.com/YaLTeR/niri/tree/$NIRI_REV
+- with the patches of vitrum commit $COMMIT, applied in file name order with git apply: https://github.com/$REPO/tree/$COMMIT/patches/niri
+- built by tools/niri-binary at that commit, with the crates pinned in niri's Cargo.lock: https://github.com/$REPO/blob/$COMMIT/tools/niri-binary
+NOTE
+}
+
+# The statically linked crates are part of what is distributed, so they go in,
+# and the archive builds with no network. Not --offline here: cargo vendor wants
+# the crates of every platform, more than the build has fetched. Into the tree,
+# which the next fetch cleans; target and .git stay out. Only the names of the
+# files are rewritten, never where a symlink points.
+_pack_source() {
+  local asset name
+  asset="$(_source_asset)" name="$(niri_release_tag)-source"
+  mkdir -p "$NIRI_SRC/.cargo"
+  ( cd "$NIRI_SRC" && cargo vendor --locked vendor ) >> "$NIRI_SRC/.cargo/config.toml"
+  tar --use-compress-program='zstd -19 -T0' --owner=0 --group=0 --exclude=./target --exclude=./.git \
+    --transform="flags=rh;s,^\\.,$name," -cf "$DIST/$asset" -C "$NIRI_SRC" .
+  ( cd "$DIST" && sha256sum "$asset" > "$asset.sha256" )
+  ok "packed $asset ($(du -h "$DIST/$asset" | cut -f1))"
+}
+
+_build() {
+  _niri_fetch "$NIRI_REPO" "$NIRI_REV" "$NIRI_SRC"
+  _niri_apply_patches
+  _niri_build
+
+  local bin asset stage
+  bin="$(_niri_target)/release/niri"
+  stage="$BUILD_DIR/niri-pack"
+  asset="$(niri_release_asset)"
+  rm -rf "$DIST" "$stage"
+  mkdir -p "$DIST" "$stage"
+  niri_binary_check "$bin" "$stage/probe.kdl" || die 'the binary fails its own check: %s' "$_NIRI_WHY"
+  rm -f "$stage/probe.kdl"
+  install -m755 "$bin" "$stage/niri"
+  install -m644 "$NIRI_SRC/LICENSE" "$stage/LICENSE"
+  _source_note > "$stage/SOURCE"
+  cp "$stage/SOURCE" "$DIST/SOURCE"
+  tar --use-compress-program='zstd -19 -T0' --owner=0 --group=0 -cf "$DIST/$asset" -C "$stage" niri LICENSE SOURCE
+  ( cd "$DIST" && sha256sum "$asset" > "$asset.sha256" )
+  ok "packed $asset ($(du -h "$DIST/$asset" | cut -f1))"
+  _pack_source
+}
+
+# A prerelease, so that it never counts as vitrum's latest release. --clobber
+# deletes before it uploads: for those seconds, and if the upload fails until a
+# rerun, the installer finds no binary and compiles.
+_publish() {
+  local tag asset source files
+  tag="$(niri_release_tag)" asset="$(niri_release_asset)" source="$(_source_asset)"
+  files=("$DIST/$asset" "$DIST/$asset.sha256" "$DIST/$source" "$DIST/$source.sha256")
+  if gh release view "$tag" --repo "$REPO" >/dev/null 2>&1; then
+    gh release upload "$tag" "${files[@]}" --repo "$REPO" --clobber
+    gh release edit "$tag" --repo "$REPO" --notes-file "$DIST/SOURCE"
+  else
+    gh release create "$tag" "${files[@]}" --repo "$REPO" --target "$COMMIT" \
+      --title "niri ${NIRI_REV:0:7} for Arch" --notes-file "$DIST/SOURCE" --prerelease --latest=false
+  fi
+}
+
+case "${1:-}" in
+  deps)      _deps ;;
+  published) _published ;;
+  build)     _build ;;
+  publish)   _publish ;;
+  *) printf 'usage: niri-binary deps|published|build|publish\n' >&2; exit 2 ;;
+esac

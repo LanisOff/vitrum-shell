@@ -51,7 +51,10 @@ Singleton {
         // Desktop widgets lie on the wallpaper, not on the game: lighter there.
         if (plain(group, screen)) return group === "widgets" ? Colors.alpha(base, level === 0 ? 0.66 : 0.76)
                                                              : Colors.alpha(base, level === 0 ? 0.86 : 0.92);
-        if (m === "glass") return Colors.alpha(base, level === 0 ? 0.10 : 0.22);
+        // Widgets carry small text straight on the wallpaper: a little more, on top of
+        // the dimming their glass has in niri (vitrum-theme WIDGET_GLASS).
+        if (m === "glass") return group === "widgets" ? Colors.alpha(base, level === 0 ? 0.22 : 0.34)
+                                                      : Colors.alpha(base, level === 0 ? 0.10 : 0.22);
         return Colors.alpha(base, level === 0 ? 0.62 : 0.72);
     }
     function border(group) {

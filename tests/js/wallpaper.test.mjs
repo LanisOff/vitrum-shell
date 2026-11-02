@@ -21,6 +21,13 @@ eq(j(w.awwwArgs("/p.jpg", "DP-1", "fade", null, 0.9).slice(5, 7)), j(["-t", "fad
 eq(j(w.awwwArgs("/p.jpg", "DP-1", "none", null, 0.9).slice(5, 7)), j(["-t", "none"]), "none");
 eq(j(w.awwwArgs("/p.jpg", "DP-1", "bogus", null, 0.9).slice(5, 7)), j(["-t", "grow"]), "unknown → grow");
 
+// What rests on awww's daemon: its pictures and video stills, not a playing video or the shell's own.
+eq(w.usesAwww({ "DP-1": "awww:/a.jpg" }), true, "a picture on awww");
+eq(w.usesAwww({ "DP-1": "still:/v.mp4" }), true, "a video's still on awww");
+eq(w.usesAwww({ "DP-1": "still:/v.mp4:shell", "DP-2": "video:/v.mp4", "DP-3": "shell:/a.jpg", "DP-4": "none:" }), false, "nothing on awww");
+eq(w.usesAwww({}), false, "no outputs yet");
+eq(j(w.withoutAwww({ "DP-1": "awww:/a.jpg", "DP-2": "video:/v.mp4", "DP-3": "still:/v.mp4" })), j({ "DP-2": "video:/v.mp4" }), "only awww's go, to be put back");
+
 // mpvpaper: silent, looping, with an IPC socket for pausing.
 eq(j(w.mpvArgs("/v.mp4", "DP-1", "/run/s")),
    j(["mpvpaper", "-o", "no-audio loop hwdec=auto input-ipc-server=/run/s", "DP-1", "/v.mp4"]), "mpvpaper");

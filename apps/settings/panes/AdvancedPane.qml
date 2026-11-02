@@ -47,8 +47,13 @@ Page {
         note: "From the repository vitrum was installed from (vitrum update). Nothing is pulled until you press Update."
         SettingToggle { key: "updates.vitrum.check"; label: "Check for new versions"; hint: "Quietly, every few hours. An island appears in the bar when there is enough new." }
         // No unit: " commits" did not fit beside the slider ("16 com…") and read "1 commits".
-        SettingSlider { key: "updates.vitrum.threshold"; needs: "updates.vitrum.check"; label: "New commits to show the island"; from: 1; to: 30; step: 1 }
-        SettingSlider { key: "updates.vitrum.hours"; needs: "updates.vitrum.check"; label: "Check every"; from: 1; to: 24; step: 1; unit: " h"; divider: false }
+        SettingSlider { key: "updates.vitrum.threshold"; needs: "updates.vitrum.check"; label: "New commits to show the island"; hint: "A major version, such as 0.6.0, shows it at once."; from: 1; to: 30; step: 1 }
+        SettingSlider { key: "updates.vitrum.hours"; needs: "updates.vitrum.check"; label: "Check every"; from: 1; to: 24; step: 1; unit: " h" }
+        // The island is the only other way to this panel, and it may be hidden.
+        SettingRow {
+            label: "What is new"; hint: "Every new commit, also below that number."; needs: "updates.vitrum.check"; divider: false
+            GlassButton { label: "Show"; onClicked: Quickshell.execDetached(["vitrum-ipc", "panel", "open", "vitrum"]) }
+        }
     }
     Section {
         title: "settings.json"

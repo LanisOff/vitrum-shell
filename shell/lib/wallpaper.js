@@ -28,6 +28,22 @@ function awwwArgs(path, output, transition, pos, duration) {
     return a.concat(["--transition-duration", String(duration), "--transition-fps", "60"]);
 }
 
+// Wallpaper.applied (output → "kind:path"): the pictures that rest on awww's
+// daemon. A video plays on mpvpaper; a ":shell" still is the shell's own.
+function onAwww(key) { return /^awww:/.test(key) || (/^still:/.test(key) && !/:shell$/.test(key)); }
+
+function usesAwww(applied) {
+    for (var out in applied) if (onAwww(applied[out])) return true;
+    return false;
+}
+
+// applied without those pictures: the next applyAll puts them back.
+function withoutAwww(applied) {
+    var a = {};
+    for (var out in applied) if (!onAwww(applied[out])) a[out] = applied[out];
+    return a;
+}
+
 function mpvArgs(path, output, socket) {
     return ["mpvpaper", "-o", "no-audio loop hwdec=auto input-ipc-server=" + socket, output, path];
 }

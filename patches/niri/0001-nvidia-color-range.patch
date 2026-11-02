@@ -1,8 +1,18 @@
+diff --git a/src/backend/tty.rs b/src/backend/tty.rs
 --- a/src/backend/tty.rs
 +++ b/src/backend/tty.rs
-@@ -687,6 +687,13 @@
+@@ -707,7 +707,7 @@ impl Tty {
+ 
+                     // Apply pending gamma changes and restore our existing gamma.
+                     let device = self.devices.get_mut(&node).unwrap();
+-                    for surface in device.surfaces.values_mut() {
++                    for (crtc, surface) in device.surfaces.iter_mut() {
+                         if let Ok(mut props) =
+                             ConnectorProperties::try_new(&device.drm, surface.connector)
+                         {
+@@ -722,6 +722,13 @@ impl Tty {
                              warn!("failed to get connector properties");
-                         };
+                         }
  
 +                        set_color_range(
 +                            &device.drm,
@@ -11,10 +21,10 @@
 +                            &surface.compositor.pending_mode(),
 +                        );
 +
-                         if let Some(ramp) = surface.pending_gamma_change.take() {
-                             let ramp = ramp.as_deref();
-                             let res = if let Some(gamma_props) = &mut surface.gamma_props {
-@@ -1514,6 +1521,8 @@
+                         if let Some(gamma_props) = &mut surface.gamma_props {
+                             if let Some(ramp) = surface.pending_gamma_change.take() {
+                                 if let Err(err) = gamma_props.set_gamma(&device.drm, ramp) {
+@@ -1545,6 +1552,8 @@ impl Tty {
  
          let vrr_enabled = compositor.vrr_enabled();
  
@@ -23,7 +33,7 @@
          let vblank_frame_name =
              tracy_client::FrameName::new_leak(format!("vblank on {connector_name}"));
          let time_since_presentation_plot_name = tracy_client::PlotName::new_leak(format!(
-@@ -2490,6 +2499,7 @@
+@@ -2544,6 +2553,7 @@ impl Tty {
                          warn!("error changing mode: {err:?}");
                          continue;
                      }
@@ -31,9 +41,9 @@
  
                      let wl_mode = Mode::from(mode);
                      output.change_current_state(Some(wl_mode), None, None, None);
-@@ -3266,6 +3276,122 @@
- 
- const DRM_MODE_COLORIMETRY_DEFAULT: u64 = 0;
+@@ -3484,6 +3494,122 @@ impl<'a> ConnectorProperties<'a> {
+     }
+ }
  
 +/// The RGB range of the signal, as the monitor expects it.
 +///
@@ -151,6 +161,6 @@
 +    })
 +}
 +
- fn reset_hdr(props: &ConnectorProperties) -> anyhow::Result<()> {
-     let (info, value) = props.find(c"HDR_OUTPUT_METADATA")?;
-     let property::ValueType::Blob = info.value_type() else {
+ fn set_connector_properties(
+     props: &mut ConnectorProperties,
+     max_bpc: Option<MaxBpc>,

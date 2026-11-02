@@ -159,6 +159,10 @@ LockGlass {
                 cursorVisible: false
                 cursorDelegate: Item {}
                 echoMode: TextInput.Password
+                // Marked sensitive for the input method. What keeps an engine away
+                // from it is Layouts' hold, for as long as the screen is locked;
+                // keymaps stay usable, for a password that is not in Latin.
+                inputMethodHints: Qt.ImhHiddenText | Qt.ImhSensitiveData | Qt.ImhNoPredictiveText | Qt.ImhNoAutoUppercase
                 font.pixelSize: Tokens.textLarge
                 verticalAlignment: TextInput.AlignVCenter
                 focus: true

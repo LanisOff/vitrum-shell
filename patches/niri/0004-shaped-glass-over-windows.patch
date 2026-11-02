@@ -1,0 +1,72 @@
+diff --git a/src/render_helpers/background_effect.rs b/src/render_helpers/background_effect.rs
+--- a/src/render_helpers/background_effect.rs
++++ b/src/render_helpers/background_effect.rs
+@@ -358,11 +358,9 @@ pub fn render_for_tile(
+         let mut surface_geo = surface_geo(states).unwrap_or_default().to_f64();
+         surface_geo.loc += surface_off;
+ 
+-        // Shaped glass.
+-        let shape_fillet = match &background_effect.options.glass {
+-            Some(glass) if background_effect.options.xray => glass.shape_fillet,
+-            _ => 0.,
+-        };
++        // Shaped glass, on both paths: xray (the wallpaper) and the framebuffer (whatever is
++        // really behind, windows included).
++        let shape_fillet = background_effect.options.glass.map_or(0., |g| g.shape_fillet);
+ 
+         let Some(params) = render_params_for_tile(
+             geometry,
+diff --git a/src/render_helpers/framebuffer_effect.rs b/src/render_helpers/framebuffer_effect.rs
+--- a/src/render_helpers/framebuffer_effect.rs
++++ b/src/render_helpers/framebuffer_effect.rs
+@@ -1,4 +1,5 @@
+ use std::cell::RefCell;
++use std::rc::Rc;
+ use std::sync::Once;
+ 
+ use glam::{Mat3, Vec2};
+@@ -17,7 +18,7 @@ use smithay::utils::{Buffer, Logical, Physical, Rectangle, Scale, Transform};
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+ use crate::render_helpers::background_effect::RenderParams;
+ use crate::render_helpers::blur::{Blur, BlurOptions};
+-use crate::render_helpers::glass;
++use crate::render_helpers::glass::{self, ShapeUniforms};
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+ use crate::render_helpers::shaders::{mat3_uniform, Shaders};
+ use crate::utils::region::TransformedRegion;
+@@ -41,6 +42,7 @@ pub struct FramebufferEffectElement {
+     noise: f32,
+     saturation: f32,
+     glass: Option<LiquidGlass>,
++    shapes: Option<Rc<ShapeUniforms>>,
+ }
+ 
+ #[derive(Debug)]
+@@ -82,6 +84,10 @@ impl FramebufferEffect {
+             id = id.namespaced(ns);
+         }
+ 
++        // The pieces, in the clip geometry's own units: what geo_size is here.
++        let shapes = params.shapes.as_ref();
++        let shapes = shapes.map(|s| Rc::new(s.uniforms(clip_geo.loc, 1.)));
++
+         FramebufferEffectElement {
+             id,
+             commit: self.commit,
+@@ -94,6 +100,7 @@ impl FramebufferEffect {
+             noise,
+             saturation,
+             glass,
++            shapes,
+         }
+     }
+ }
+@@ -133,7 +140,7 @@ impl FramebufferEffectElement {
+         ];
+ 
+         if let Some(options) = &self.glass {
+-            glass::push_uniforms(options, 1., None, &mut uniforms);
++            glass::push_uniforms(options, 1., self.shapes.as_deref(), &mut uniforms);
+         }
+ 
+         uniforms

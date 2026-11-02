@@ -14,6 +14,8 @@ COMPONENTS=(
   "plymouth|desktop|0|plymouth|WANT_PLYMOUTH"
   "live_wallpaper|desktop|1|live-wallpaper|WANT_LIVE_WALLPAPER"
   "phone|desktop|0|phone|WANT_PHONE"
+  # fcitx5: it then holds every layout, and niri keeps one (tools/vitrum_theme/fcitx.py).
+  "input_method|desktop|0|input-method|WANT_INPUT_METHOD"
   "tmux|tools|1|tmux|WANT_TMUX"
   "games|tools|1|games|WANT_GAMES"
   # steam-theme has no packages: vitrum-steam-theme installs Millennium (the
@@ -51,6 +53,8 @@ PICKS=(
   "terminal|VITRUM_TERMINAL|kitty"
   "shell|VITRUM_SHELL|fish"
   "fastfetch_logo|VITRUM_FASTFETCH_LOGO|picture distro"
+  # How niri gets here, where there is a choice (pick_applies).
+  "niri_source|VITRUM_NIRI_SOURCE|prebuilt compile"
 )
 
 # The prompt and the shell are part of the rice, not choices (read by the stages).
@@ -66,6 +70,9 @@ COMPONENTS_MIGRATED="${COMPONENTS_MIGRATED:-}"
 # or not JSON), and the parts the file had ticked, whatever the flags say now.
 COMPONENTS_LOAD_FAILED="${COMPONENTS_LOAD_FAILED:-}"
 COMPONENTS_STORED_ON="${COMPONENTS_STORED_ON:-}"
+# The picks already decided, by the file or by a flag on this run: an update
+# asks about one that is neither.
+COMPONENTS_PICKS_DECIDED="${COMPONENTS_PICKS_DECIDED:-}"
 # Set by install.sh once the choice screens were answered.
 COMPONENTS_CHOSEN="${COMPONENTS_CHOSEN:-}"
 # The confirmation's answer about fish as the login shell, as the file has it
@@ -147,6 +154,19 @@ _components_tmux_keys() {
   if [[ "${WANT_AUTHOR_TMUX_KEYS:-}" == 1 ]]; then WANT_TMUX_KEYS=vitrum; else WANT_TMUX_KEYS=default; fi
 }
 
+# niri_prebuilt_offered — 0 on Arch and its relatives on x86_64. The prebuilt
+# niri is built on Arch against its current libraries, so it can run nowhere
+# else; the other distributions compile and are not asked.
+niri_prebuilt_offered() { [[ "${PKG_BACKEND:-}" == pacman && "$(uname -m)" == x86_64 ]]; }
+
+# niri_prebuilt_wanted — 0 when this run goes for the prebuilt niri. What
+# compiling needs stays out of the packages then, and the time and disk space
+# it would take are not counted.
+niri_prebuilt_wanted() { [[ "${VITRUM_NIRI_SOURCE:-}" == prebuilt ]] && niri_prebuilt_offered; }
+
+# pick_applies <pick> — 0 when the pick means anything on this system.
+pick_applies() { [[ "$1" != niri_source ]] || niri_prebuilt_offered; }
+
 # _pick_var <id> / _pick_options <id>
 _pick_var() {
   local entry id var opts
@@ -178,7 +198,10 @@ components_flag() {
     --tmux-keys=vitrum)  component_set author_tmux_keys 1; return 0 ;;
     --tmux-keys=default) component_set author_tmux_keys 0; return 0 ;;
     --tmux-autostart)    component_set tmux_autostart 1; return 0 ;;
+    --with-prebuilt-niri) VITRUM_NIRI_SOURCE=prebuilt COMPONENTS_PICKS_DECIDED+=" niri_source"; return 0 ;;
+    --no-prebuilt-niri)   VITRUM_NIRI_SOURCE=compile COMPONENTS_PICKS_DECIDED+=" niri_source"; return 0 ;;
   esac
+  [[ "$flag" == --with-input-method || "$flag" == --no-input-method ]] && COMPONENT_FLAGGED_INPUT_METHOD=1
   for id in $(component_ids); do
     case "$flag" in
       "--with-${id//_/-}") component_set "$id" 1; return 0 ;;
@@ -222,8 +245,8 @@ if "version" not in d:
     v["cli_tools"] = v["file_manager"] = v["ocr"] = True
     print("MIGRATED=1")
     # The Steam and Vesktop themes came later and change those apps
-    # themselves: offered, not assumed.
-    print("KNOWN=" + " ".join(i for i in ids if i not in ("steam_theme", "vesktop_theme")))
+    # themselves, the input method takes the layouts over: offered, not assumed.
+    print("KNOWN=" + " ".join(i for i in ids if i not in ("steam_theme", "vesktop_theme", "input_method")))
 else:
     v = {k: bool(d[k]) for k in ids if k in d}
     known = d.get("known")
@@ -259,6 +282,7 @@ PY
         var="$(_pick_var "${key#pick:}")" || continue
         # A value this version does not offer (a newer one wrote it) is left to the default.
         [[ " $(_pick_options "${key#pick:}") " == *" $val "* ]] || continue
+        COMPONENTS_PICKS_DECIDED+=" ${key#pick:}"
         [[ -z "${!var:-}" ]] && printf -v "$var" '%s' "$val"
         ;;
       *)
@@ -299,9 +323,10 @@ _components_json_str() {
 # fish as the login shell (not a part), written only when the row was answered
 # on this run, else as the file had it, else not at all: a default taken
 # without asking (--yes, a row not shown because fish already was the login
-# shell) is no answer. tmux_keys and extras are kept for vitrum-theme copies
-# older than this file. The language is the one chosen on this run, or else
-# the stored one: an update that asks nothing must not forget it.
+# shell) is no answer. niri_source is written only where it applies. tmux_keys
+# and extras are kept for vitrum-theme copies older than this file. The
+# language is the one chosen on this run, or else the stored one: an update
+# that asks nothing must not forget it.
 #
 # A file that could not be read is left alone unless the choice screens were
 # answered on this run: otherwise this run's choices are only the defaults,
@@ -326,6 +351,8 @@ components_save() {
     1) login_line='  "login_shell": true,'$'\n' ;;
     0) login_line='  "login_shell": false,'$'\n' ;;
   esac
+  local niri_line=""
+  pick_applies niri_source && niri_line="  \"niri_source\": $(_components_json_str "${VITRUM_NIRI_SOURCE:-}"),"$'\n'
   cat > "$(components_file)" <<EOF
 {
   "version": 2,
@@ -333,7 +360,7 @@ components_save() {
   "terminal": $(_components_json_str "${VITRUM_TERMINAL:-}"),
   "shell": $(_components_json_str "${VITRUM_SHELL:-}"),
   "fastfetch_logo": $(_components_json_str "${VITRUM_FASTFETCH_LOGO:-}"),
-${login_line}  "known": [$known],
+${niri_line}${login_line}  "known": [$known],
 ${bools}  "tmux_keys": "$keys",
   "extras": $extras
 }
@@ -353,12 +380,17 @@ components_vars() {
 }
 
 # components_new — the parts the stored file did not know of, one per line:
-# what a newer version added since the choices were made.
+# what a newer version added since the choices were made. niri_source is asked
+# the same way, once, on the systems it applies to.
 components_new() {
   local id
   for id in $(component_ids); do
     [[ " $COMPONENTS_KNOWN " == *" $id "* ]] || printf '%s\n' "$id"
   done
+  if pick_applies niri_source && [[ " $COMPONENTS_PICKS_DECIDED " != *" niri_source "* ]]; then
+    printf 'niri_source\n'
+  fi
+  return 0
 }
 
 # components_unticked — the known parts that are off, one per line.
@@ -374,10 +406,32 @@ components_unticked() {
 # the device's locale (a ru_* one, generated or not; see lib/i18n.sh).
 _components_ru() { [[ "$(i18n_msg_lang)" == ru ]]; }
 
+# cjk_layouts_set — 0 when the keyboard layouts name Japanese, Korean or Chinese:
+# Settings' list, or else what niri's config says. Those type nothing but Latin
+# without the input method.
+cjk_layouts_set() {
+  local settings="$XDG_CONFIG_HOME/vitrum/settings.json" f
+  if [[ -f "$settings" ]] && grep -qE '"(jp|kr|cn)"' "$settings"; then return 0; fi
+  for f in "$VITRUM_PREFIX/niri/generated/input.kdl" "$VITRUM_PREFIX/niri/config.kdl"; do
+    [[ -f "$f" ]] && grep -qE '^[[:space:]]*layout[[:space:]]+"([^"]*,)?(jp|kr|cn)(,[^"]*)?"' "$f" && return 0
+  done
+  return 1
+}
+
+# components_suggest — tick the input method on the screen for someone whose
+# layouts need it and who has not decided. Only there: it stays off by default,
+# so an update without a terminal never turns it on by itself.
+components_suggest() {
+  [[ " $COMPONENTS_KNOWN " == *" input_method "* || "${COMPONENT_FLAGGED_INPUT_METHOD:-}" == 1 ]] && return 0
+  if cjk_layouts_set; then component_set input_method 1; fi
+  return 0
+}
+
 # components_needs — the groups of lib/packages.tsv this run needs, one per
 # line. Shared by the packages stage and the start-of-run check.
 components_needs() {
   local needs=(required) id need
+  niri_prebuilt_wanted || needs+=(niri-build)
   if lspci 2>/dev/null | grep -qiE '(VGA|3D).*NVIDIA'; then needs+=(nvidia); fi
   for id in $(component_ids); do
     component_active "$id" || continue

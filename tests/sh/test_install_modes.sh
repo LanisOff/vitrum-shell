@@ -115,6 +115,71 @@ test_update_offers_new_and_unticked_only() {
   assert_contains "$(cat "$HOME/out")" "Nothing done."
 }
 
+# The prebuilt niri is offered on x86_64 Arch, and _world's uname says Linux to
+# everything.
+_x86_64() { stub uname 'if [[ "${1:-}" == -m ]]; then echo x86_64; else echo Linux; fi'; }
+
+# 0.6.0 reaches Arch with no answer stored: the short screen asks it once, and
+# nobody else is asked anything.
+test_update_on_arch_asks_about_niri_once() {
+  _world; _x86_64; _installed; _v2
+  local rc=0
+  _tui_run --dry-run || rc=$?
+  assert_eq "$rc" 0 || { tail -20 "$HOME/out"; return 1; }
+  local screen; screen="$(_visible "$HOME/screen")"
+  assert_contains "$screen" "what to install"
+  assert_contains "$screen" "(•) prebuilt"
+  [[ "$screen" != *"Text from screenshots"* ]] || { echo "the whole list"; return 1; }
+  # The answer stored: a quiet update again.
+  _world; _x86_64; _installed; _v2 'd["niri_source"] = "compile"'
+  rm -f "$HOME/keys"
+  _tui_run --dry-run --only terminal || { tail -20 "$HOME/out"; return 1; }
+  [[ "$(_visible "$HOME/screen")" != *"what to install"* ]] || { echo "asked again"; return 1; }
+}
+
+test_update_on_arch_with_a_flag_does_not_ask() {
+  _world; _x86_64; _installed; _v2
+  export VITRUM_SKIP_STAGES_FOR_TEST=1
+  _tui_run --dry-run --no-prebuilt-niri || { tail -20 "$HOME/out"; return 1; }
+  [[ "$(_visible "$HOME/screen")" != *"what to install"* ]] || { echo "asked despite the flag"; return 1; }
+}
+
+test_yes_takes_the_default_and_remembers_a_flag() {
+  _world; _x86_64; _assets_in_place
+  export VITRUM_SKIP_STAGES_FOR_TEST=1
+  ( cd "$VITRUM_DIR" && ./install.sh --yes ) > "$HOME/out" 2>&1 || { tail -20 "$HOME/out"; return 1; }
+  local f="$XDG_DATA_HOME/vitrum/components.json"
+  assert_contains "$(cat "$f")" '"niri_source": "prebuilt"'
+  assert_contains "$(cat "$HOME/out")" "with liquid glass, prebuilt"
+  ( cd "$VITRUM_DIR" && ./install.sh --yes --no-prebuilt-niri ) > "$HOME/out" 2>&1 || { tail -20 "$HOME/out"; return 1; }
+  assert_contains "$(cat "$f")" '"niri_source": "compile"'
+  # The next --yes keeps the answer.
+  ( cd "$VITRUM_DIR" && ./install.sh --yes ) > "$HOME/out" 2>&1 || { tail -20 "$HOME/out"; return 1; }
+  assert_contains "$(cat "$f")" '"niri_source": "compile"'
+}
+
+# A whole dry run: the download instead of the build, and no toolchain.
+test_dry_run_on_arch_says_download() {
+  _world; _x86_64
+  ( cd "$VITRUM_DIR" && ./install.sh --dry-run --yes --only niri ) > "$HOME/out" 2>&1 || { tail -20 "$HOME/out"; return 1; }
+  local out; out="$(cat "$HOME/out")"
+  assert_contains "$out" "would download https://github.com/LanisOff/vitrum-shell/releases/download/niri-"
+  [[ "$out" != *"cargo build"* ]] || { echo "$out"; return 1; }
+}
+
+test_dry_run_elsewhere_compiles_and_the_flag_says_compile_on_arch() {
+  _world; _x86_64
+  ( cd "$VITRUM_DIR" && ./install.sh --dry-run --yes --only niri --no-prebuilt-niri ) > "$HOME/out" 2>&1 || { tail -20 "$HOME/out"; return 1; }
+  assert_contains "$(cat "$HOME/out")" "would run: cargo build"
+  [[ "$(cat "$HOME/out")" != *"would download"* ]] || { tail -20 "$HOME/out"; return 1; }
+}
+
+test_help_names_the_flags() {
+  _world
+  local out; out="$( cd "$VITRUM_DIR" && ./install.sh --help )"
+  assert_contains "$out" "--with-prebuilt-niri / --no-prebuilt-niri"
+}
+
 # Enter on the short screen and on the confirmation: the update runs with
 # the new item at its default, the unticked one still unticked.
 test_update_screen_then_confirmation_then_progress() {

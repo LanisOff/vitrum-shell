@@ -11,23 +11,40 @@ test_up_to_date_build_is_skipped() {
   assert_contains "$out" "up to date"
   [[ ! -e "$HOME/calls" ]]
 }
-test_changed_overlay_rev_rebuilds() {
+# A build from the overlay's days: its stamp carries both of the old pins.
+test_old_overlay_build_rebuilds() {
   export VITRUM_NIRI_BIN="$HOME/bin/vitrum-niri"; mkdir -p "$HOME/bin"; printf '#!/bin/sh\n' > "$VITRUM_NIRI_BIN"; chmod +x "$VITRUM_NIRI_BIN"
   export DRY_RUN=1; _load
-  mkdir -p "$VITRUM_STATE"; printf '%s\n' "$NIRI_REV+oldoverlay" > "$VITRUM_STATE/niri.rev"
+  mkdir -p "$VITRUM_STATE"
+  printf '%s\n' "6a0a862b8089accd72a4b7298817c8d76cc26b7b+9fa9fc4be6b58590b482c90df63c4e3a70acfc92+p123" > "$VITRUM_STATE/niri.rev"
   out="$(stage_niri 2>&1)"
   assert_contains "$out" "would run: git"
 }
-test_pins_are_exact() {
+test_pin_is_exact() {
   _load
-  assert_eq "$NIRI_REV" 6a0a862b8089accd72a4b7298817c8d76cc26b7b
-  assert_eq "$GLASS_REV" 9fa9fc4be6b58590b482c90df63c4e3a70acfc92
-  assert_eq "${#OVERLAY_FILES[@]}" 8
+  assert_eq "$NIRI_REV" a8562a1126922ed4c1c94d34c1dbb26633491d05
 }
-test_missing_overlay_file_dies() {
-  _load
-  mkdir -p "$GLASS_SRC" "$NIRI_SRC"
-  ! (_niri_apply_overlay) 2>/dev/null
+# No overlay any more: one repository, nothing copied over it.
+test_only_niri_is_fetched() {
+  export DRY_RUN=1; _load
+  out="$(_niri_fetch "$NIRI_REPO" "$NIRI_REV" "$NIRI_SRC" 2>&1)"
+  assert_contains "$out" "YaLTeR/niri"
+  ! grep -q 'Niri-glass\|GLASS_REV\|OVERLAY' "$VITRUM_DIR/lib/stages/30-niri.sh"
+}
+# Main keeps images in LFS: the checkout must not need git-lfs.
+test_checkout_does_not_need_git_lfs() {
+  export DRY_RUN=1; _load
+  out="$(_niri_fetch "$NIRI_REPO" "$NIRI_REV" "$NIRI_SRC" 2>&1)"
+  assert_contains "$out" "filter.lfs.required=false"
+}
+test_patches_apply_in_order() {
+  _load; export DRY_RUN=1
+  out="$(_niri_apply_patches 2>&1)"
+  assert_contains "$out" "0001-nvidia-color-range.patch"
+  assert_contains "$out" "0002-glass.patch"
+  assert_contains "$out" "0005-glass-while-opening.patch"
+  [[ "${out%%0002*}" == *0001* ]]
+  [[ ! -e "$VITRUM_DIR/patches/niri-glass" ]]
 }
 # The compositor is niri, by its own name (it was installed as vitrum-niri):
 # an up-to-date vitrum-niri is renamed, not rebuilt.
@@ -48,14 +65,13 @@ test_old_vitrum_niri_is_renamed_without_a_build() {
 test_changed_patch_rebuilds() {
   export VITRUM_NIRI_BIN="$HOME/bin/niri"; mkdir -p "$HOME/bin"; printf '#!/bin/sh\n' > "$VITRUM_NIRI_BIN"; chmod +x "$VITRUM_NIRI_BIN"
   export DRY_RUN=1; _load
-  mkdir -p "$VITRUM_STATE"; printf '%s\n' "$NIRI_REV+$GLASS_REV" > "$VITRUM_STATE/niri.rev"
+  mkdir -p "$VITRUM_STATE"; printf '%s\n' "$NIRI_REV" > "$VITRUM_STATE/niri.rev"
   out="$(stage_niri 2>&1)"
-  if ls "$VITRUM_DIR"/patches/niri-glass/*.patch >/dev/null 2>&1; then assert_contains "$out" "would run: git"; else assert_contains "$out" "up to date"; fi
+  assert_contains "$out" "would run: git"
 }
 test_stamp_includes_patches() {
   _load
-  if ls "$VITRUM_DIR"/patches/niri-glass/*.patch >/dev/null 2>&1; then assert_contains "$(niri_stamp)" "+p"; fi
-  assert_contains "$(niri_stamp)" "$NIRI_REV+$GLASS_REV"
+  assert_contains "$(niri_stamp)" "$NIRI_REV+p"
 }
 
 # runit has no systemd for niri's systemd feature to talk to: built without it, as Void does.

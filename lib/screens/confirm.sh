@@ -36,9 +36,10 @@ CONFIRM_ANSWERED=""
 # The disk space the niri build wants, with some to spare.
 CONFIRM_DISK_MB=6000
 
-# _confirm_low_disk — 0 when the disk space row applies.
+# _confirm_low_disk — 0 when the disk space row applies. The choice screen
+# comes after preflight_facts, so the prebuilt niri is asked about here.
 _confirm_low_disk() {
-  [[ "${FACT_NIRI_BUILD:-0}" == 1 && "${FACT_FREE_MB:-0}" =~ ^[0-9]+$ ]] && (( FACT_FREE_MB < CONFIRM_DISK_MB ))
+  [[ "${FACT_NIRI_BUILD:-0}" == 1 && "${FACT_FREE_MB:-0}" =~ ^[0-9]+$ ]] && (( FACT_FREE_MB < CONFIRM_DISK_MB )) && ! niri_prebuilt_wanted
 }
 
 # confirm_init — the rows: install:, not: and unmanaged: with their ids, the
@@ -116,7 +117,13 @@ confirm_label() {
 confirm_hint() {
   case "$1" in
     WANT_LOGIN_SHELL) T "Logins and new terminals start fish. Unticked, %s stays the login shell and kitty still opens fish." "$(_confirm_shell_name)" ;;
-    REPLACE_DM)       T "SDDM with the vitrum theme becomes the login screen; uninstall.sh puts %s back. Unticked, pick the vitrum session in %s." "${FACT_DM:-}" "${FACT_DM:-}" ;;
+    REPLACE_DM)
+      # LightDM looks in /usr/share only, so it can't list our session as it is.
+      if [[ "${FACT_DM:-}" == lightdm ]]; then
+        T "SDDM with the vitrum theme becomes the login screen; uninstall.sh puts %s back. Unticked, add /usr/local/share/wayland-sessions to sessions-directory in lightdm.conf to see the vitrum session." "${FACT_DM:-}"
+      else
+        T "SDDM with the vitrum theme becomes the login screen; uninstall.sh puts %s back. Unticked, pick the vitrum session in %s." "${FACT_DM:-}" "${FACT_DM:-}"
+      fi ;;
     ACCEPT_LOW_DISK)  T "Building niri takes about 5GB in your home folder; with less it can fail halfway." ;;
     *)                T "The password for sudo is asked once, after Install." ;;
   esac

@@ -234,9 +234,22 @@ PanelWindow {
                         clip: true
                         focus: root.open
                         onTextChanged: root.query = text
-                        Keys.onEscapePressed: { if (text) text = ""; else UiState.keybinds = false; }
-                        Keys.onReturnPressed: if (root.firstFound) root.edit(root.firstFound.find)
-                        Keys.onEnterPressed: if (root.firstFound) root.edit(root.firstFound.find)
+                        // While a composition is open these keys are the input method's:
+                        // Escape cancels it and Enter confirms it, before they mean anything
+                        // here. preeditText, not inputMethodComposing: that one stays true
+                        // after a cancelled composition (Qt on text-input-v3).
+                        Keys.onEscapePressed: e => {
+                            if (preeditText) { e.accepted = false; return; }
+                            if (text) text = ""; else UiState.keybinds = false;
+                        }
+                        Keys.onReturnPressed: e => {
+                            if (preeditText) { e.accepted = false; return; }
+                            if (root.firstFound) root.edit(root.firstFound.find);
+                        }
+                        Keys.onEnterPressed: e => {
+                            if (preeditText) { e.accepted = false; return; }
+                            if (root.firstFound) root.edit(root.firstFound.find);
+                        }
                         Keys.onReleased: event => root.held = Lib.heldKeys(root.held, event.key, false)
                         Keys.onPressed: event => {
                             root.held = Lib.heldKeys(root.held, event.key, true);

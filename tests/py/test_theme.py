@@ -45,7 +45,7 @@ class Settings(unittest.TestCase):
             s, _ = vt.load_settings(write(tmp, "s.json", {"materials": {"default": "chrome", "groups": {"bar": "solid", "dock": "x"}}}))
         self.assertEqual(s["materials"]["default"], "frosted")
         # The bad one is dropped; the user's bar and the default groups stay.
-        self.assertEqual(s["materials"]["groups"], {"bar": "solid", "lock": "glass", "launcher": "glass"})
+        self.assertEqual(s["materials"]["groups"], {"bar": "solid", "lock": "glass", "launcher": "glass", "widgets": "glass", "dock": "glass"})
 
     def test_invalid_json_gives_defaults_with_warning(self):
         with tempfile.TemporaryDirectory() as tmp:
@@ -198,8 +198,8 @@ class Kdl(unittest.TestCase):
         k = vt.effects_kdl(s)
         bar = k.split('match namespace="^vitrum-bar$"')[1].split("layer-rule")[0]
         self.assertIn("blur false", bar)
-        launcher = k.split('match namespace="^vitrum-launcher$"')[1].split("layer-rule")[0]
-        self.assertIn("refraction-strength 4.8", launcher)
+        dock = k.split('match namespace="^vitrum-dock$"')[1].split("layer-rule")[0]
+        self.assertIn("refraction-strength 3", dock)
         self.assertIn('match app-id="^kitty$"', k)
 
     def test_shaped_glass_on_the_bar(self):
@@ -258,13 +258,27 @@ class Kdl(unittest.TestCase):
             niri = Path(tmp) / "niri"; niri.write_text("#!/bin/sh\n"); niri.chmod(0o755)
             caps = vt.niri_caps(niri=str(niri), run=run, cache=Path(tmp) / "c")
             self.assertTrue(caps["shapedGlass"])
+            self.assertTrue(caps["ownGlass"])
             self.assertEqual(calls[0][1:3], ["validate", "-c"])
+            probed = len(calls)
             vt.niri_caps(niri=str(niri), run=run, cache=Path(tmp) / "c")
-            self.assertEqual(len(calls), 1, "cached")
+            self.assertEqual(len(calls), probed, "cached")
             def fail(cmd, **kw):
                 class R: returncode = 1
                 return R()
-            self.assertFalse(vt.niri_caps(niri=str(Path(tmp) / "missing"), run=fail, cache=Path(tmp) / "d")["shapedGlass"])
+            gone = vt.niri_caps(niri=str(Path(tmp) / "missing"), run=fail, cache=Path(tmp) / "d")
+            self.assertFalse(gone["shapedGlass"])
+            self.assertFalse(gone["ownGlass"])
+
+    def test_niri_caps_tell_the_old_niri_from_ours(self):
+        # An older build knows shape-fillet but not sheen.
+        def run(cmd, **kw):
+            class R: returncode = 1 if "sheen" in Path(cmd[3]).read_text() else 0
+            return R()
+        with tempfile.TemporaryDirectory() as tmp:
+            niri = Path(tmp) / "niri"; niri.write_text("#!/bin/sh\n")
+            caps = vt.niri_caps(niri=str(niri), run=run, cache=Path(tmp) / "c")
+        self.assertEqual(caps, {"shapedGlass": True, "ownGlass": False})
 
     def test_niri_caps_follow_the_running_niri(self):
         # Replaced since the session started: the old niri still runs, and it is
@@ -287,16 +301,85 @@ class Kdl(unittest.TestCase):
             self.assertEqual(calls[0][0], "/proc/4242/exe")
         self.assertIsNone(vt.running_niri(socket="/tmp/elsewhere"))
 
-    def test_window_glass_is_bolder_than_the_shells(self):
-        # A window's glass sits behind a terminal's text: more refraction and a
-        # stronger white rim than the panels', and more dimming under the text.
+    def outside_the_session(self, tmp, exes):
+        """ssh or a tty: no NIRI_SOCKET, the runtime folder holds a socket per
+        pid in exes ({pid: its /proc/PID/exe, or None when it is gone}), and
+        a new niri on disk that accepts everything."""
+        for pid in exes:
+            (Path(tmp) / f"niri.wayland-1.{pid}.sock").touch()
+        disk = Path(tmp) / "disk-niri"; disk.write_text("#!/bin/sh\n")
+        real_stat = os.stat
+        class St: st_mtime = 1; st_size = 2
+        def stat(path, *a, **kw):
+            return St() if re.fullmatch(r"/proc/\d+/exe", str(path)) else real_stat(path, *a, **kw)
+        def readlink(path):
+            exe = exes.get(int(path.split("/")[2]))
+            if exe is None:
+                raise FileNotFoundError(path)
+            return exe
+        env = {k: v for k, v in os.environ.items() if k != "NIRI_SOCKET"}
+        env["XDG_RUNTIME_DIR"] = tmp
+        return disk, (mock.patch.dict(os.environ, env, clear=True),
+                      mock.patch.object(vt.os, "readlink", side_effect=readlink),
+                      mock.patch.object(vt.os, "stat", side_effect=stat))
+
+    def test_niri_caps_find_the_session_from_outside_it(self):
+        # vitrum update over ssh: the session's niri is older than the one on disk
+        # and would refuse what the new one accepts, until the next login.
+        def old_niri(cmd, **kw):
+            class R: returncode = 1 if "/proc/" in cmd[0] and "sheen" in Path(cmd[3]).read_text() else 0
+            return R()
+        with tempfile.TemporaryDirectory() as tmp:
+            disk, patches = self.outside_the_session(tmp, {4242: "/usr/local/bin/niri (deleted)"})
+            with patches[0], patches[1], patches[2], mock.patch("shutil.which", return_value=str(disk)):
+                caps = vt.niri_caps(run=old_niri, cache=Path(tmp) / "c")
+                self.assertEqual(caps, {"shapedGlass": True, "ownGlass": False})
+                self.assertNotIn("sheen", vt.effects_kdl(self.settings(materials__groups={"bar": "glass"}), caps))
+
+    def test_niri_caps_conservative_when_a_replaced_niri_cannot_be_asked(self):
+        def gone(cmd, **kw):
+            raise PermissionError(cmd[0])
+        with tempfile.TemporaryDirectory() as tmp:
+            disk, patches = self.outside_the_session(tmp, {4242: "/usr/local/bin/niri (deleted)"})
+            with patches[0], patches[1], patches[2], mock.patch("shutil.which", return_value=str(disk)):
+                self.assertEqual(vt.niri_caps(run=gone, cache=Path(tmp) / "c"),
+                                 {"shapedGlass": False, "ownGlass": False})
+
+    def test_session_socket_skips_what_is_not_a_running_niri(self):
+        # A crash leaves the socket behind, and its pid can come round again.
+        with tempfile.TemporaryDirectory() as tmp:
+            _, patches = self.outside_the_session(tmp, {11: None, 22: "/usr/bin/bash"})
+            with patches[0], patches[1], patches[2]:
+                self.assertIsNone(vt.session_socket())
+
+    def test_session_socket_prefers_the_sessions_niri_over_a_nested_one(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            _, patches = self.outside_the_session(tmp, {50: "/usr/local/bin/niri", 60: "/usr/local/bin/niri"})
+            os.utime(Path(tmp) / "niri.wayland-1.60.sock", (1, 1))     # the older one
+            with patches[0], patches[1], patches[2]:
+                self.assertEqual(vt.session_socket(), str(Path(tmp) / "niri.wayland-1.60.sock"))
+
+    def test_session_socket_ignores_a_dead_niri_socket_variable(self):
+        # A tmux from an earlier login keeps that session's variable.
+        with tempfile.TemporaryDirectory() as tmp:
+            _, patches = self.outside_the_session(tmp, {70: "/usr/local/bin/niri"})
+            with patches[0], patches[1], patches[2]:
+                os.environ["NIRI_SOCKET"] = str(Path(tmp) / "niri.wayland-1.9.sock")
+                self.assertEqual(vt.session_socket(), str(Path(tmp) / "niri.wayland-1.70.sock"))
+                os.environ["NIRI_SOCKET"] = str(Path(tmp) / "niri.wayland-1.70.sock")
+                self.assertEqual(vt.session_socket(), str(Path(tmp) / "niri.wayland-1.70.sock"))
+
+    def test_window_glass_is_weaker_than_the_shells(self):
+        # The user's call: a window's edge is felt, not looked at. Less bend, a
+        # thinner bevel and a quieter rim than the panels', more dimming under the text.
         s = self.settings(materials__glassPreset="lens", windows__materials=[{"appId": "kitty", "material": "glass"}])
         kdl = vt.effects_kdl(s)
         rule = kdl[kdl.index('match app-id="^kitty$"'):]
         lens = dict(zip(vt.GLASS_KEYS, vt.GLASS_PRESETS["lens"]))
         val = lambda k: float(re.search(rf"{k} ([0-9.]+)", rule).group(1))
-        self.assertGreater(val("refraction-strength"), lens["refraction-strength"])
-        self.assertGreater(val("glow-weight"), lens["glow-weight"])
+        self.assertLess(val("refraction-strength"), lens["refraction-strength"])
+        self.assertLess(val("edge-thickness"), lens["edge-thickness"])
+        self.assertLess(val("glow-weight"), lens["glow-weight"])
         self.assertGreater(val("adaptive-dim"), lens["adaptive-dim"])
         s2 = self.settings(windows__materials=[{"appId": "kitty", "material": "glass"}], materials__glassAdvanced={"refraction-strength": 2.0})
         kdl2 = vt.effects_kdl(s2)
@@ -318,19 +401,125 @@ class Kdl(unittest.TestCase):
         g = vt.effects_kdl(self.settings(windows__materials=[{"appId": "kitty", "material": "glass"}])).split('match app-id="^kitty$"')[1]
         self.assertIn("blur true", g)
         self.assertGreaterEqual(val(rule, "refraction-strength"), val(g, "refraction-strength"))
-        for k in ("lens-distortion", "fringing", "power-factor"):
-            self.assertIn(k, g, "the frosted lens sets what makes refraction show")
+        self.assertGreater(val(rule, "adaptive-dim"), val(g, "adaptive-dim"), "dimming does the blur's work")
 
-    def test_window_glass_adds_no_colour_at_the_rim(self):
-        # On a window's long edge, fringing (R and B split) and edge-lighting (the
-        # colour behind, amplified) both draw a coloured line — a rainbow over a
-        # changing wallpaper (seen on the machine: green over blue, purple over pink).
+    def launcher(self, caps=None, **kw):
+        s = self.settings(materials__groups={"bar": "glass", "launcher": "glass"}, **kw)
+        return vt.effects_kdl(s, caps=caps).split('match namespace="^vitrum-launcher$"')[1].split("layer-rule")[0]
+
+    def test_the_launcher_is_nearly_clear_glass(self):
+        # The user's call: fully frosted it "looks like blur and only slightly like
+        # glass", fully clear it was too transparent. Legible from dimming, a real
+        # blur strength for the matte, never grain.
+        own = {"shapedGlass": True, "ownGlass": True}
+        rule = self.launcher(own)
+        val = lambda k: float(re.search(rf"{k} ([0-9.]+)", rule).group(1))
+        self.assertIn("blur true", rule)
+        self.assertEqual(val("blur-amount"), 0.2)
+        self.assertEqual(val("noise"), 0.0)
+        self.assertEqual(val("refraction-strength"), 5.0)
+        self.assertEqual(val("adaptive-dim"), 0.42)
+        self.assertEqual(val("vibrancy"), 0.45)
+        self.assertIn("saturation 1.0", rule.split("liquid-glass")[1], "the glass's own")
+        self.assertIn("    saturation 1.25\n", rule.split("liquid-glass")[0], "niri's own, under the neon of its 1.5")
+        frosted = vt.effects_kdl(self.settings(materials__groups={"launcher": "frosted"}), caps=own)
+        self.assertNotIn("liquid-glass", frosted.split('match namespace="^vitrum-launcher$"')[1].split("layer-rule")[0])
+
+    def test_the_launcher_without_frost_or_our_niri_stays_clear(self):
+        own = {"shapedGlass": True, "ownGlass": True}
+        with mock.patch.object(vt, "LAUNCHER_FROST", 0.0):
+            rule = self.launcher(own)
+            self.assertIn("blur false", rule)
+            self.assertNotIn("blur-amount", rule)
+            self.assertNotIn("saturation", rule.split("liquid-glass")[0])
+        # A niri that has no such key gets none, and all-or-nothing blur means clear.
+        rule = self.launcher({"shapedGlass": True})
+        self.assertIn("blur false", rule)
+        self.assertNotIn("blur-amount", rule)
+        self.assertIn("blur false", self.launcher(), "and on a niri without shapes")
+
+    def rule(self, group, kdl):
+        return kdl.split(f'match namespace="^vitrum-{group}$"')[1].split("layer-rule")[0]
+
+    def test_the_bars_islands_keep_their_approved_look(self):
+        # The user approved them bevelled, with a soft second contour. Every other
+        # surface has no inner rim, and a panel on the bar's surface goes by its size.
+        own = {"shapedGlass": True, "ownGlass": True}
+        s = self.settings(materials__groups={"bar": "glass", "dock": "glass"})
+        k = vt.effects_kdl(s, caps=own)
+        bar, dock = self.rule("bar", k), self.rule("dock", k)
+        self.assertIn("inner-rim 0.6", bar)
+        self.assertIn("glow-weight 1.0", bar)
+        self.assertIn(f"blur-amount {vt.BAR_BLUR}", bar)
+        self.assertIn("inner-rim 0.0", dock)
+        self.assertIn(f"blur-amount {vt.GLASS_BLUR}", dock)
+
+    def test_the_body_has_life_and_the_rim_takes_the_backdrops_hue(self):
+        # One hue from the backdrop, in every preset; never a split.
+        at = vt.GLASS_KEYS.index("edge-lighting")
+        for name, values in vt.GLASS_PRESETS.items():
+            self.assertGreater(values[at], 0.0, name)
+            self.assertGreater(vt.GLASS_BODY[name]["vibrancy"], 0.0, name)
+            self.assertGreater(vt.GLASS_BODY[name]["sheen"], 0.0, name)
+        kdl = vt.effects_kdl(self.settings(materials__default="glass"), caps={"shapedGlass": True, "ownGlass": True})
+        self.assertNotIn("fringing", kdl)
+
+    def test_widgets_and_the_dock_are_shaped_glass(self):
+        # Both have surfaces bigger than their glass (the widgets a whole screen):
+        # without pieces the glass would be that surface, with no rim on the widgets.
+        for density, panel, widget in (("compact", 20, 25), ("regular", 22, 28), ("comfortable", 24, 30)):
+            s = self.settings(materials__groups={"widgets": "glass", "dock": "glass"}, density=density)
+            k = vt.effects_kdl(s, caps={"shapedGlass": True, "ownGlass": True})
+            self.assertIn(f"geometry-corner-radius {widget}", self.rule("widgets", k))
+            self.assertIn(f"shape-fillet {float(widget)}", self.rule("widgets", k))
+            self.assertIn(f"geometry-corner-radius {panel}", self.rule("dock", k))
+            self.assertIn(f"shape-fillet {float(panel)}", self.rule("dock", k))
+        self.assertNotIn("shape-fillet", self.rule("dock", vt.effects_kdl(self.settings(materials__groups={"dock": "frosted"}), caps={"shapedGlass": True})))
+
+    def test_widget_text_is_read_through_dimming_under_the_rim(self):
+        k = vt.effects_kdl(self.settings(materials__groups={"widgets": "glass", "dock": "glass"}), caps={"shapedGlass": True, "ownGlass": True})
+        self.assertIn("adaptive-dim 0.6", self.rule("widgets", k))
+        self.assertNotIn("adaptive-dim 0.6", self.rule("dock", k))
+
+    def test_new_defaults_reach_only_who_chose_nothing(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "settings.json"
+            p.write_text(json.dumps({"materials": {"groups": {"bar": "solid", "widgets": "frosted", "dock": ""}}}))
+            g = vt.load_settings(p)[0]["materials"]["groups"]
+            self.assertEqual(g["widgets"], "frosted", "an explicit choice stays")
+            self.assertEqual(g["dock"], "", '"Default" is a choice too')
+            self.assertEqual(g["launcher"], "glass", "unset follows the default")
+            p.write_text(json.dumps({"materials": {"groups": {"bar": "glass"}}}))
+            g = vt.load_settings(p)[0]["materials"]["groups"]
+            self.assertEqual((g["widgets"], g["dock"]), ("glass", "glass"))
+
+    def test_only_keys_niri_knows_reach_it(self):
+        # niri refuses a whole config over one unknown key, so an old setting
+        # must not get through; neither must what only the other niri knows.
+        old = {"fringing": 0.3, "power-factor": 2.2, "lens-distortion": 0.9, "brightness": 1.1, "refraction-strength": 2.0}
+        s = self.settings(materials__default="glass", materials__glassAdvanced=old,
+                          windows__materials=[{"appId": "kitty", "material": "glass"}])
+        ours = vt.effects_kdl(s, caps={"shapedGlass": True, "ownGlass": True})
+        for key in ("fringing", "power-factor", "lens-distortion", "brightness", "physical-refraction"):
+            self.assertNotIn(key, ours)
+        self.assertIn("refraction-strength 2", ours, "a slider's value still counts")
+        self.assertIn("sheen", ours)
+        # An older niri, until the next login: no new keys, and told not to split colours.
+        before = vt.effects_kdl(s, caps={"shapedGlass": True})
+        for key in ("inner-rim", "blur-amount", "sheen", "vibrancy"):
+            self.assertNotIn(key, before)
+        self.assertIn("fringing 0.0", before)
+
+    def test_window_glass_glows_less_than_a_panel(self):
+        # A window's long edge is where colour reads as a line: its glow stays below
+        # a panel's, and it's the backdrop's one hue, with no split.
         val = lambda r, k: float(re.search(rf"{k} ([0-9.]+)", r).group(1))
+        lens = dict(zip(vt.GLASS_KEYS, vt.GLASS_PRESETS["lens"]))
         for material in ("glass", "clear"):
             s = self.settings(windows__materials=[{"appId": "kitty", "material": material}])
-            rule = vt.effects_kdl(s).split('match app-id="^kitty$"')[1]
-            self.assertEqual(val(rule, "fringing"), 0.0, material)
-            self.assertEqual(val(rule, "edge-lighting"), 0.0, material)
+            rule = vt.effects_kdl(s, caps={"shapedGlass": True, "ownGlass": True}).split('match app-id="^kitty$"')[1]
+            self.assertLess(val(rule, "edge-lighting"), lens["edge-lighting"], material)
+            self.assertNotIn("fringing", rule)
 
     def test_vitrum_apps_stay_opaque(self):
         # Settings, Disk Utility, About: forms to read, never faded when unfocused;

@@ -199,6 +199,12 @@ screen is locked.
 
 ---
 
+## Keyboard layouts
+
+`Alt+Shift` switches layouts, as does a click on the bar's label. With the optional input method (fcitx5), Japanese, Korean and Chinese join the same cycle and type through Mozc, Hangul and Pinyin: add them in Settings → Keyboard.
+
+---
+
 ## Changing them
 
 Edit the tables above and run:

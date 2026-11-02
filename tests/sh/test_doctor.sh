@@ -9,7 +9,7 @@ test_doctor_reports_missing_compositor_and_fails() {
   out="$(stage_doctor 2>&1)" && { echo "doctor should fail"; return 1; }
   assert_contains "$out" "niri"
 }
-test_doctor_passes_on_complete_install() {
+_doctor_complete() {
   _load
   export VITRUM_ROOTFS="$HOME/rootfs" VITRUM_SYSROOT="$HOME/sys"
   # every table package "installed"
@@ -19,14 +19,66 @@ test_doctor_passes_on_complete_install() {
   source "$VITRUM_DIR/lib/stages/30-niri.sh"
   mkdir -p "$VITRUM_STATE"; niri_stamp > "$VITRUM_STATE/niri.rev"
   mkdir -p "$VITRUM_SYSROOT/usr/local/bin" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions" "$XDG_CONFIG_HOME/vitrum/niri" "$XDG_CONFIG_HOME/quickshell/vitrum" "$HOME/.local/share/icons/Bibata-Modern-Classic" "$HOME/.local/bin"
-  touch "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" "$XDG_CONFIG_HOME/vitrum/niri/config.kdl" "$XDG_CONFIG_HOME/quickshell/vitrum/shell.qml" "$HOME/.local/bin/vitrum-startup" "$HOME/.local/bin/vitrum-shell"
+  touch "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop" "$XDG_CONFIG_HOME/vitrum/niri/config.kdl" "$XDG_CONFIG_HOME/quickshell/vitrum/shell.qml" "$HOME/.local/bin/vitrum-startup" "$HOME/.local/bin/vitrum-shell"
   stub qs; stub fc-list 'echo "Inter: x"; echo "JetBrains Mono: x"; echo "Phosphor-Light: x"; echo "Phosphor-Fill: x"'
+}
+test_doctor_passes_on_complete_install() {
+  _doctor_complete
   out="$(stage_doctor 2>&1)" || { grep -E "✗|fail" <<<"$out"; return 1; }
   # the icon fonts are Phosphor's, Light and Fill
   assert_contains "$out" "font: Phosphor-Light"
   assert_contains "$out" "font: Phosphor-Fill"
   assert_contains "$out" "no shell crashes in the last 7 days"
   ! grep -q "Material" <<<"$out"
+}
+# install.sh calls stage_doctor bare, under set -e: a check that ends on a false
+# test stops the script there, with no summary. Called bare here too, on purpose:
+# out="$(stage_doctor)" || ... turns set -e off, and the fault with it.
+test_doctor_reaches_its_summary_with_any_part_off() {
+  _doctor_complete
+  [[ $- == *e* ]]
+  local off
+  for off in INPUT_METHOD STEAM_THEME VESKTOP_THEME; do
+    ( export "WANT_$off=0"; stage_doctor ) >"$HOME/out" 2>&1
+    assert_contains "$(cat "$HOME/out")" "healthy"
+  done
+}
+# Nor may a tool that answers nothing stop it: that is when a doctor is wanted.
+test_doctor_reaches_its_summary_past_tools_that_fail() {
+  _doctor_complete; stub qs 'exit 1'; stub fc-list 'exit 1'
+  [[ $- == *e* ]]
+  stage_doctor >"$HOME/out" 2>&1
+  assert_contains "$(cat "$HOME/out")" "healthy"
+  assert_contains "$(cat "$HOME/out")" "font: Inter — not found"
+}
+# The doctor says which niri is in place, and the stamp it carries.
+_doctor_niri() {
+  _load
+  mkdir -p "$HOME/bin"; printf '#!/bin/sh\necho "niri 26.04"\n' > "$HOME/bin/niri"; chmod +x "$HOME/bin/niri"
+  export VITRUM_NIRI_BIN="$HOME/bin/niri"
+  source "$VITRUM_DIR/lib/stages/30-niri.sh"
+  mkdir -p "$VITRUM_STATE"; niri_stamp > "$VITRUM_STATE/niri.rev"
+  stub qs; stub fc-list
+}
+test_doctor_shows_a_compiled_niri_and_its_stamp() {
+  _doctor_niri
+  local out sum; out="$(stage_doctor 2>&1)" || true
+  sum="$(niri_stamp)"; sum="${sum#"$NIRI_REV"}"
+  assert_contains "$out" "compositor: compiled, from the pinned niri, glass and patches (${NIRI_REV:0:7}$sum)"
+}
+test_doctor_shows_a_prebuilt_niri() {
+  _doctor_niri; echo prebuilt > "$VITRUM_STATE/niri.source"
+  local out; out="$(stage_doctor 2>&1)" || true
+  assert_contains "$out" "compositor: prebuilt, from the pinned niri"
+  echo other > "$VITRUM_STATE/niri.rev"
+  out="$(stage_doctor 2>&1)" || true
+  assert_contains "$out" "compositor revision (prebuilt)"
+}
+# A system upgrade can take a library away from a niri that was fine.
+test_doctor_fails_a_niri_that_does_not_start() {
+  _doctor_niri; printf '#!/bin/sh\nexit 127\n' > "$HOME/bin/niri"
+  local out; out="$(stage_doctor 2>&1)" && { echo "doctor should fail"; return 1; }
+  assert_contains "$out" "does not start"
 }
 # A hand-built kernel can lack any of these; each is named with what it costs.
 test_doctor_names_missing_kernel_options() {

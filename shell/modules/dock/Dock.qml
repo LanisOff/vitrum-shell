@@ -115,9 +115,12 @@ PanelWindow {
     BlurKick { id: blurKick; window: root }
     BackgroundEffect.blurRegion: Materials.wantsRegion("dock", blurKick.screen) && !blurKick.on ? effect : blurKick.none
     // Never an empty region: with none, niri applies the rule to the whole surface.
-    Region { id: effect; item: shape.height >= 2 ? shape : dot; radius: shape.height >= 2 ? plate.radius : 0
+    // With shaped glass niri rounds the pieces itself; a rounded region reaches it as
+    // scanlines, and the glass would be the whole surface instead of the plate.
+    readonly property bool squarePieces: Materials.shaped("dock", blurKick.screen)
+    Region { id: effect; item: shape.height >= 2 ? shape : dot; radius: shape.height >= 2 && !root.squarePieces ? plate.radius : 0
              regions: root.menuOpen ? [menuEffect] : [] }
-    Region { id: menuEffect; item: menu; radius: menu.radius }
+    Region { id: menuEffect; item: menu; radius: root.squarePieces ? 0 : menu.radius }
     Item { id: dot; width: 1; height: 1 }
     Item { id: shape; x: plate.x; y: plate.y; width: plate.width; height: Math.max(0, Math.min(plate.height, root.height - plate.y)) }
     Item { id: strip; x: plate.x; y: root.height - 4; width: plate.width; height: 4 }

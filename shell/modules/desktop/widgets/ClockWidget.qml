@@ -1,5 +1,6 @@
 import QtQuick
 import QtQuick.Effects
+import Quickshell
 import qs.services
 import qs.theme
 import qs.components
@@ -25,13 +26,15 @@ Item {
     property Item backdrop: null
     property Item source: null
 
-    property date now: new Date()
-    // The tick also re-places the glass over the backdrop: the desktop draws no
-    // frames of its own to do it on, and the widget may have been moved.
-    Timer {
-        interval: 1000; running: true; repeat: true; triggeredOnStart: true
-        onTriggered: { root.now = new Date(); if (root.useGlass) glass._sync(); }
+    // On the wall clock's second, so the digit flips on :00. The tick also
+    // re-places the glass over the backdrop: the desktop draws no frames of its
+    // own to do it on, and the widget may have been moved.
+    SystemClock {
+        id: clock
+        precision: SystemClock.Seconds
+        onDateChanged: if (root.useGlass) glass._sync()
     }
+    readonly property date now: clock.date
 
     readonly property bool digital: options.style === "digital"
     // Glass in a game as well (Materials.plain): the desktop draws a frame only

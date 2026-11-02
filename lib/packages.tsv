@@ -6,9 +6,10 @@
 #   pacman    Arch package, aur:<name> for the AUR, or - if Arch does not package it
 #             Both columns accept "a|b" (installed if either is; the first is installed)
 #             and a trailing "@cmd" (counts as installed when that command exists).
-#   need      required, or the optional component that wants it
+#   need      required, niri-build (what only compiling niri takes, left out while
+#             the prebuilt niri is the choice), or the optional component that wants it
 #             (nvidia, sddm, plymouth, live-wallpaper, phone, tmux, games, utilities,
-#             cli-tools, file-manager, ocr, ocr-ru, nvim; lib/components.sh)
+#             cli-tools, file-manager, ocr, ocr-ru, input-method, nvim; lib/components.sh)
 #   keywords  portage only: keyword written to package.accept_keywords/vitrum, or -
 #   use       portage only: USE flags written to package.use/vitrum, or -
 #   env       portage only: "half" builds with half the jobs (package.env/vitrum), or -
@@ -26,9 +27,11 @@
 #
 # Gentoo atoms were checked against gentoo, guru, gentoo-zh and hyproverlay on 2026-10-01;
 # Fedora 44 and Void (glibc) names in containers on 2026-10-21.
+# The input-method rows on 2026-11-01: packages.gentoo.org and its ebuilds, Arch's repos,
+# Fedora 44's metadata, Void's x86_64 repodata.
 build-base	.	base-devel	required	-	-	-	gcc	base-devel
-build-rust	dev-lang/rust-bin|dev-lang/rust@cargo	rust@cargo	required	-	-	-	cargo@cargo	cargo@cargo
-build-clang	llvm-core/clang@clang	clang@clang	required	-	-	-	clang@clang	clang@clang
+build-rust	dev-lang/rust-bin|dev-lang/rust@cargo	rust@cargo	niri-build	-	-	-	cargo@cargo	cargo@cargo
+build-clang	llvm-core/clang@clang	clang@clang	niri-build	-	-	-	clang@clang	clang@clang
 build-git	dev-vcs/git	git	required	-	-	-	git	git
 # Fedora and Void split headers into -devel packages, and Fedora has no base-devel:
 # these rows are what niri's build needs there; Arch and Gentoo have it already (.).
@@ -171,5 +174,15 @@ wireguard-tools	net-vpn/wireguard-tools	wireguard-tools	utilities	-	-	-	wireguar
 networkmanager-openvpn	net-vpn/networkmanager-openvpn	networkmanager-openvpn	utilities	-	-	-	NetworkManager-openvpn	NetworkManager-openvpn
 smartmontools	sys-apps/smartmontools	smartmontools	utilities	-	-daemon	-	smartmontools	smartmontools
 lm-sensors	sys-apps/lm-sensors	lm_sensors	utilities	-	-	-	lm_sensors	lm_sensors
+# input-method: fcitx5 with its three engines, and the Qt and GTK modules for
+# what cannot use text-input-v3. All three engines come together: Arch's
+# chinese-addons pulls qt6-webengine, Gentoo's mozc compiles with bazel.
+fcitx5	app-i18n/fcitx	fcitx5	input-method	-	wayland	-	fcitx5	fcitx5
+fcitx5-qt	app-i18n/fcitx-qt	fcitx5-qt	input-method	-	wayland	-	fcitx5-qt6	fcitx5-qt6
+fcitx5-gtk	app-i18n/fcitx-gtk	fcitx5-gtk	input-method	-	wayland	-	fcitx5-gtk3	fcitx5-gtk+3
+fcitx5-gtk4	.	.	input-method	-	-	-	fcitx5-gtk4	fcitx5-gtk4
+fcitx5-mozc	app-i18n/mozc	fcitx5-mozc	input-method	-	fcitx5 -ibus	half	fcitx5-mozc	fcitx5-mozc
+fcitx5-hangul	app-i18n/fcitx-hangul	fcitx5-hangul	input-method	-	-	-	fcitx5-hangul	fcitx5-hangul
+fcitx5-chinese-addons	app-i18n/fcitx-chinese-addons	fcitx5-chinese-addons	input-method	~amd64	-	-	fcitx5-chinese-addons	fcitx5-chinese-addons
 # phone: KDE Connect (pulls a good part of KDE Frameworks).
 kdeconnect	kde-misc/kdeconnect	kdeconnect	phone	-	-	-	kde-connect	kdeconnect

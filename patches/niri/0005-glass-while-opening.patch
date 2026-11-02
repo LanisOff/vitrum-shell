@@ -1,6 +1,7 @@
+diff --git a/src/layout/opening_window.rs b/src/layout/opening_window.rs
 --- a/src/layout/opening_window.rs
 +++ b/src/layout/opening_window.rs
-@@ -44,6 +44,11 @@
+@@ -44,6 +44,11 @@ impl OpenAnimation {
          self.anim.is_done()
      }
  
@@ -12,9 +13,10 @@
      // We can't depend on view_rect here, because the result of window opening can be snapshot and
      // then rendered elsewhere.
      pub fn render(
+diff --git a/src/layout/tile.rs b/src/layout/tile.rs
 --- a/src/layout/tile.rs
 +++ b/src/layout/tile.rs
-@@ -4,6 +4,7 @@
+@@ -4,6 +4,7 @@ use std::rc::Rc;
  use niri_config::utils::MergeWith as _;
  use niri_config::{Color, CornerRadius, GradientInterpolation};
  use niri_ipc::WindowLayout;
@@ -22,15 +24,15 @@
  use smithay::backend::renderer::element::{Element, Kind};
  use smithay::backend::renderer::gles::GlesRenderer;
  use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
-@@ -26,6 +27,7 @@
+@@ -25,6 +26,7 @@ use crate::render_helpers::damage::ExtraDamage;
+ use crate::render_helpers::offscreen::{OffscreenBuffer, OffscreenRenderElement};
  use crate::render_helpers::renderer::NiriRenderer;
  use crate::render_helpers::resize::ResizeRenderElement;
- use crate::render_helpers::shadow::ShadowRenderElement;
 +use crate::render_helpers::shaders::{ProgramType, Shaders};
+ use crate::render_helpers::shadow::ShadowRenderElement;
  use crate::render_helpers::snapshot::RenderSnapshot;
  use crate::render_helpers::solid_color::{SolidColorBuffer, SolidColorRenderElement};
- use crate::render_helpers::xray::{Xray, XrayPos};
-@@ -133,6 +135,7 @@
+@@ -133,6 +135,7 @@ niri_render_elements! {
          Offscreen = OffscreenRenderElement,
          ExtraDamage = ExtraDamage,
          BackgroundEffect = BackgroundEffectElement,
@@ -38,14 +40,14 @@
      }
  }
  
-@@ -1337,12 +1340,21 @@
+@@ -1379,12 +1382,21 @@ impl<W: LayoutElement> Tile<W> {
          if let Some(open) = &self.open_animation {
              let mut ctx = ctx.as_gles();
              let mut elements = Vec::new();
-+            // The background effect stays out of the offscreen: there it has nothing behind it
-+            // to blur or refract, so an opening window showed plain translucent until the
-+            // animation ended. It is drawn in place instead, at the animation's scale. A custom
-+            // open shader transforms the window its own way, so then it stays as it was.
++            // The background effect stays out of the offscreen: it has nothing behind it there, so
++            // an opening window showed plain translucent until the animation ended. It is drawn in
++            // place instead, at the animation's scale. A custom open shader transforms the window
++            // its own way, so then it stays as it was.
 +            let in_place = Shaders::get(ctx.renderer).program(ProgramType::Open).is_none();
              self.render_inner(
                  ctx.r(),
@@ -61,7 +63,7 @@
              );
              match open.render(
                  ctx.renderer,
-@@ -1356,6 +1368,23 @@
+@@ -1398,6 +1410,23 @@ impl<W: LayoutElement> Tile<W> {
                      self.window().set_offscreen_data(Some(data));
                      push(elem.into());
                      pushed = true;

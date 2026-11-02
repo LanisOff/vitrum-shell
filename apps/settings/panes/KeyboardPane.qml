@@ -28,9 +28,11 @@ Page {
     property string configText: ""
     property string overridesText: ""
     property var rules: []             // xkb's catalogue: { id, name }
+    // With the input method fcitx5 holds the list and has no limit of four.
+    readonly property int maxLayouts: Layouts.fcitx ? Kb.MAX_FCITX : Kb.MAX_LAYOUTS
     readonly property var layouts: {
-        const l = Kb.currentLayouts(Settings.get("keyboard.layouts", []), configText);
-        return l.length ? l : Kb.layoutsFromNames(rules, Niri.keyboardLayouts);
+        const l = Kb.currentLayouts(Settings.get("keyboard.layouts", []), configText, maxLayouts);
+        return l.length ? l : Kb.layoutsFromNames(rules, Layouts.names);
     }
     // overrides.kdl's own xkb block wins over what is set here.
     readonly property bool overridden: Kb.parseXkb(overridesText) !== null
@@ -39,7 +41,7 @@ Page {
     readonly property var found: Kb.searchLayouts(rules, layoutQuery, layouts, 8)
     function setLayouts(l) { Settings.set("keyboard.layouts", l); }
     // Add a layout from the picker and close it.
-    function pick(id) { const l = Kb.addLayout(layouts, id); adding = false; setLayouts(l); }
+    function pick(id) { const l = Kb.addLayout(layouts, id, maxLayouts); adding = false; setLayouts(l); }
     FileView { path: page.niriDir + "config.kdl"; onLoaded: page.configText = text() }
     FileView { path: page.niriDir + "overrides.kdl"; watchChanges: true; onFileChanged: reload(); onLoaded: page.overridesText = text() }
     FileView {
@@ -116,22 +118,31 @@ Page {
                 required property string modelData
                 required property int index
                 label: Kb.layoutName(page.rules, modelData)
-                hint: index === 0 ? "First: the one niri starts with" : ""
-                // niri's live list, once it has the same layouts
+                hint: Layouts.fcitx && Kb.isEngine(modelData) ? Kb.fcitxIm(modelData).replace(/^./, c => c.toUpperCase()) + ", through fcitx5"
+                    : index === 0 ? "First: the one niri starts with" : ""
+                // The live list (niri's, or fcitx5's), once it has the same layouts
                 Icon { name: "check"; color: Colors.accent; anchors.verticalCenter: parent.verticalCenter
-                       visible: Niri.keyboardLayouts.length === page.layouts.length && index === Niri.keyboardLayoutIndex }
+                       visible: Layouts.names.length === page.layouts.length && index === Layouts.index }
                 GlassButton { label: "↑"; visible: page.layouts.length > 1; enabled: index > 0
-                              onClicked: page.setLayouts(Kb.moveLayout(page.layouts, index, -1)) }
+                              onClicked: page.setLayouts(Kb.moveLayout(page.layouts, index, -1, page.maxLayouts)) }
                 GlassButton { label: "↓"; visible: page.layouts.length > 1; enabled: index < page.layouts.length - 1
-                              onClicked: page.setLayouts(Kb.moveLayout(page.layouts, index, 1)) }
+                              onClicked: page.setLayouts(Kb.moveLayout(page.layouts, index, 1, page.maxLayouts)) }
                 GlassButton { label: "Remove"; enabled: page.layouts.length > 1
-                              onClicked: page.setLayouts(Kb.removeLayout(page.layouts, index)) }
+                              onClicked: page.setLayouts(Kb.removeLayout(page.layouts, index, page.maxLayouts)) }
             }
         }
         SettingRow {
+            // A CJK layout on the plain path types Latin: say what is missing, once.
+            visible: !Layouts.fcitx && Kb.wantsEngine(page.layouts)
+            label: "Japanese, Korean and Chinese need the input method"
+            hint: "Without it they type Latin. Run vitrum update --choose and tick Input method."
+        }
+        SettingRow {
             label: "Add a layout"
-            hint: page.layouts.length >= Kb.MAX_LAYOUTS ? "Four at most: xkb holds no more." : "Any of xkb's layouts and variants."
-            GlassButton { label: page.adding ? "Cancel" : "Add"; enabled: page.adding || page.layouts.length < Kb.MAX_LAYOUTS
+            hint: page.layouts.length >= page.maxLayouts ? (Layouts.fcitx ? "Eight at most." : "Four at most: xkb holds no more.")
+                : Layouts.fcitx ? "Any of xkb's layouts. Japanese, Korean and Chinese type through Mozc, Hangul and Pinyin."
+                : "Any of xkb's layouts and variants."
+            GlassButton { label: page.adding ? "Cancel" : "Add"; enabled: page.adding || page.layouts.length < page.maxLayouts
                           onClicked: { page.adding = !page.adding; addField.text = ""; if (page.adding) addField.takeFocus(); } }
         }
         Item {
@@ -149,13 +160,16 @@ Page {
             model: page.adding ? page.found : []
             delegate: SettingRow {
                 required property var modelData
-                label: modelData.name; hint: modelData.id
+                label: modelData.name
+                hint: Layouts.fcitx && Kb.isEngine(modelData.id) ? Kb.fcitxIm(modelData.id) + ", through fcitx5"
+                    : !Layouts.fcitx && Kb.isEngine(modelData.id) ? modelData.id + ": types Latin without the input method"
+                    : modelData.id
                 // One call into the page: closing the picker destroys this row mid-handler.
                 GlassButton { label: "Add"; onClicked: page.pick(modelData.id) }
             }
         }
         SettingRow { label: "Switch layout"; hint: "Also from the bar, and on the lock screen."; divider: false
-            GlassButton { label: "Next"; height: Tokens.islandHeight * 1.05; onClicked: Niri.switchLayout(true) } }
+            GlassButton { label: "Next"; height: Tokens.islandHeight * 1.05; onClicked: Layouts.next(true) } }
     }
     // The filter: a glass field; focus draws an accent ring.
     Surface {

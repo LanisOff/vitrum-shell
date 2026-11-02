@@ -188,6 +188,7 @@ _shell_theme_tool() {
   install_tree "$VITRUM_DIR/assets/steam/vitrum" "$XDG_DATA_HOME/vitrum/steam/vitrum"
   # the Vesktop theme, the same way: its helper and the theme it installs from
   install_file "$VITRUM_DIR/tools/vitrum-vesktop-theme" "$HOME/.local/bin/vitrum-vesktop-theme" 0755
+  install_file "$VITRUM_DIR/tools/vitrum-im" "$HOME/.local/bin/vitrum-im" 0755
   install_tree "$VITRUM_DIR/assets/vesktop" "$XDG_DATA_HOME/vitrum/vesktop"
   # the phone, through KDE Connect
   install_file "$VITRUM_DIR/tools/vitrum-phone" "$HOME/.local/bin/vitrum-phone" 0755

@@ -13,10 +13,10 @@ Page {
     // The glass presets' values (tools/vitrum_theme GLASS_PRESETS, in GLASS_KEYS
     // order): an unset slider shows what the preset gives, not 0.
     readonly property var presets: ({
-        thin:  [2.4, 0.10, 1.3, 0.8, 0.5, 0.4, 1.05, 0.15, 0.15],
-        lens:  [4.8, 0.12, 1.5, 1.0, 0.8, 0.5, 0.95, 0.15, 0.15],
-        thick: [6.0, 0.18, 1.6, 1.0, 0.9, 0.6, 1.00, 0.20, 0.20],
-        crisp: [3.6, 0.12, 1.2, 0.6, 0.6, 0.3, 1.00, 0.12, 0.12]
+        thin:  [3.0, 0.08, 1.4, 0.4, 0.8, 0.8, 1.00, 0.18, 0.15],
+        lens:  [3.0, 0.11, 1.5, 0.5, 1.0, 1.1, 1.00, 0.21, 0.15],
+        thick: [7.5, 0.20, 1.5, 1.2, 1.0, 0.9, 1.00, 0.24, 0.15],
+        crisp: [4.5, 0.07, 1.4, 0.5, 1.3, 0.5, 1.00, 0.18, 0.12]
     })
     readonly property var preset: presets[Settings.get("materials.glassPreset", "lens")] || presets.lens
     Section {

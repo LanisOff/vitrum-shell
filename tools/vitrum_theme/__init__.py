@@ -35,31 +35,54 @@ VIDEO_EXT = {".mp4", ".mkv", ".webm", ".mov", ".avi", ".gif"}
 # (shell/lib/motion.js SPRINGS). All critically damped: nothing bounces.
 SPRINGS = {"snappy": (1.0, 900), "smooth": (1.0, 600)}
 
+# Our glass (patches/niri/0002-glass.patch, spec
+# docs/superpowers/specs/2026-11-01-own-glass-design.md). A rich frosted slab, lit by
+# one lamp above the screen: each piece catches it by where it stands, the backdrop
+# behind each spot sets how strong and what colour, and a soft floor keeps an edge
+# on dark (edge-lighting is the glow, one hue, never a spectral split).
 GLASS_PRESETS = {
     #           refraction edge  corner depth glow  edge-light sat   dim   boost
-    "thin":  (2.4, 0.10, 1.3, 0.8, 0.5, 0.4, 1.05, 0.15, 0.15),
-    "lens":  (4.8, 0.12, 1.5, 1.0, 0.8, 0.5, 0.95, 0.15, 0.15),
-    "thick": (6.0, 0.18, 1.6, 1.0, 0.9, 0.6, 1.00, 0.20, 0.20),
-    "crisp": (3.6, 0.12, 1.2, 0.6, 0.6, 0.3, 1.00, 0.12, 0.12),
+    "thin":  (3.0, 0.08, 1.4, 0.4, 0.8, 0.8, 1.00, 0.18, 0.15),
+    "lens":  (3.0, 0.11, 1.5, 0.5, 1.0, 1.1, 1.00, 0.21, 0.15),
+    "thick": (7.5, 0.20, 1.5, 1.2, 1.0, 0.9, 1.00, 0.24, 0.15),
+    "crisp": (4.5, 0.07, 1.4, 0.5, 1.3, 0.5, 1.00, 0.18, 0.12),
 }
 GLASS_KEYS = ["refraction-strength", "edge-thickness", "corner-fan", "depth-effect", "glow-weight",
               "edge-lighting", "saturation", "adaptive-dim", "adaptive-boost"]
+# The body's life, per preset, and the lamp's pool on the face. Only our niri has these.
+GLASS_BODY = {"thin": {"vibrancy": 0.20, "sheen": 0.08}, "lens": {"vibrancy": 0.25, "sheen": 0.10},
+              "thick": {"vibrancy": 0.25, "sheen": 0.10}, "crisp": {"vibrancy": 0.20, "sheen": 0.08}}
+# The bar: the user approved its islands as they are, bevelled, with a soft second
+# contour. inner-rim above 0 keeps small pieces that way; a panel hanging off an
+# island shares this rule and takes the preset's look by its size.
+BAR_GLASS = {"inner-rim": 0.6, "glow-weight": 1.0}
+# How much of niri's blur glass uses: all of it, the frosted slab. On the bar's
+# surface a little less, for the islands.
+GLASS_BLUR = 1.0
+BAR_BLUR = 0.75
+# Desktop widgets are full of small text and lie straight on the wallpaper. Dimming
+# in niri sits under the rim and leaves it bright, where the shell's fill would
+# cover it: with this, a light fill (Materials.fill) is enough to read them.
+WIDGET_GLASS = {"adaptive-dim": 0.60}
 # Glass on a window (Settings → Windows → window materials) over the preset:
-# a window is big and its edge is far from the text, so it carries more bend
-# than a panel's; more dimming keeps a terminal readable on it.
-# Of those, what makes refraction show at all: lens-distortion bends the whole
-# face, a lower power-factor carries the bend further in from the edge.
-# Nothing that colours the rim: fringing splits R and B there, edge-lighting
-# amplifies the colour behind it — along a window's long edge either reads as
-# a rainbow line (green over blue, purple over pink). The rim glows white
-# (glow-weight) instead.
-WINDOW_GLASS = {"refraction-strength": 8.0, "edge-thickness": 0.2, "power-factor": 2.2, "corner-fan": 1.7,
-                "glow-weight": 1.5, "edge-lighting": 0.0, "fringing": 0.0, "lens-distortion": 0.9,
-                "saturation": 1.18, "adaptive-dim": 0.24, "adaptive-boost": 0.18}
+# weaker than a panel's. A window is where you read and work; its edge should
+# be felt, not looked at. A thinner bevel, less light, and more dimming keeps a
+# terminal readable on it.
+WINDOW_GLASS = {"refraction-strength": 2.1, "edge-thickness": 0.08, "glow-weight": 0.7, "edge-lighting": 0.66,
+                "sheen": 0.06, "adaptive-dim": 0.31, "adaptive-boost": 0.18}
 # Clear glass (no blur): what is behind stays sharp, so the bend is plain to
-# see; more dimming under the text instead of the blur's.
-WINDOW_CLEAR = {**WINDOW_GLASS, "refraction-strength": 8.5, "glow-weight": 1.0,
-                "lens-distortion": 1.1, "adaptive-dim": 0.32}
+# see; dimming under the content does the blur's work for legibility.
+WINDOW_CLEAR = {**WINDOW_GLASS, "refraction-strength": 2.4, "adaptive-dim": 0.40}
+# The launcher is nearly clear glass, the user's call: fully frosted it "looks like
+# blur and only slightly like glass", fully clear it was too transparent. It takes
+# the same light, with a stronger bend and more vibrance to keep it alive with so
+# little frost. No grain for a matte look (noise read as unwanted grain):
+# LAUNCHER_FROST is a real blur strength, from 0 (clear) to 1.
+LAUNCHER_GLASS = {"refraction-strength": 5.0, "saturation": 1.0, "vibrancy": 0.45, "adaptive-dim": 0.42}
+LAUNCHER_FROST = 0.2
+# With blur on, niri applies its own saturation (1.5). On the launcher's light frost
+# that would turn neon; 1.25 keeps the colour.
+LAUNCHER_SATURATION = 1.25
 
 MATUGEN_ROLES = {
     "bg": "background", "surface": "surface", "surfaceHigh": "surface_container_high",
@@ -317,6 +340,16 @@ def _fmt(x) -> str:
 RADIUS_SCALE = {"compact": 1.0, "regular": 1.1, "comfortable": 1.2}
 
 
+def panel_radius(settings: dict) -> int:
+    """Tokens.radiusPanel: the dock and its menu."""
+    return round(20 * RADIUS_SCALE.get(settings.get("density"), 1.0))
+
+
+def widget_radius(settings: dict) -> int:
+    """A desktop widget's corners (WidgetFrame: radiusPanel × 1.25)."""
+    return round(25 * RADIUS_SCALE.get(settings.get("density"), 1.0))
+
+
 def island_radius(settings: dict) -> int:
     """Tokens.radiusIsland: every bar island's corners (Bar's pieceRadius/fillet)."""
     return round(10 * RADIUS_SCALE.get(settings.get("density"), 1.0))
@@ -345,17 +378,38 @@ def running_niri(socket: str | None = None) -> str | None:
         return None
 
 
+def session_socket() -> str | None:
+    """The socket of the niri running for this user: NIRI_SOCKET, or outside the
+    session (ssh, a tty, a tmux from an earlier login) what the runtime folder
+    holds. A crash leaves a socket behind and its pid can come round again, so
+    only a running niri counts. A nested niri shares the folder; the session's
+    came first."""
+    env = os.environ.get("NIRI_SOCKET", "")
+    if env and running_niri(env):
+        return env
+    base = Path(os.environ.get("XDG_RUNTIME_DIR") or f"/run/user/{os.getuid()}")
+    live = [s for s in base.glob("niri.wayland-*.sock")
+            if Path(running_niri(str(s)) or "").name.startswith("niri")]
+    return str(min(live, key=lambda s: s.stat().st_mtime)) if live else None
+
+
 def niri_caps(niri: str | None = None, run=subprocess.run, cache: Path = CACHE, socket: str | None = None) -> dict:
-    """What the session's niri can do beyond upstream: {"shapedGlass": bool}.
+    """What the session's niri can do beyond upstream: {"shapedGlass": bool,
+    "ownGlass": bool}. ownGlass is vitrum's own glass (sheen, inner-rim,
+    blur-amount); without it the niri is an older build, right after an update.
 
     Asked by validating a config that uses the option; cached per binary, so
     the probe runs once per niri build. The niri that runs counts, not the one
-    on disk: right after an update the session still runs the old one. Its file
-    is gone from disk then, but /proc still has it, so that is what is asked —
-    a blanket no turned the bar into plain blur until the next login whenever
-    a niri that could do it was replaced by another that could too."""
+    on disk, also from outside the session (session_socket): right after an
+    update the session still runs the old one. Its file is gone from disk then,
+    but /proc still has it, so that is what is asked — a blanket no turned the
+    bar into plain blur until the next login whenever a niri that could do it
+    was replaced by another that could too. One that cannot be asked answers no
+    to everything."""
     import shutil
     import tempfile
+    if niri is None and socket is None:
+        socket = session_socket()
     running = running_niri(socket) if niri is None else None
     if running and running.endswith(" (deleted)"):
         path = f"/proc/{_niri_pid(socket)}/exe"
@@ -365,7 +419,7 @@ def niri_caps(niri: str | None = None, run=subprocess.run, cache: Path = CACHE, 
         st = os.stat(path)
         key = f"{path}:{int(st.st_mtime)}:{st.st_size}"
     except OSError:
-        return {"shapedGlass": False}
+        return {"shapedGlass": False, "ownGlass": False}
     store = cache / "niri-caps.json"
     try:
         saved = json.loads(store.read_text())
@@ -373,16 +427,18 @@ def niri_caps(niri: str | None = None, run=subprocess.run, cache: Path = CACHE, 
             return saved["caps"]
     except (OSError, ValueError, KeyError, AttributeError):
         pass
-    probe = ('layer-rule {\n    match namespace="^vitrum-probe$"\n    background-effect {\n'
-             '        liquid-glass {\n            shape-fillet 1.0\n        }\n    }\n}\n')
-    with tempfile.TemporaryDirectory() as tmp:
-        cfg = Path(tmp) / "config.kdl"
-        cfg.write_text(probe)
-        try:
-            ok = run([path, "validate", "-c", str(cfg)], capture_output=True).returncode == 0
-        except OSError:
-            ok = False
-    caps = {"shapedGlass": ok}
+    def accepts(key: str) -> bool:
+        probe = ('layer-rule {\n    match namespace="^vitrum-probe$"\n    background-effect {\n'
+                 f'        liquid-glass {{\n            {key} 1.0\n        }}\n    }}\n}}\n')
+        with tempfile.TemporaryDirectory() as tmp:
+            cfg = Path(tmp) / "config.kdl"
+            cfg.write_text(probe)
+            try:
+                return run([path, "validate", "-c", str(cfg)], capture_output=True).returncode == 0
+            except OSError:
+                return False
+    shaped = accepts("shape-fillet")
+    caps = {"shapedGlass": shaped, "ownGlass": shaped and accepts("sheen")}
     try:
         cache.mkdir(parents=True, exist_ok=True)
         store.write_text(json.dumps({"key": key, "caps": caps}))
@@ -391,43 +447,87 @@ def niri_caps(niri: str | None = None, run=subprocess.run, cache: Path = CACHE, 
     return caps
 
 
-def _effect_block(material: str, settings: dict, indent: str = "    ", fillet: float = 0.0, window: bool = False) -> str:
+def _glass_params(settings: dict, window: bool, clear: bool, launcher: bool, own: bool, bar: bool = False,
+                  widgets: bool = False) -> dict:
+    """liquid-glass's keys: the preset, then what the surface changes, then the
+    user's own values (glassAdvanced). Nothing else gets through from there: one
+    key niri doesn't know makes it refuse the whole config."""
+    m = settings["materials"]
+    preset = m["glassPreset"] if m["glassPreset"] in GLASS_PRESETS else "lens"
+    params = dict(zip(GLASS_KEYS, GLASS_PRESETS[preset]))
+    params.update(GLASS_BODY[preset])
+    params["inner-rim"] = 0.0
+    if launcher:
+        params.update(LAUNCHER_GLASS)
+    elif window:
+        params.update(WINDOW_CLEAR if clear else WINDOW_GLASS)
+    elif bar:
+        params.update(BAR_GLASS)
+    elif widgets:
+        params.update(WIDGET_GLASS)
+    params.update({k: v for k, v in m.get("glassAdvanced", {}).items()
+                   if k in params and isinstance(v, (int, float)) and not isinstance(v, bool)})
+    if not own:
+        # An older niri, until the next login. These keys are unknown to it or
+        # mean something else, and it splits colours unless told not to.
+        for key in ("inner-rim", "vibrancy", "sheen"):
+            del params[key]
+        params["fringing"] = 0.0
+    return params
+
+
+def _effect_block(material: str, settings: dict, indent: str = "    ", fillet: float = 0.0, window: bool = False,
+                  launcher: bool = False, own: bool = False, bar: bool = False, widgets: bool = False) -> str:
     if material == "solid":
         return f"{indent}background-effect {{\n{indent}    blur false\n{indent}    xray false\n{indent}}}\n"
     if material == "frosted":
         return (f"{indent}background-effect {{\n{indent}    blur true\n{indent}    xray false\n"
                 f"{indent}    noise 0.02\n{indent}    saturation 1.1\n{indent}}}\n")
-    m = settings["materials"]
-    params = dict(zip(GLASS_KEYS, GLASS_PRESETS.get(m["glassPreset"], GLASS_PRESETS["lens"])))
-    if window:
-        params.update(WINDOW_CLEAR if material == "clear" else WINDOW_GLASS)
-    params.update({k: v for k, v in m.get("glassAdvanced", {}).items() if isinstance(v, (int, float)) and not isinstance(v, bool)})
+    clear = material == "clear" or launcher
+    params = _glass_params(settings, window, clear, launcher, own, bar, widgets)
     if fillet > 0:
         params["shape-fillet"] = float(fillet)
     lines = "".join(f"{indent}        {k} {_fmt(v)}\n" for k, v in params.items())
     # Not xray: the glass bends what is really behind it (windows too), not
     # only the wallpaper.
     # noise 0: niri's blur otherwise adds 0.02 of it, grain on a big smooth pane.
-    blur = "false" if material == "clear" else "true"
-    return (f"{indent}background-effect {{\n{indent}    blur {blur}\n{indent}    xray false\n{indent}    noise 0\n"
-            f"{indent}    liquid-glass {{\n{indent}        physical-refraction 0\n{lines}{indent}    }}\n{indent}}}\n")
+    amount = (LAUNCHER_FROST if launcher else 0.0) if clear else (BAR_BLUR if bar else GLASS_BLUR)
+    if not own:
+        amount = 0.0 if clear else 1.0          # no blur-amount there: all or nothing
+    blur = f"{indent}    blur {'true' if amount > 0 else 'false'}\n"
+    if own and amount > 0:
+        blur += f"{indent}    blur-amount {_fmt(float(amount))}\n"
+        if launcher:
+            blur += f"{indent}    saturation {_fmt(LAUNCHER_SATURATION)}\n"
+    return (f"{indent}background-effect {{\n{blur}{indent}    xray false\n{indent}    noise 0\n"
+            f"{indent}    liquid-glass {{\n{lines}{indent}    }}\n{indent}}}\n")
+
+
+# The groups niri shapes, and the corner radius each of them is drawn with.
+SHAPED_GROUPS = {"bar": island_radius, "launcher": launcher_radius, "dock": panel_radius, "widgets": widget_radius}
 
 
 def effects_kdl(settings: dict, caps: dict | None = None) -> str:
     m = settings["materials"]
     shaped = bool((caps or {}).get("shapedGlass"))
+    own = bool((caps or {}).get("ownGlass"))
     out = ["// Generated by vitrum-theme from settings.json (materials, windows.materials). Do not edit.\n"]
     for g in GROUPS:
         material = m.get("groups", {}).get(g) or m["default"]   # "" is "Default"
-        if g in ("bar", "launcher") and material == "glass" and shaped:
+        if g in SHAPED_GROUPS and material == "glass" and shaped:
             # Shaped glass: every island its own rounded piece, a panel melts
-            # into the island it flows out of (patches/niri-glass); the
-            # launcher's results flow out of its search field the same way.
-            r = island_radius(settings) if g == "bar" else launcher_radius(settings)
-            out.append(f'layer-rule {{\n    match namespace="^vitrum-{g}$"\n    geometry-corner-radius {r}\n'
-                       f'{_effect_block(material, settings, fillet=r)}}}\n')
+            # into the island it flows out of (patches/niri); the launcher's
+            # results flow out of its search field the same way. Desktop widgets
+            # share one screen-sized surface and the dock has room around it:
+            # without pieces their glass would be that whole surface.
+            r = SHAPED_GROUPS[g](settings)
+            block = _effect_block(material, settings, fillet=r, launcher=g == "launcher", own=own, bar=g == "bar",
+                                  widgets=g == "widgets")
+            out.append(f'layer-rule {{\n    match namespace="^vitrum-{g}$"\n    geometry-corner-radius {r}\n{block}}}\n')
             continue
-        out.append(f'layer-rule {{\n    match namespace="^vitrum-{g}$"\n{_effect_block(material, settings)}}}\n')
+        block = _effect_block(material, settings, launcher=g == "launcher" and material == "glass", own=own,
+                              bar=g == "bar" and material == "glass", widgets=g == "widgets")
+        out.append(f'layer-rule {{\n    match namespace="^vitrum-{g}$"\n{block}}}\n')
     # The bar's reserve surface and the wallpaper never carry an effect.
     out.append('layer-rule {\n    match namespace="^vitrum-(bar-reserve|wallpaper)$"\n'
                '    background-effect {\n        blur false\n        xray false\n    }\n}\n')
@@ -437,7 +537,7 @@ def effects_kdl(settings: dict, caps: dict | None = None) -> str:
         app, material = w.get("appId"), w.get("material")
         if not app or material not in ("solid", "frosted", "glass", "clear"):
             continue
-        out.append(f'window-rule {{\n    match app-id={_exact_app_id(str(app))}\n{_effect_block(material, settings, window=True)}}}\n')
+        out.append(f'window-rule {{\n    match app-id={_exact_app_id(str(app))}\n{_effect_block(material, settings, window=True, own=own)}}}\n')
     return "\n".join(out)
 
 

@@ -1,0 +1,768 @@
+diff --git a/niri-config/src/appearance.rs b/niri-config/src/appearance.rs
+--- a/niri-config/src/appearance.rs
++++ b/niri-config/src/appearance.rs
+@@ -1082,6 +1082,13 @@ pub struct LiquidGlass {
+     pub adaptive_dim: f64,
+     /// The veil of light a pane reflects over what is behind it.
+     pub adaptive_boost: f64,
++    /// Shape the glass from the surface's blur region instead of its geometry.
++    ///
++    /// 0 (the default) keeps the rounded rectangle. Above 0, every rectangle of the region becomes
++    /// its own rounded piece with its own rim (radius `geometry-corner-radius`, at most half its
++    /// size), and pieces that touch melt into one with concave fillets of this radius: an island
++    /// and a panel that touches it read as one drop of glass.
++    pub shape_fillet: f64,
+ }
+ 
+ impl Default for LiquidGlass {
+@@ -1099,6 +1106,7 @@ impl Default for LiquidGlass {
+             sheen: 0.1,
+             adaptive_dim: 0.21,
+             adaptive_boost: 0.15,
++            shape_fillet: 0.,
+         }
+     }
+ }
+@@ -1129,6 +1137,8 @@ pub struct LiquidGlassPart {
+     pub adaptive_dim: Option<FloatOrInt<0, 100>>,
+     #[knuffel(child, unwrap(argument))]
+     pub adaptive_boost: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub shape_fillet: Option<FloatOrInt<0, 200>>,
+ 
+     // Keys of the glass this replaced. Accepted and ignored, so that an effects.kdl or an
+     // overrides.kdl written before it still loads: niri refuses a whole config over one
+@@ -1159,6 +1169,7 @@ impl MergeWith<LiquidGlassPart> for LiquidGlass {
+             sheen,
+             adaptive_dim,
+             adaptive_boost,
++            shape_fillet,
+         );
+     }
+ }
+diff --git a/src/render_helpers/background_effect.rs b/src/render_helpers/background_effect.rs
+--- a/src/render_helpers/background_effect.rs
++++ b/src/render_helpers/background_effect.rs
+@@ -2,7 +2,7 @@ use std::sync::{Arc, Mutex};
+ 
+ use niri_config::{CornerRadius, LiquidGlass};
+ use smithay::backend::renderer::gles::GlesRenderer;
+-use smithay::utils::{Logical, Point, Rectangle, Scale};
++use smithay::utils::{Logical, Point, Rectangle, Scale, Size};
+ use smithay::wayland::compositor::{with_states, SurfaceData};
+ use wayland_server::protocol::wl_surface::WlSurface;
+ 
+@@ -11,6 +11,7 @@ use crate::niri_render_elements;
+ use crate::render_helpers::blur::BlurOptions;
+ use crate::render_helpers::damage::ExtraDamage;
+ use crate::render_helpers::framebuffer_effect::{FramebufferEffect, FramebufferEffectElement};
++use crate::render_helpers::glass::{glass_shapes, GlassShape, GlassShapes};
+ use crate::render_helpers::xray::{XrayElement, XrayPos};
+ use crate::render_helpers::RenderCtx;
+ use crate::utils::region::TransformedRegion;
+@@ -63,6 +64,8 @@ pub struct RenderParams {
+     pub clip: Option<(Rectangle<f64, Logical>, CornerRadius)>,
+     /// Scale to use for rounding to physical pixels.
+     pub scale: f64,
++    /// Glass pieces rebuilt from the blur region, in the same coordinate space as `geometry`.
++    pub shapes: Option<Arc<GlassShapes>>,
+ }
+ 
+ impl RenderParams {
+@@ -212,6 +215,7 @@ impl BackgroundEffect {
+     }
+ }
+ 
++#[allow(clippy::too_many_arguments)]
+ fn render_params_for_tile(
+     geometry: Rectangle<f64, Logical>,
+     scale: f64,
+@@ -220,12 +224,15 @@ fn render_params_for_tile(
+     blur_region: Option<Arc<Vec<Rectangle<i32, Logical>>>>,
+     surface_geo: Rectangle<f64, Logical>,
+     surface_anim_scale: Scale<f64>,
++    shape_fillet: f64,
++    shape_radius: f64,
+ ) -> Option<RenderParams> {
+     // Effects not requested by the surface itself are drawn to match the geometry.
+     let mut clip = true;
+ 
+     let mut effect_geometry = geometry;
+     let mut subregion = None;
++    let mut shapes = None;
+     if let Some(rects) = blur_region {
+         if rects.is_empty() {
+             // Surface has a set, but empty blur region.
+@@ -243,6 +250,35 @@ fn render_params_for_tile(
+                 let mut surface_geo = surface_geo.upscale(surface_anim_scale);
+                 surface_geo.loc += geometry.loc;
+ 
++                // The glass takes the shape of the region's pieces, and is drawn over their boxes
++                // so that the fillets have room.
++                let glass = (shape_fillet > 0.)
++                    .then(|| glass_shapes(&rects, shape_radius))
++                    .flatten();
++                let rects = match glass {
++                    Some((pieces, boxes)) => {
++                        let scale = surface_anim_scale;
++                        let to_geo = |x: i32, y: i32| {
++                            Point::<f64, Logical>::new(f64::from(x), f64::from(y)).upscale(scale)
++                                + surface_geo.loc
++                        };
++                        let shapes_in_geo = pieces.iter().map(|p| {
++                            let (a, b) = (to_geo(p.edges.0, p.edges.1), to_geo(p.edges.2, p.edges.3));
++                            GlassShape {
++                                rect: Rectangle::new(a, Size::from((b.x - a.x, b.y - a.y))),
++                                radius: p.radius * scale.x,
++                                component: p.component,
++                            }
++                        });
++                        shapes = Some(Arc::new(GlassShapes {
++                            shapes: shapes_in_geo.collect(),
++                            fillet: shape_fillet * scale.x,
++                        }));
++                        boxes
++                    }
++                    None => rects,
++                };
++
+                 subregion = Some(TransformedRegion {
+                     rects,
+                     scale: surface_anim_scale,
+@@ -265,6 +301,7 @@ fn render_params_for_tile(
+         subregion,
+         clip,
+         scale,
++        shapes,
+     })
+ }
+ 
+@@ -321,6 +358,12 @@ pub fn render_for_tile(
+         let mut surface_geo = surface_geo(states).unwrap_or_default().to_f64();
+         surface_geo.loc += surface_off;
+ 
++        // Shaped glass.
++        let shape_fillet = match &background_effect.options.glass {
++            Some(glass) if background_effect.options.xray => glass.shape_fillet,
++            _ => 0.,
++        };
++
+         let Some(params) = render_params_for_tile(
+             geometry,
+             scale,
+@@ -329,6 +372,8 @@ pub fn render_for_tile(
+             blur_region,
+             surface_geo,
+             surface_anim_scale,
++            shape_fillet,
++            f64::from(radius.top_left),
+         ) else {
+             return;
+         };
+diff --git a/src/render_helpers/framebuffer_effect.rs b/src/render_helpers/framebuffer_effect.rs
+--- a/src/render_helpers/framebuffer_effect.rs
++++ b/src/render_helpers/framebuffer_effect.rs
+@@ -133,7 +133,7 @@ impl FramebufferEffectElement {
+         ];
+ 
+         if let Some(options) = &self.glass {
+-            glass::push_uniforms(options, 1., &mut uniforms);
++            glass::push_uniforms(options, 1., None, &mut uniforms);
+         }
+ 
+         uniforms
+diff --git a/src/render_helpers/glass.rs b/src/render_helpers/glass.rs
+--- a/src/render_helpers/glass.rs
++++ b/src/render_helpers/glass.rs
+@@ -4,8 +4,11 @@
+ //! `postprocess_and_clip`, on both the xray and the framebuffer path. The shader only ever bends
+ //! the view inward, so it samples inside the element and needs no extra capture area.
+ 
++use std::sync::Arc;
++
+ use niri_config::LiquidGlass;
+ use smithay::backend::renderer::gles::{Uniform, UniformName, UniformType};
++use smithay::utils::{Logical, Point, Rectangle, Size};
+ 
+ const FLOATS: [&str; 13] = [
+     "glass_unit",
+@@ -23,6 +26,53 @@ const FLOATS: [&str; 13] = [
+     "glass_boost",
+ ];
+ 
++/// Most pieces one surface can have. A region that needs more stays a plain rounded rectangle.
++/// Must match the shader's arrays.
++pub const MAX_SHAPES: usize = 16;
++
++/// How far out a region's coordinates count. A client can send anything, and Quickshell sends an
++/// item position past the i32 range as `i32::MIN`. Clamped to this, the sums below can't overflow,
++/// which would panic and take the session down.
++const MAX_COORD: i32 = 1 << 24;
++
++const SHAPE_RECT: [&str; MAX_SHAPES] = [
++    "glass_shape_rect[0]",
++    "glass_shape_rect[1]",
++    "glass_shape_rect[2]",
++    "glass_shape_rect[3]",
++    "glass_shape_rect[4]",
++    "glass_shape_rect[5]",
++    "glass_shape_rect[6]",
++    "glass_shape_rect[7]",
++    "glass_shape_rect[8]",
++    "glass_shape_rect[9]",
++    "glass_shape_rect[10]",
++    "glass_shape_rect[11]",
++    "glass_shape_rect[12]",
++    "glass_shape_rect[13]",
++    "glass_shape_rect[14]",
++    "glass_shape_rect[15]",
++];
++
++const SHAPE_META: [&str; MAX_SHAPES] = [
++    "glass_shape_meta[0]",
++    "glass_shape_meta[1]",
++    "glass_shape_meta[2]",
++    "glass_shape_meta[3]",
++    "glass_shape_meta[4]",
++    "glass_shape_meta[5]",
++    "glass_shape_meta[6]",
++    "glass_shape_meta[7]",
++    "glass_shape_meta[8]",
++    "glass_shape_meta[9]",
++    "glass_shape_meta[10]",
++    "glass_shape_meta[11]",
++    "glass_shape_meta[12]",
++    "glass_shape_meta[13]",
++    "glass_shape_meta[14]",
++    "glass_shape_meta[15]",
++];
++
+ /// Names of the shader's own uniforms, for compiling it.
+ pub fn uniform_names() -> Vec<UniformName<'static>> {
+     let mut names: Vec<_> = FLOATS
+@@ -31,6 +81,10 @@ pub fn uniform_names() -> Vec<UniformName<'static>> {
+         .collect();
+     names.push(UniformName::new("glass_origin", UniformType::_2f));
+     names.push(UniformName::new("glass_step", UniformType::_2f));
++    names.push(UniformName::new("glass_shape_count", UniformType::_1f));
++    names.push(UniformName::new("glass_shape_fillet", UniformType::_1f));
++    names.extend(SHAPE_RECT.iter().map(|n| UniformName::new(*n, UniformType::_4f)));
++    names.extend(SHAPE_META.iter().map(|n| UniformName::new(*n, UniformType::_4f)));
+     names
+ }
+ 
+@@ -45,7 +99,15 @@ pub fn push_place(origin: [f32; 2], step: [f32; 2], out: &mut Vec<Uniform<'stati
+ }
+ 
+ /// `unit` is how many of the element's `geo_size` units make a logical pixel.
+-pub fn push_uniforms(glass: &LiquidGlass, unit: f32, out: &mut Vec<Uniform<'static>>) {
++///
++/// `shapes` must be passed on every draw, `None` included: a program keeps its uniforms between
++/// draws, and the last surface's pieces would stay.
++pub fn push_uniforms(
++    glass: &LiquidGlass,
++    unit: f32,
++    shapes: Option<&ShapeUniforms>,
++    out: &mut Vec<Uniform<'static>>,
++) {
+     let values = [
+         unit,
+         glass.refraction_strength as f32,
+@@ -62,4 +124,279 @@ pub fn push_uniforms(glass: &LiquidGlass, unit: f32, out: &mut Vec<Uniform<'stat
+         glass.adaptive_boost as f32,
+     ];
+     out.extend(FLOATS.iter().zip(values).map(|(name, v)| Uniform::new(*name, v)));
++
++    let count = shapes.map_or(0, |s| s.rects.len().min(MAX_SHAPES));
++    out.push(Uniform::new("glass_shape_count", count as f32));
++    out.push(Uniform::new("glass_shape_fillet", shapes.map_or(0., |s| s.fillet)));
++    if let Some(shapes) = shapes {
++        for i in 0..count {
++            out.push(Uniform::new(SHAPE_RECT[i], shapes.rects[i]));
++            out.push(Uniform::new(SHAPE_META[i], shapes.meta[i]));
++        }
++    }
++}
++
++/// The glass of a surface with `shape-fillet`.
++#[derive(Debug, Clone, PartialEq)]
++pub struct GlassShapes {
++    /// Sorted by component.
++    pub shapes: Vec<GlassShape>,
++    /// Radius of the concave fillet where touching pieces meet.
++    pub fillet: f64,
++}
++
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub struct GlassShape {
++    pub rect: Rectangle<f64, Logical>,
++    pub radius: f64,
++    /// Pieces with the same component melt into one.
++    pub component: u32,
++}
++
++/// What the shader gets of `GlassShapes`: relative to the clip geometry, in `geo_size` units.
++#[derive(Debug, Clone, PartialEq)]
++pub struct ShapeUniforms {
++    /// x, y, w, h
++    pub rects: Vec<[f32; 4]>,
++    /// radius, component, 0, 0
++    pub meta: Vec<[f32; 4]>,
++    pub fillet: f32,
++}
++
++impl GlassShapes {
++    /// Relative to `origin` (the clip geometry's corner), scaled by `zoom`.
++    pub fn uniforms(&self, origin: Point<f64, Logical>, zoom: f64) -> ShapeUniforms {
++        ShapeUniforms {
++            rects: self
++                .shapes
++                .iter()
++                .map(|s| {
++                    let loc = (s.rect.loc - origin).upscale(zoom);
++                    let size = s.rect.size.upscale(zoom);
++                    [loc.x as f32, loc.y as f32, size.w as f32, size.h as f32]
++                })
++                .collect(),
++            meta: self
++                .shapes
++                .iter()
++                .map(|s| [(s.radius * zoom) as f32, s.component as f32, 0., 0.])
++                .collect(),
++            fillet: (self.fillet * zoom) as f32,
++        }
++    }
++}
++
++/// x0, y0, x1, y1
++type Edges = (i32, i32, i32, i32);
++
++/// The pieces of a region, and the rects to draw them in.
++type Shaped = (Vec<Piece>, Arc<Vec<Rectangle<i32, Logical>>>);
++
++/// A piece of glass in surface-local coordinates.
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub struct Piece {
++    pub edges: Edges,
++    pub radius: f64,
++    pub component: u32,
++}
++
++/// Rebuilds the rectangles a client made its blur region from.
++///
++/// Returns the pieces, sorted by component, and the rects the effect should be drawn in: the
++/// fillets lie outside the region itself.
++///
++/// A wl_region arrives as y-banded spans, so one rectangle can come in as several pieces stacked
++/// on top of each other: those are joined back first. Pieces that touch form one component. Where
++/// a narrower piece sits on a wider one it is pushed into it, so the seam between them is interior,
++/// not a rim. A region drawn with rounded corners comes as dozens of scanlines; that is more than
++/// `MAX_SHAPES` and falls back.
++pub fn glass_shapes(
++    rects: &[Rectangle<i32, Logical>],
++    max_radius: f64,
++) -> Option<Shaped> {
++    if rects.is_empty() || rects.len() > 4 * MAX_SHAPES {
++        return None;
++    }
++    let mut v: Vec<Edges> = rects
++        .iter()
++        .filter(|r| r.size.w > 0 && r.size.h > 0)
++        .map(|r| {
++            let c = |v: i32| v.clamp(-MAX_COORD, MAX_COORD);
++            (
++                c(r.loc.x),
++                c(r.loc.y),
++                c(r.loc.x.saturating_add(r.size.w)),
++                c(r.loc.y.saturating_add(r.size.h)),
++            )
++        })
++        .filter(|e| e.0 < e.2 && e.1 < e.3)
++        .collect();
++
++    // Join pieces split by banding: same x-range, stacked edge to edge.
++    while let Some((i, j)) = (0..v.len())
++        .flat_map(|i| (0..v.len()).map(move |j| (i, j)))
++        .find(|&(i, j)| i != j && v[i].0 == v[j].0 && v[i].2 == v[j].2 && v[i].3 == v[j].1)
++    {
++        v[i].3 = v[j].3;
++        v.remove(j);
++    }
++    if v.is_empty() || v.len() > MAX_SHAPES {
++        return None;
++    }
++
++    let overlap = |a: Edges, b: Edges| (a.2.min(b.2) - a.0.max(b.0), a.3.min(b.3) - a.1.max(b.1));
++
++    // Components: pieces that touch along an edge, or overlap.
++    fn root(comp: &mut [usize], mut i: usize) -> usize {
++        while comp[i] != i {
++            comp[i] = comp[comp[i]];
++            i = comp[i];
++        }
++        i
++    }
++    let mut comp: Vec<usize> = (0..v.len()).collect();
++    for i in 0..v.len() {
++        for j in i + 1..v.len() {
++            let (ox, oy) = overlap(v[i], v[j]);
++            if (ox > 0 && oy >= 0) || (oy > 0 && ox >= 0) {
++                let (ri, rj) = (root(&mut comp, i), root(&mut comp, j));
++                comp[ri] = rj;
++            }
++        }
++    }
++
++    // Radii from the pieces as drawn, before any is pushed into its neighbour.
++    let radius: Vec<f64> = v
++        .iter()
++        .map(|r| {
++            let half = f64::from((r.2 - r.0).min(r.3 - r.1)) / 2.;
++            max_radius.min(half).max(0.)
++        })
++        .collect();
++
++    // Push the narrower of two pieces sharing an edge into the wider one.
++    let orig = v.clone();
++    for i in 0..orig.len() {
++        for j in 0..orig.len() {
++            let (a, b) = (orig[i], orig[j]);
++            if i == j {
++                continue;
++            }
++            let within_x = a.0 >= b.0 && a.2 <= b.2 && (a.2 - a.0) < (b.2 - b.0);
++            let within_y = a.1 >= b.1 && a.3 <= b.3 && (a.3 - a.1) < (b.3 - b.1);
++            let reach_x = (b.2 - b.0).min(64);
++            let reach_y = (b.3 - b.1).min(64);
++            if within_x && a.3 == b.1 {
++                v[i].3 = v[i].3.max(a.3 + reach_y);
++            }
++            if within_x && a.1 == b.3 {
++                v[i].1 = v[i].1.min(a.1 - reach_y);
++            }
++            if within_y && a.2 == b.0 {
++                v[i].2 = v[i].2.max(a.2 + reach_x);
++            }
++            if within_y && a.0 == b.2 {
++                v[i].0 = v[i].0.min(a.0 - reach_x);
++            }
++        }
++    }
++
++    let mut pieces: Vec<Piece> = (0..v.len())
++        .map(|i| Piece {
++            edges: v[i],
++            radius: radius[i],
++            component: root(&mut comp, i) as u32,
++        })
++        .collect();
++    pieces.sort_by_key(|p| p.component);
++
++    // Where to draw: a lone piece is its own rect, a melted component needs its whole bounding box
++    // (the fillets sit outside the pieces). Overlapping boxes are joined, so that no pixel is drawn
++    // twice. Pushing a piece into its neighbour never grows the box.
++    let mut boxes: Vec<Edges> = Vec::new();
++    for chunk in pieces.chunk_by(|a, b| a.component == b.component) {
++        boxes.push(chunk.iter().fold(
++            (i32::MAX, i32::MAX, i32::MIN, i32::MIN),
++            |b, p| {
++                let e = p.edges;
++                (b.0.min(e.0), b.1.min(e.1), b.2.max(e.2), b.3.max(e.3))
++            },
++        ));
++    }
++    while let Some((i, j)) = (0..boxes.len())
++        .flat_map(|i| (i + 1..boxes.len()).map(move |j| (i, j)))
++        .find(|&(i, j)| {
++            let (ox, oy) = overlap(boxes[i], boxes[j]);
++            ox > 0 && oy > 0
++        })
++    {
++        let (a, b) = (boxes[i], boxes.remove(j));
++        boxes[i] = (a.0.min(b.0), a.1.min(b.1), a.2.max(b.2), a.3.max(b.3));
++    }
++
++    let boxes = boxes
++        .into_iter()
++        .map(|b| Rectangle::new(Point::new(b.0, b.1), Size::from((b.2 - b.0, b.3 - b.1))))
++        .collect();
++
++    Some((pieces, Arc::new(boxes)))
++}
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    fn rect(x: i32, y: i32, w: i32, h: i32) -> Rectangle<i32, Logical> {
++        Rectangle::new(Point::new(x, y), Size::from((w, h)))
++    }
++
++    #[test]
++    fn separate_islands_stay_apart() {
++        let (pieces, boxes) = glass_shapes(&[rect(0, 0, 100, 32), rect(200, 0, 50, 32)], 10.).unwrap();
++        assert_eq!(pieces.len(), 2);
++        assert_ne!(pieces[0].component, pieces[1].component);
++        assert_eq!(boxes.len(), 2);
++    }
++
++    #[test]
++    fn bands_of_one_rectangle_join() {
++        let (pieces, _) = glass_shapes(&[rect(0, 0, 100, 10), rect(0, 10, 100, 22)], 10.).unwrap();
++        assert_eq!(pieces.len(), 1);
++        assert_eq!(pieces[0].edges, (0, 0, 100, 32));
++    }
++
++    #[test]
++    fn a_neck_melts_into_the_panel_under_it() {
++        let (pieces, boxes) =
++            glass_shapes(&[rect(100, 0, 60, 32), rect(0, 32, 300, 200)], 10.).unwrap();
++        assert_eq!(pieces[0].component, pieces[1].component);
++        // The narrower piece reaches into the wider one, the box stays the union.
++        assert_eq!(boxes.len(), 1);
++        assert_eq!(boxes[0], rect(0, 0, 300, 232));
++        assert!(pieces.iter().any(|p| p.edges == (100, 0, 160, 96)));
++    }
++
++    #[test]
++    fn a_position_past_i32_does_not_overflow() {
++        // What Quickshell sends for x = 1e12, beside an island further right than the item is wide.
++        let (pieces, _) =
++            glass_shapes(&[rect(i32::MIN, 8, 100, 34), rect(1000, 8, 270, 34)], 10.).unwrap();
++        assert_eq!(pieces.len(), 1);
++        assert_eq!(pieces[0].edges, (1000, 8, 1270, 42));
++    }
++
++    #[test]
++    fn extreme_regions_do_not_overflow() {
++        // All of it past the limit: nothing left, the region stays as it came.
++        assert!(glass_shapes(&[rect(i32::MIN, i32::MIN, 100, 100)], 10.).is_none());
++        glass_shapes(&[rect(0, 0, i32::MAX, i32::MAX)], 10.).unwrap();
++        // Two bands whose sum is past i32.
++        glass_shapes(&[rect(0, i32::MIN, 10, i32::MAX), rect(0, -1, 10, i32::MAX)], 10.);
++    }
++
++    #[test]
++    fn scanlines_fall_back() {
++        let rects: Vec<_> = (0..80).map(|y| rect(y, y, 200 - 2 * y, 1)).collect();
++        assert!(glass_shapes(&rects, 10.).is_none());
++    }
+ }
+diff --git a/src/render_helpers/shaders/glass.frag b/src/render_helpers/shaders/glass.frag
+--- a/src/render_helpers/shaders/glass.frag
++++ b/src/render_helpers/shaders/glass.frag
+@@ -70,6 +70,15 @@ const vec2 FRAME = vec2(1920.0, 1080.0);
+ // What a bar island bends by, whatever the rule says for the panels beside it.
+ const float ISLAND_BEND = 6.0;
+ 
++// Shaped glass (shape-fillet): the outline is made of up to 16 rounded boxes
++// instead of geo_size. Boxes of one component melt into one with fillets, in
++// the order they come; components stay apart. In geo units, relative to the
++// clip geometry, y down.
++uniform float glass_shape_count;
++uniform float glass_shape_fillet;
++uniform vec4 glass_shape_rect[16];  // x, y, w, h
++uniform vec4 glass_shape_meta[16];  // radius, component, -, -
++
+ vec4 postprocess(vec4 color);
+ 
+ // The outline at this pixel. g_sil is the distance to the silhouette (the
+@@ -81,6 +90,8 @@ float g_opt;
+ vec2 g_out;
+ float g_half;
+ float g_bevel;
++// 1 in the middle of a fillet between two melted pieces, 0 elsewhere.
++float g_seam;
+ // Position in the piece, -1 to 1 on both axes.
+ vec2 g_rel;
+ 
+@@ -130,6 +141,81 @@ void roundedOutline(vec2 p) {
+     g_rel = rel / half_size;
+ }
+ 
++// A fillet of radius f in the concave corner between fields a and b (hg_sdf's
++// fOpUnionRound, MIT, Mercury Demogroup). It stays a distance on the outside and inside the fillet.
++// Returns the field; w is how much of the result is b, for whatever else has
++// to follow the field across the seam.
++float meld(float a, float b, float f, out float w) {
++    vec2 u = max(vec2(f - a, f - b), vec2(0.0));
++    float l = length(u);
++    w = l > 0.0 ? u.y * u.y / (l * l) : (b < a ? 1.0 : 0.0);
++    return max(f, min(a, b)) - l;
++}
++
++void shapedOutline(vec2 p) {
++    float best_sil = 1e6, best_opt = 1e6, best_half = 1.0, best_bevel = 1.0, best_seam = 0.0;
++    vec2 best_out = vec2(0.0), best_rel = vec2(0.0);
++    float sil = 1e6, opt = 1e6, half_side = 1.0, bevel = 1.0, seam = 0.0;
++    vec2 n = vec2(0.0), pos = vec2(0.0);
++    float component = -1.0;
++
++    for (int i = 0; i < 16; i++) {
++        if (float(i) >= glass_shape_count)
++            break;
++
++        vec4 rect = glass_shape_rect[i];
++        vec2 half_size = rect.zw * 0.5;
++        vec2 rel = p - rect.xy - half_size;
++        vec2 q = abs(rel) - half_size;
++        float r = glass_shape_meta[i].x;
++
++        float h = min(half_size.x, half_size.y);
++        float b = bevelWidth(h);
++        float optic = opticRadius(r, b, h);
++        float s = boxDist(q, r);
++        float o = boxDist(q, optic);
++        vec2 m = boxNormal(q, optic, rel);
++        vec2 at = rel / half_size;
++
++        if (glass_shape_meta[i].y != component) {
++            // The next component: keep the nearer of the two.
++            if (opt < best_opt) {
++                best_sil = sil; best_opt = opt; best_out = n;
++                best_half = half_side; best_bevel = bevel; best_seam = seam; best_rel = pos;
++            }
++            sil = s; opt = o; n = m; half_side = h; bevel = b; seam = 0.0; pos = at;
++            component = glass_shape_meta[i].y;
++        } else {
++            // Only a corner gets a fillet. Where two pieces run flush their edges are
++            // parallel, and the union would bulge out of the straight line.
++            float w;
++            float l = length(n);
++            float fillet = glass_shape_fillet * (1.0 - (l > 0.0 ? max(dot(n / l, m), 0.0) : 0.0));
++            sil = meld(sil, s, fillet, w);
++            opt = meld(opt, o, fillet, w);
++            n = mix(n, m, w);
++            pos = mix(pos, at, w);
++            half_side = mix(half_side, h, w);
++            bevel = mix(bevel, b, w);
++            seam = max(seam * (1.0 - w), 4.0 * w * (1.0 - w));
++        }
++    }
++
++    if (opt < best_opt) {
++        best_sil = sil; best_opt = opt; best_out = n;
++        best_half = half_side; best_bevel = bevel; best_seam = seam; best_rel = pos;
++    }
++
++    g_sil = best_sil;
++    g_opt = best_opt;
++    float l = length(best_out);
++    g_out = l > 0.0 ? best_out / l : vec2(0.0);
++    g_half = best_half;
++    g_bevel = best_bevel;
++    g_seam = best_seam;
++    g_rel = best_rel;
++}
++
+ // Geo units to a step in v_coords: the inverse of input_to_geo's linear part,
+ // so that it holds on rotated outputs too.
+ vec2 geoToTex(vec2 step_geo) {
+@@ -219,7 +305,7 @@ vec3 islandLight(vec3 color, float e, float depth) {
+     // one, nothing along the sides. A thin line in a wider glow.
+     float at = (depth - g_bevel) / (1.0 * glass_unit);
+     float glow_at = (depth - g_bevel) / (5.0 * glass_unit);
+-    float along = 0.03 + 0.27 * away * away + 0.12 * lit * lit;
++    float along = (0.03 + 0.27 * away * away + 0.12 * lit * lit) * (1.0 - 0.85 * g_seam);
+     float inner = exp(-at * at) + 0.22 * exp(-glow_at * glow_at);
+     // A small piece has no room for it: two contours close together read as a
+     // frame inside a frame.
+@@ -273,7 +359,7 @@ vec3 light(vec3 color, vec3 behind, vec2 p) {
+     // The rim: soft, a line with a little light under it.
+     float width = 1.1 * glass_unit;
+     float rim = exp(-(inside * inside) / (width * width)) + 0.25 * exp(-inside / (3.0 * glass_unit));
+-    float bright = rim * (0.12 + 0.9 * lit * (0.4 + near)) * give * glass_rim;
++    float bright = rim * (0.12 + 0.9 * lit * (0.4 + near)) * give * glass_rim * (1.0 - 0.8 * g_seam);
+     return mix(color, mix(hue, vec3(1.0), 0.55), min(bright, 1.0));
+ }
+ 
+@@ -283,7 +369,11 @@ void main() {
+ 
+     if (0.0 <= uv.x && uv.x <= 1.0 && 0.0 <= uv.y && uv.y <= 1.0) {
+         vec2 p = uv * geo_size;
+-        roundedOutline(p);
++        g_seam = 0.0;
++        if (glass_shape_count > 0.5)
++            shapedOutline(p);
++        else
++            roundedOutline(p);
+ 
+         float cover = clamp(0.5 - g_sil * niri_scale, 0.0, 1.0);
+         if (cover > 0.0) {
+@@ -297,8 +387,10 @@ void main() {
+                 ? 1.0 - smoothstep(30.0 * glass_unit, 70.0 * glass_unit, g_half) : 0.0;
+             float bend = 0.0;
+             if (e > 0.0)
++                // A fillet is concave: there the view fans out instead of gathering,
++                // and would burst into streaks.
+                 bend = min(mix(glass_bend, ISLAND_BEND, island) * 0.25 * g_bevel, 0.9 * g_half)
+-                    * mix(bevelBend(e), edgeBend(e), island);
++                    * mix(bevelBend(e), edgeBend(e), island) * (1.0 - 0.95 * g_seam);
+ 
+             color = sampleBent(bend);
+             vec3 behind = color.rgb;
+diff --git a/src/render_helpers/xray.rs b/src/render_helpers/xray.rs
+--- a/src/render_helpers/xray.rs
++++ b/src/render_helpers/xray.rs
+@@ -16,7 +16,7 @@ use smithay::utils::{Buffer, Logical, Physical, Point, Rectangle, Scale, Size, T
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+ use crate::render_helpers::background_effect::RenderParams;
+ use crate::render_helpers::effect_buffer::EffectBuffer;
+-use crate::render_helpers::glass;
++use crate::render_helpers::glass::{self, ShapeUniforms};
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+ use crate::render_helpers::shaders::{mat3_uniform, Shaders};
+ use crate::render_helpers::{RenderCtx, RenderTarget};
+@@ -85,6 +85,7 @@ pub struct XrayElement {
+     glass: Option<LiquidGlass>,
+     /// How many of `clip_geo_size`'s units make a logical pixel.
+     unit: f32,
++    shapes: Option<Rc<ShapeUniforms>>,
+ }
+ 
+ impl Xray {
+@@ -196,6 +197,9 @@ impl Xray {
+                     Rectangle::new(crop.loc - geo_in_backdrop.loc, crop.size).downscale(zoom);
+                 geometry.loc += params.geometry.loc;
+ 
++                let shapes = params.shapes.as_ref();
++                let shapes = shapes.map(|s| Rc::new(s.uniforms(clip_geo.loc, 1.)));
++
+                 let elem = XrayElement {
+                     buffer: self.background[ctx.target as usize].clone(),
+                     id: background.id().clone(),
+@@ -213,6 +217,7 @@ impl Xray {
+                     program: program.clone(),
+                     glass,
+                     unit: 1.,
++                    shapes,
+                 };
+                 push(elem);
+             }
+@@ -248,6 +253,9 @@ impl Xray {
+             let input_to_clip_geo = Mat3::from_scale(buf_size / clip_geo_size)
+                 * Mat3::from_translation(-clip_pos_in_backdrop / buf_size);
+ 
++            let shapes = params.shapes.as_ref();
++            let shapes = shapes.map(|s| Rc::new(s.uniforms(clip_geo.loc, zoom)));
++
+             let elem = XrayElement {
+                 buffer: self.backdrop[ctx.target as usize].clone(),
+                 id: backdrop.id().clone(),
+@@ -265,6 +273,7 @@ impl Xray {
+                 program: program.clone(),
+                 glass,
+                 unit: zoom as f32,
++                shapes,
+             };
+             push(elem);
+         }
+@@ -284,7 +293,7 @@ impl XrayElement {
+         ];
+ 
+         if let Some(options) = &self.glass {
+-            glass::push_uniforms(options, self.unit, &mut uniforms);
++            glass::push_uniforms(options, self.unit, self.shapes.as_deref(), &mut uniforms);
+         }
+ 
+         uniforms

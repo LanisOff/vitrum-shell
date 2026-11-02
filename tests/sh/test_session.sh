@@ -1,7 +1,7 @@
 # shellcheck shell=bash disable=SC1090,SC1091,SC2016
 _load_session() {
   export INIT_BACKEND="$1"
-  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-$1.sh"
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-$1.sh"; source "$VITRUM_DIR/lib/dm.sh"
   source "$VITRUM_DIR/lib/stages/80-session.sh"
   stub sudo '"$@"'
   export VITRUM_SYSROOT="$HOME/sys"   # system files land here in tests
@@ -23,7 +23,169 @@ test_session_wrapper_systemd_uses_session_flag() {
 test_desktop_entry_names_vitrum() {
   _load_session openrc
   _session_wrapper
-  assert_contains "$(cat "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop")" "Name=niri"
+  e="$(cat "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop")"
+  assert_contains "$e" "Name=vitrum"
+  assert_contains "$e" "Exec=/usr/local/bin/vitrum-session"
+  [[ ! -e "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" ]]
+}
+# An install from before 0.6.0: our entry was niri.desktop, and things remember it.
+_old_entry() {
+  local d="$VITRUM_SYSROOT/usr/local/share/wayland-sessions"
+  mkdir -p "$d"
+  printf '[Desktop Entry]\nName=niri\nExec=/usr/local/bin/vitrum-session\n' > "$d/niri.desktop"
+}
+_sddm_state() {
+  mkdir -p "$VITRUM_SYSROOT/var/lib/sddm"
+  printf '[Last]\nUser=lanis\nSession=%s\n' "$1" > "$VITRUM_SYSROOT/var/lib/sddm/state.conf"
+}
+test_old_entry_goes_on_every_init_system() {
+  for init in systemd openrc runit; do
+    ( _load_session "$init"; _old_entry; _session_wrapper
+      [[ ! -e "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" ]] || exit 1
+      assert_contains "$(cat "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop")" "Name=vitrum"
+      rm -rf "$VITRUM_SYSROOT" ) || { echo "failed on $init"; return 1; }
+  done
+}
+test_sddm_remembers_the_new_entry() {
+  _load_session systemd; _old_entry
+  # As found on a real machine, with the space SDDM leaves at the end.
+  _sddm_state '/usr/local/share/wayland-sessions/niri.desktop '
+  _session_wrapper
+  assert_contains "$(cat "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "Session=/usr/local/share/wayland-sessions/vitrum.desktop"
+  assert_contains "$(cat "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "User=lanis"
+}
+test_sddm_bare_name_stays_bare() {
+  _load_session systemd; _old_entry; _sddm_state niri.desktop
+  _session_wrapper
+  assert_contains "$(cat "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "Session=vitrum.desktop"
+}
+# Someone who picked the distro's niri meant it.
+test_a_remembered_distro_niri_stays() {
+  _load_session systemd; _old_entry; _sddm_state /usr/share/wayland-sessions/niri.desktop
+  _session_wrapper
+  assert_contains "$(cat "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "Session=/usr/share/wayland-sessions/niri.desktop"
+}
+test_a_distros_entry_is_not_ours() {
+  _load_session systemd
+  mkdir -p "$VITRUM_SYSROOT/usr/share/wayland-sessions"
+  printf '[Desktop Entry]\nName=Niri\nExec=niri-session\n' > "$VITRUM_SYSROOT/usr/share/wayland-sessions/niri.desktop"
+  _old_entry; _sddm_state niri.desktop
+  _session_wrapper
+  assert_contains "$(cat "$VITRUM_SYSROOT/usr/share/wayland-sessions/niri.desktop")" "Exec=niri-session"
+}
+test_someone_elses_niri_entry_in_usr_local_stays() {
+  _load_session systemd
+  d="$VITRUM_SYSROOT/usr/local/share/wayland-sessions"; mkdir -p "$d"
+  printf '[Desktop Entry]\nName=mine\nExec=/opt/niri/run\n' > "$d/niri.desktop"
+  _sddm_state niri.desktop
+  _session_wrapper
+  assert_contains "$(cat "$d/niri.desktop")" "Exec=/opt/niri/run"
+  assert_contains "$(cat "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "Session=niri.desktop"
+}
+test_autologin_follows_the_rename() {
+  _load_session systemd; _old_entry
+  mkdir -p "$VITRUM_SYSROOT/etc/sddm.conf.d"
+  printf '[Autologin]\nUser=lanis\nSession=niri.desktop\n\n[Theme]\nSession=niri\n' > "$VITRUM_SYSROOT/etc/sddm.conf"
+  printf '[Autologin]\nSession = niri\n' > "$VITRUM_SYSROOT/etc/sddm.conf.d/auto.conf"
+  printf '[Autologin]\nSession=plasma\n' > "$VITRUM_SYSROOT/etc/sddm.conf.d/kde.conf"
+  _session_wrapper
+  c="$(cat "$VITRUM_SYSROOT/etc/sddm.conf")"
+  assert_contains "$c" "Session=vitrum.desktop"
+  assert_contains "$c" "Session=niri"      # outside [Autologin]: not ours to change
+  assert_contains "$(cat "$VITRUM_SYSROOT/etc/sddm.conf.d/auto.conf")" "Session = vitrum"
+  assert_contains "$(cat "$VITRUM_SYSROOT/etc/sddm.conf.d/kde.conf")" "Session=plasma"
+}
+test_gdm_follows_the_rename() {
+  _load_session openrc; _old_entry
+  u="$VITRUM_SYSROOT/var/lib/AccountsService/users"
+  mkdir -p "$u"
+  printf '[User]\nSession=niri\nXSession=niri\nIcon=/x\n' > "$u/lanis"
+  printf '[User]\nSession=gnome\n' > "$u/guest"
+  _session_wrapper
+  assert_contains "$(cat "$u/lanis")" "Session=vitrum"
+  assert_contains "$(cat "$u/lanis")" "XSession=vitrum"
+  assert_contains "$(cat "$u/guest")" "Session=gnome"
+}
+# Everywhere LightDM keeps a session name, one of them naming niri.
+_lightdm_remembers_niri() {
+  _load_session openrc; _old_entry
+  u="$VITRUM_SYSROOT/var/lib/AccountsService/users"; l="$VITRUM_SYSROOT/etc/lightdm"; c="$VITRUM_SYSROOT/var/cache/lightdm/dmrc"
+  mkdir -p "$u" "$l/lightdm.conf.d" "$c"
+  printf '[User]\nSession=niri\nXSession=niri\n' > "$u/lanis"
+  printf '[LightDM]\n#sessions-directory=/usr/local/share/wayland-sessions\n[Seat:*]\nautologin-session=niri\nuser-session=niri\ngreeter-session=niri-greeter\n' > "$l/lightdm.conf"
+  printf '[Seat:*]\nuser-session = niri\n' > "$l/lightdm.conf.d/50-x.conf"
+  printf '[Desktop]\nSession=niri\n' > "$c/lanis.dmrc"
+  printf '[Desktop]\nSession=niri\n' > "$HOME/.dmrc"
+}
+_lightdm_sessions_dir() {  # _lightdm_sessions_dir <file under /etc/lightdm> <value>
+  printf '[LightDM]\nsessions-directory=%s\n' "$2" > "$l/$1"
+}
+_lightdm_kept_niri() {
+  assert_contains "$(cat "$l/lightdm.conf")" "autologin-session=niri"
+  assert_contains "$(cat "$l/lightdm.conf")" "user-session=niri"
+  assert_contains "$(cat "$l/lightdm.conf.d/50-x.conf")" "user-session = niri"
+  assert_contains "$(cat "$c/lanis.dmrc")" "Session=niri"
+  assert_contains "$(cat "$HOME/.dmrc")" "Session=niri"
+  assert_contains "$(cat "$u/lanis")" "XSession=niri"
+}
+# LightDM looks in /usr/share only unless told otherwise, so a niri it remembers
+# is the distro's, and vitrum there would be "Can't find session". AccountsService
+# wins over .dmrc for LightDM, by its XSession key; GDM reads Session.
+test_lightdm_keeps_niri_when_it_cannot_see_vitrum() {
+  _lightdm_remembers_niri
+  _session_wrapper
+  _lightdm_kept_niri
+  assert_contains "$(grep -v XSession "$u/lanis")" "Session=vitrum"
+  assert_contains "$(cat "$l/lightdm.conf")" "greeter-session=niri-greeter"
+}
+test_lightdm_follows_the_rename_when_it_looks_in_usr_local() {
+  _lightdm_remembers_niri
+  _lightdm_sessions_dir lightdm.conf.d/10-dirs.conf /usr/share/xsessions:/usr/local/share/wayland-sessions/:/usr/share/wayland-sessions
+  _session_wrapper
+  assert_contains "$(cat "$l/lightdm.conf")" "autologin-session=vitrum"
+  assert_contains "$(cat "$l/lightdm.conf")" "user-session=vitrum"
+  assert_contains "$(cat "$l/lightdm.conf")" "greeter-session=niri-greeter"
+  assert_contains "$(cat "$l/lightdm.conf.d/50-x.conf")" "user-session = vitrum"
+  assert_contains "$(cat "$c/lanis.dmrc")" "Session=vitrum"
+  assert_contains "$(cat "$HOME/.dmrc")" "Session=vitrum"
+  assert_contains "$(cat "$u/lanis")" "XSession=vitrum"
+}
+# lightdm.conf is read last and wins; a longer folder name is another folder.
+test_lightdm_keeps_niri_when_the_setting_does_not_stand() {
+  _lightdm_remembers_niri
+  _lightdm_sessions_dir lightdm.conf.d/10-dirs.conf /usr/local/share/wayland-sessions
+  printf '[LightDM]\nsessions-directory=/usr/share/wayland-sessions\n' >> "$l/lightdm.conf"
+  _session_wrapper
+  _lightdm_kept_niri
+  _lightdm_remembers_niri
+  _lightdm_sessions_dir lightdm.conf.d/10-dirs.conf /usr/local/share/wayland-sessions-old
+  _session_wrapper
+  _lightdm_kept_niri
+}
+test_rewriting_keeps_the_mode_and_a_second_run_changes_nothing() {
+  _load_session systemd; _old_entry; _sddm_state /usr/local/share/wayland-sessions/niri.desktop
+  chmod 640 "$VITRUM_SYSROOT/var/lib/sddm/state.conf"
+  _session_wrapper
+  [[ "$(find "$VITRUM_SYSROOT/var/lib/sddm/state.conf" -perm 640)" ]]
+  first="$(cksum < "$VITRUM_SYSROOT/var/lib/sddm/state.conf")"
+  _sddm_state /usr/share/wayland-sessions/niri.desktop   # chose the distro's since
+  second="$(cksum < "$VITRUM_SYSROOT/var/lib/sddm/state.conf")"
+  _session_wrapper
+  assert_eq "$(cksum < "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "$second"
+  [[ "$first" != "$second" ]]
+}
+test_dry_run_leaves_the_old_entry() {
+  _load_session systemd; _old_entry; _sddm_state niri.desktop
+  export DRY_RUN=1
+  _session_wrapper >/dev/null 2>&1
+  [[ -e "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" ]]
+  assert_contains "$(cat "$VITRUM_SYSROOT/var/lib/sddm/state.conf")" "Session=niri.desktop"
+}
+# The theme's first-login fallback looks for the entry by its path.
+test_login_theme_prefers_the_vitrum_entry() {
+  q="$(cat "$VITRUM_DIR/assets/sddm/vitrum/Main.qml")"
+  assert_contains "$q" "/usr/local/share/wayland-sessions/vitrum.desktop"
+  ! grep -q 'wayland-sessions/niri.desktop' <<<"$q"
 }
 test_session_kdl_is_idempotent() {
   _load_session openrc
@@ -217,6 +379,14 @@ test_startup_script_starts_the_keyring() {
   _session_startup_script
   assert_contains "$(cat "$HOME/.local/bin/vitrum-startup")" "gnome-keyring-daemon --start --components=secrets"
   assert_contains "$(cat "$HOME/.local/bin/vitrum-startup")" "vitrum-apps autostart run"
+}
+test_startup_script_starts_the_input_method_before_the_shell() {
+  _load_session systemd
+  _session_startup_script
+  local f; f="$(cat "$HOME/.local/bin/vitrum-startup")"
+  assert_contains "$f" "vitrum-im start"
+  assert_contains "$f" "XMODIFIERS QT_IM_MODULE QT_IM_MODULES SDL_IM_MODULE GLFW_IM_MODULE"
+  [[ "$(grep -n 'vitrum-im start' <<<"$f" | cut -d: -f1)" -lt "$(grep -n '"$HOME/.local/bin/vitrum-shell"' <<<"$f" | cut -d: -f1)" ]]
 }
 test_keyring_pam_password_line_and_no_trailing_newline() {
   _load_session systemd

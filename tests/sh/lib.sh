@@ -15,5 +15,8 @@ STUBS="$(mktemp -d)"; export PATH="$STUBS:$PATH"
 # the /usr/bin of the machine running the tests (lib/backend/detect.sh).
 export VITRUM_DETECT_PATH="$STUBS"
 stub() { printf '#!/usr/bin/env bash\n%s\n' "${2:-exit 0}" > "$STUBS/$1"; chmod +x "$STUBS/$1"; }
+# Whether the prebuilt niri is offered must not depend on the machine running
+# the tests: nothing here is x86_64 unless a test says so.
+stub uname 'if [[ "${1:-}" == -m ]]; then echo aarch64; else exec /usr/bin/uname "$@"; fi'
 assert_eq() { [[ "$1" == "$2" ]] || { echo "expected [$2] got [$1]"; return 1; }; }
 assert_contains() { [[ "$1" == *"$2"* ]] || { echo "[$1] does not contain [$2]"; return 1; }; }

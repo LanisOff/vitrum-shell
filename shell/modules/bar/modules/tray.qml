@@ -9,7 +9,9 @@ import ".."
 // The system tray — on the primary screen only (two trays duplicate icons and confuse menus).
 BarModule {
     id: root
-    shown: primary && SystemTray.items.values.length > 0
+    // fcitx5's own icon stays out: the keyboard module is that, with vitrum's label.
+    readonly property var items: SystemTray.items.values.filter(i => !(Layouts.fcitx && i.id === "Fcitx"))
+    shown: primary && items.length > 0
     hoverable: false
     implicitWidth: row.implicitWidth
     Row {
@@ -17,7 +19,7 @@ BarModule {
         anchors.verticalCenter: parent.verticalCenter
         spacing: Tokens.gap / 2
         Repeater {
-            model: SystemTray.items
+            model: ScriptModel { values: root.items }
             delegate: IconImage {
                 id: icon
                 required property SystemTrayItem modelData

@@ -117,17 +117,18 @@ if [ ! -t 0 ] && [ -n "\$login1" ]; then
 fi
 exit \$rc
 EOF
-  # niri, by its own name. In /usr/local, beside a distro niri's own entry
-  # rather than in its place.
-  sudo_write "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" <<'EOF'
+  # vitrum, so it can't be mistaken for a plain niri on the login screen. In
+  # /usr/local, beside a distro niri's own entry rather than in its place.
+  sudo_write "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop" <<'EOF'
 [Desktop Entry]
-Name=niri
-Comment=niri with liquid glass and the vitrum shell
+Name=vitrum
+Comment=The vitrum desktop, on niri
 Exec=/usr/local/bin/vitrum-session
 Type=Application
 DesktopNames=niri
 Keywords=tiling;wayland;niri;vitrum;
 EOF
+  _session_retire_niri_entry
   # What earlier installs called it.
   local old
   for old in "$VITRUM_SYSROOT/usr/share/wayland-sessions/vitrum.desktop" "$VITRUM_SYSROOT/etc/systemd/user/vitrum-niri.service"; do
@@ -155,7 +156,7 @@ _session_startup_script() {
 #!/usr/bin/env bash
 # vitrum-startup — spawned once by niri. Written by the vitrum installer.
 set -u
-vars="WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP NIRI_SOCKET VITRUM QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME QT_WAYLAND_DISABLE_WINDOWDECORATION XCURSOR_THEME XCURSOR_SIZE"
+vars="WAYLAND_DISPLAY XDG_CURRENT_DESKTOP XDG_SESSION_TYPE XDG_SESSION_DESKTOP NIRI_SOCKET VITRUM QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME QT_WAYLAND_DISABLE_WINDOWDECORATION XCURSOR_THEME XCURSOR_SIZE XMODIFIERS QT_IM_MODULE QT_IM_MODULES SDL_IM_MODULE GLFW_IM_MODULE"
 
 # 1. The environment, for D-Bus activated services and portals.
 if [ -d /run/systemd/system ]; then
@@ -180,6 +181,10 @@ fi
 # 1b. Colours and materials for the niri this session runs (a new niri may
 #     support more glass than the one the last render saw).
 command -v vitrum-theme >/dev/null 2>&1 && (vitrum-theme --quiet --no-color-scheme >/dev/null 2>&1 &)
+
+# 1c. The input method, with the input_method component: the compositor is up
+#     and the environment is out, and the shell and the apps come after it.
+command -v vitrum-im >/dev/null 2>&1 && vitrum-im start
 
 # 2. The shell, restarted if it crashes — but not forever: five crashes inside
 #    a minute means something is wrong that restarting will not fix.
@@ -247,6 +252,61 @@ _session_keybinds() {
   [[ -x "$theme" ]] || theme="$(command -v vitrum-theme || true)"
   [[ -n "$theme" ]] && { "$theme" --quiet --no-color-scheme || warn "vitrum-theme could not re-apply your keybinds"; }
   return 0
+}
+
+# Until 0.6.0 our entry was niri.desktop. Whatever remembers that name has to
+# follow it: with the file gone, a login manager falls back to the first session
+# it finds, or, where the distro has a niri of its own, to a plain niri that
+# knows nothing of vitrum. Only when the file is ours: a distro's niri.desktop
+# lives in /usr/share and is not touched, and a later install does nothing, so a
+# user who picks that niri on purpose stays there. greetd and the like start the
+# wrapper by its path, which hasn't changed.
+_session_retire_niri_entry() {
+  local root="$VITRUM_SYSROOT" entries=/usr/local/share/wayland-sessions
+  local old="$root$entries/niri.desktop"
+  grep -qs '^Exec=/usr/local/bin/vitrum-session$' "$old" || return 0
+  step "renaming the login entry to vitrum"
+
+  # SDDM: the last session, a full path or a bare file name.
+  _session_rewrite "s#^Session=($entries/)?niri\.desktop[[:space:]]*\$#Session=\1vitrum.desktop#" \
+    "$root/var/lib/sddm" state.conf
+  # SDDM's autologin, in whichever form it was written. Only in that section.
+  local auto="/^\[Autologin\]/,/^\[/ s#^([[:space:]]*Session[[:space:]]*=[[:space:]]*)($entries/)?niri(\.desktop)?[[:space:]]*\$#\1\2vitrum\3#"
+  _session_rewrite "$auto" "$root/etc" sddm.conf
+  _session_rewrite "$auto" "$root/etc/sddm.conf.d" '*.conf'
+  # GDM keeps the choice per user in AccountsService, by session name: Session,
+  # and XSession from before it had that key. LightDM keeps it in XSession too,
+  # in .dmrc, and in its own config. Unless told to look in /usr/local it never
+  # saw our entry, so the niri it remembers is the distro's, and vitrum there
+  # would be a session it cannot find: no login, no autologin. Those stay.
+  if lightdm_sees_vitrum "$root" || [[ ! -d "$root/etc/lightdm" ]]; then
+    _session_rewrite 's#^XSession=niri[[:space:]]*$#XSession=vitrum#' "$root/var/lib/AccountsService/users" '*'
+  fi
+  _session_rewrite 's#^Session=niri[[:space:]]*$#Session=vitrum#' "$root/var/lib/AccountsService/users" '*'
+  if lightdm_sees_vitrum "$root"; then
+    _session_rewrite 's#^Session=niri[[:space:]]*$#Session=vitrum#' "$root/var/cache/lightdm/dmrc" '*.dmrc'
+    _session_rewrite 's#^Session=niri[[:space:]]*$#Session=vitrum#' "$HOME" .dmrc
+    # LightDM's greeter default and autologin.
+    local light='s#^([[:space:]]*(autologin-session|user-session)[[:space:]]*=[[:space:]]*)niri[[:space:]]*$#\1vitrum#'
+    _session_rewrite "$light" "$root/etc/lightdm" lightdm.conf
+    _session_rewrite "$light" "$root/etc/lightdm/lightdm.conf.d" '*.conf'
+  fi
+
+  run sudo rm -f "$old"
+}
+
+# _session_rewrite <sed -E script> <dir> <name pattern> — every file of that name
+# directly in dir, as root: SDDM's and AccountsService's folders are closed to
+# users. Written into, so owner and mode stay, and only when something changed.
+_session_rewrite() {
+  if [[ "$DRY_RUN" == "1" ]]; then dim "would update $2/$3"; return 0; fi
+  sudo sh -c '
+    [ -d "$2" ] || exit 0
+    find "$2" -maxdepth 1 -type f -name "$3" | while IFS= read -r f; do
+      new=$(sed -E "$1" "$f") || continue
+      [ "$new" = "$(cat "$f")" ] || printf "%s\n" "$new" > "$f"
+    done
+  ' _ "$1" "$2" "$3" || warn 'could not update %s' "$2/$3"
 }
 
 # The VT the login screen runs on: SDDM's MinimumVT (7 unless set).

@@ -3,7 +3,7 @@ _installed_world() {
   stub sudo '"$@"'; stub uname 'echo Linux'
   export VITRUM_SYSROOT="$HOME/sys"
   mkdir -p "$VITRUM_SYSROOT/usr/local/bin" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions" "$HOME/.local/bin" "$XDG_CONFIG_HOME/quickshell/vitrum" "$XDG_CONFIG_HOME/vitrum/niri/generated" "$XDG_CONFIG_HOME/fontconfig/conf.d" "$XDG_DATA_HOME/vitrum"
-  touch "$VITRUM_SYSROOT/usr/local/bin/niri" "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop"
+  touch "$VITRUM_SYSROOT/usr/local/bin/niri" "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop"
   touch "$HOME/.local/bin/vitrum-shell" "$HOME/.local/bin/vitrum-startup" "$HOME/.local/bin/vitrum-ipc" "$XDG_CONFIG_HOME/quickshell/vitrum/shell.qml" "$XDG_CONFIG_HOME/vitrum/niri/config.kdl" "$XDG_CONFIG_HOME/fontconfig/conf.d/50-vitrum.conf"
   echo '{"mine":1}' > "$XDG_CONFIG_HOME/vitrum/settings.json"
   # the original of a file we replaced
@@ -14,7 +14,7 @@ _installed_world() {
 test_uninstall_removes_and_restores() {
   _installed_world
   ( cd "$VITRUM_DIR" && ./uninstall.sh --yes ) >/dev/null 2>&1 || { ( cd "$VITRUM_DIR" && ./uninstall.sh --yes ) 2>&1 | tail -20; return 1; }
-  [[ ! -e "$VITRUM_SYSROOT/usr/local/bin/niri" && ! -e "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" ]]
+  [[ ! -e "$VITRUM_SYSROOT/usr/local/bin/niri" && ! -e "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop" && ! -e "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" ]]
   [[ ! -e "$HOME/.local/bin/vitrum-shell" && ! -e "$XDG_CONFIG_HOME/quickshell/vitrum" && ! -e "$XDG_CONFIG_HOME/vitrum/niri" ]]
   assert_eq "$(cat "$XDG_CONFIG_HOME/kitty/kitty.conf")" original
   assert_eq "$(cat "$XDG_CONFIG_HOME/vitrum/settings.json")" '{"mine":1}'   # settings kept without --purge
@@ -78,9 +78,11 @@ test_uninstall_takes_the_keyring_lines_out_of_pam() {
 test_uninstall_forgets_the_install() {
   _installed_world
   printf '{"version": "0.4.0"}\n' > "$XDG_DATA_HOME/vitrum/install.json"
+  printf 'prebuilt\n' > "$XDG_DATA_HOME/vitrum/niri.source"
   printf '{"version": 2}\n' > "$XDG_DATA_HOME/vitrum/components.json"
   ( cd "$VITRUM_DIR" && ./uninstall.sh --yes ) >/dev/null 2>&1
   [[ ! -e "$XDG_DATA_HOME/vitrum/install.json" ]] || { echo "install.json left"; return 1; }
+  [[ ! -e "$XDG_DATA_HOME/vitrum/niri.source" ]] || { echo "niri.source left"; return 1; }
   [[ -e "$XDG_DATA_HOME/vitrum/components.json" ]] || { echo "the choices went without --purge"; return 1; }
 }
 

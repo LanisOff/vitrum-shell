@@ -1,4 +1,5 @@
 import QtQuick
+import qs.services
 import qs.theme
 import qs.components
 
@@ -32,6 +33,7 @@ Surface {
         passwordCharacter: "•"
         clip: true
         onAccepted: f.accepted()
+        onActiveFocusChanged: if (f.password) Layouts.passwordFocus(activeFocus)
         Label { visible: !input.text; text: f.placeholder; role: "dim"; anchors.verticalCenter: parent.verticalCenter; width: input.width }
     }
     Icon {

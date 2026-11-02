@@ -74,6 +74,7 @@ DialogFrame {
                 color: Colors.text
                 clip: true
                 onAccepted: root.submit()
+                onActiveFocusChanged: Layouts.passwordFocus(activeFocus && !!root.q && root.q.field === "password")
                 Label { visible: input.text.length === 0; anchors.verticalCenter: parent.verticalCenter; text: root.q ? root.q.placeholder : ""; role: "dim" }
             }
             Icon {

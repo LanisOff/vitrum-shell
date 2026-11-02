@@ -28,20 +28,24 @@ stage_doctor() {
 
   local bin="${VITRUM_NIRI_BIN:-/usr/local/bin/niri}"
   if [[ -x "$bin" ]]; then
-    _chk "niri: $("$bin" --version 2>/dev/null | head -1)" ok
+    if "$bin" --version >/dev/null 2>&1; then _chk "niri: $("$bin" --version 2>/dev/null | head -1)" ok
+    else _chk "niri" fail "does not start, a system update may have taken a library from it — ./install.sh --only niri"; fi
     # shellcheck source=/dev/null
     [[ -n "${NIRI_REV:-}" ]] || source "$VITRUM_DIR/lib/stages/30-niri.sh"
-    if [[ "$(cat "$VITRUM_STATE/niri.rev" 2>/dev/null)" == "$(niri_stamp)" ]]; then
-      _chk "compositor built from the pinned niri, glass and patches" ok
+    local stamp kind
+    stamp="$(cat "$VITRUM_STATE/niri.rev" 2>/dev/null)" || stamp=""
+    kind="$(niri_installed_kind)"
+    if [[ "$stamp" == "$(niri_stamp)" ]]; then
+      _chk "compositor: $kind, from the pinned niri, glass and patches (${stamp:0:7}${stamp#"$NIRI_REV"})" ok
     else
-      _chk "compositor revision" warn "built from other revisions — ./install.sh --only niri"
+      _chk "compositor revision ($kind)" warn "built from other revisions — ./install.sh --only niri"
     fi
   else
     _chk "niri" fail "not installed — ./install.sh --only niri"
   fi
 
   _chk_path "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" "session wrapper"
-  _chk_path "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" "login entry"
+  _chk_path "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop" "login entry"
   _chk_path "$VITRUM_PREFIX/niri/config.kdl" "niri config"
   if [[ -x "$bin" && -e "$VITRUM_PREFIX/niri/config.kdl" ]]; then
     if "$bin" validate -c "$VITRUM_PREFIX/niri/config.kdl" >/dev/null 2>&1; then _chk "niri accepts the config" ok
@@ -53,7 +57,7 @@ stage_doctor() {
   _doctor_versions
   _doctor_init
 
-  local fonts; fonts="$(fc-list 2>/dev/null)"
+  local fonts; fonts="$(fc-list 2>/dev/null)" || true
   local f
   for f in "Inter" "JetBrains Mono" "Phosphor-Light" "Phosphor-Fill"; do
     if grep -q "$f" <<<"$fonts"; then _chk "font: $f" ok; else _chk "font: $f" warn "not found by fontconfig"; fi
@@ -65,6 +69,7 @@ stage_doctor() {
   _doctor_kernel
   _doctor_steam_theme
   _doctor_vesktop_theme
+  _doctor_input_method
 
   local missing=() p
   while IFS= read -r p; do pkg_installed "$p" || missing+=("${p%@*}"); done < <(packages_for required 2>/dev/null)
@@ -80,8 +85,26 @@ stage_doctor() {
   stage_done
 }
 
+# The input method: fcitx5 there, its three engines there, and inside a session
+# (only there: an install from a TTY has no daemon to ask) the daemon up.
+_doctor_input_method() {
+  local on
+  on="$(components_load >/dev/null 2>&1; component_active input_method && echo 1)" || true
+  [[ "$on" == 1 ]] || return 0
+  if ! have fcitx5; then _chk "input method" fail "fcitx5 is not installed — ./install.sh --only packages"; return 0; fi
+  local e dir="$VITRUM_SYSROOT/usr/share/fcitx5/inputmethod"
+  for e in mozc hangul pinyin; do
+    if [[ -e "$dir/$e.conf" ]]; then _chk "input method: $e" ok
+    else _chk "input method: $e" warn "the engine is missing — ./install.sh --only packages"; fi
+  done
+  [[ -n "${WAYLAND_DISPLAY:-}" ]] || return 0
+  if ! have fcitx5-remote; then _chk "input method" warn "no fcitx5-remote: the bar cannot follow it"
+  elif fcitx5-remote --check >/dev/null 2>&1; then _chk "input method: fcitx5 is running" ok
+  else _chk "input method" warn "fcitx5 is not running — vitrum-im start"; fi
+}
+
 # _doc_version <command> — the first x.y.z its --version prints, or nothing.
-_doc_version() { "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1; }
+_doc_version() { "$1" --version 2>/dev/null | grep -oE '[0-9]+\.[0-9]+(\.[0-9]+)?' | head -n 1 || true; }
 
 # A package can be there and still be too old: Fedora's own quickshell is a
 # 0.2 snapshot and its matugen a 3.x, both under the names the COPR builds
@@ -124,7 +147,7 @@ _doctor_init() {
 # Warnings only: Steam works either way. No Steam, nothing to say.
 _doctor_steam_theme() {
   local on
-  on="$(components_load >/dev/null 2>&1; component_active steam_theme && echo 1)"
+  on="$(components_load >/dev/null 2>&1; component_active steam_theme && echo 1)" || true
   [[ "$on" == 1 ]] || return 0
   if [[ ! -d "$HOME/.steam/steam/ubuntu12_32" && ! -d "$XDG_DATA_HOME/Steam/ubuntu12_32" ]]; then
     [[ -d "$HOME/.var/app/com.valvesoftware.Steam" ]] && _chk "Steam theme" warn "Steam is the Flatpak, which Millennium does not support"
@@ -163,7 +186,7 @@ PY
 # Flatpak), nothing to say.
 _doctor_vesktop_theme() {
   local on
-  on="$(components_load >/dev/null 2>&1; component_active vesktop_theme && echo 1)"
+  on="$(components_load >/dev/null 2>&1; component_active vesktop_theme && echo 1)" || true
   [[ "$on" == 1 ]] || return 0
   vesktop_present || return 0
   local helper="$HOME/.local/bin/vitrum-vesktop-theme" st
@@ -293,7 +316,7 @@ _doctor_session() {
   fi
   _doc_name() { busctl --user status "$1" >/dev/null 2>&1 || dbus-send --session --print-reply --dest=org.freedesktop.DBus / org.freedesktop.DBus.GetNameOwner "string:$1" >/dev/null 2>&1; }
   if _doc_name org.gnome.Mutter.ScreenCast; then _chk "niri's screen-cast interface (niri --session)" ok
-  else _chk "niri's screen-cast interface" fail "absent: niri was not started with --session — log out and pick the niri session"; fi
+  else _chk "niri's screen-cast interface" fail "absent: niri was not started with --session — log out and pick the vitrum session"; fi
   if pgrep -u "$(id -u)" -x xdg-desktop-portal >/dev/null 2>&1 || _doc_name org.freedesktop.portal.Desktop; then _chk "xdg-desktop-portal" ok
   else _chk "xdg-desktop-portal" warn "not running (it starts on first use)"; fi
   if _doc_name org.freedesktop.secrets; then _chk "password store (Secret Service)" ok

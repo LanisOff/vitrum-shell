@@ -79,7 +79,7 @@ fi
 
 step "system files"
 _rm sudo "$VITRUM_SYSROOT/usr/local/bin/niri" "$VITRUM_SYSROOT/usr/local/bin/vitrum-niri" "$VITRUM_SYSROOT/usr/local/bin/vitrum-session" \
-         "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" "$VITRUM_SYSROOT/usr/share/wayland-sessions/vitrum.desktop" \
+         "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/vitrum.desktop" "$VITRUM_SYSROOT/usr/local/share/wayland-sessions/niri.desktop" "$VITRUM_SYSROOT/usr/share/wayland-sessions/vitrum.desktop" \
          "$VITRUM_SYSROOT/etc/systemd/user/niri.service" "$VITRUM_SYSROOT/etc/systemd/user/vitrum-niri.service" \
          "$VITRUM_SYSROOT/usr/local/libexec/vitrum" "$VITRUM_SYSROOT/usr/share/xdg-desktop-portal/portals/vitrum.portal" \
          "$VITRUM_SYSROOT/usr/share/dbus-1/services/org.freedesktop.impl.portal.desktop.vitrum.service" \
@@ -117,12 +117,35 @@ else
 fi
 
 step "your files"
-_rm "$HOME/.local/bin/vitrum-shell" "$HOME/.local/bin/vitrum-startup" "$HOME/.local/bin/vitrum-ipc" \
+_rm "$HOME/.local/bin/vitrum-shell" "$HOME/.local/bin/vitrum-startup" "$HOME/.local/bin/vitrum-ipc" "$HOME/.local/bin/vitrum-im" \
     "$XDG_CONFIG_HOME/quickshell/vitrum" "$XDG_CONFIG_HOME/vitrum/niri" \
     "$XDG_CONFIG_HOME/fontconfig/conf.d/50-vitrum.conf" "$XDG_DATA_HOME/fonts/vitrum" \
     "$XDG_CACHE_HOME/vitrum-build"
 # The cursor theme only if we put it there.
 [[ -e "$VITRUM_STATE/assets/bibata.sha256" ]] && _rm "$XDG_DATA_HOME/icons/Bibata-Modern-Classic"
+
+# fcitx5, if vitrum set it up: the files vitrum wrote go, or what was there
+# before them comes back. Dictionaries and what you taught it stay
+# (~/.local/share/fcitx5/pinyin, ~/.config/mozc, and so on), like the packages.
+if [[ -e "$VITRUM_STATE/fcitx-managed" ]]; then
+  step "input method"
+  for f in "$XDG_CONFIG_HOME/fcitx5/profile" "$XDG_CONFIG_HOME/fcitx5/config" "$XDG_CONFIG_HOME/fcitx5/conf/classicui.conf"; do
+    if [[ -e "$f.pre-vitrum" ]]; then
+      run mv -f "$f.pre-vitrum" "$f"
+    else
+      _rm "$f"
+    fi
+  done
+  _rm "$XDG_DATA_HOME/fcitx5/themes/vitrum"
+  grep -qs 'Written by vitrum' "$XDG_CONFIG_HOME/autostart/org.fcitx.Fcitx5.desktop" && _rm "$XDG_CONFIG_HOME/autostart/org.fcitx.Fcitx5.desktop"
+  # The block of flags vitrum put into each app's flags file; a file left with nothing else goes.
+  for f in "$XDG_CONFIG_HOME"/*-flags.conf; do
+    [[ -f "$f" ]] && grep -q '^# >>> vitrum input method' "$f" || continue
+    if [[ "$DRY_RUN" == 1 ]]; then dim "would edit $f"; continue; fi
+    sed '/^# >>> vitrum input method/,/^# <<< vitrum input method/d' "$f" > "$f.tmp" && mv -f "$f.tmp" "$f"
+    [[ -s "$f" ]] || rm -f "$f"
+  done
+fi
 
 # The Steam theme: switched off in Millennium and deleted, before the
 # manifest takes away the vitrum_theme package its helper runs on. Millennium
@@ -190,7 +213,7 @@ else
   # install.json says vitrum is installed, which it no longer is: without it
   # the next install.sh is a first install again (the language, the whole
   # choice screen, the tour), with the choices kept here as its defaults.
-  _rm "$VITRUM_STATE/niri.rev" "$VITRUM_STATE/install.json"
+  _rm "$VITRUM_STATE/niri.rev" "$VITRUM_STATE/niri.source" "$VITRUM_STATE/install.json"
   info "kept ~/.config/vitrum (settings, overrides) — --purge removes it"
 fi
 

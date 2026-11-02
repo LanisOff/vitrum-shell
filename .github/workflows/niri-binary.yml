@@ -1,0 +1,65 @@
+# The prebuilt niri the installer offers on Arch and Arch-based systems. The
+# logic is in tools/niri-binary, on top of the installer's own build stage.
+name: niri binary
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - patches/niri/**
+      - lib/stages/30-niri.sh
+      - tools/niri-binary
+      - .github/workflows/niri-binary.yml
+  workflow_dispatch:
+  schedule:
+    # Weekly, against what Arch ships by then: after a soname bump the last
+    # binary no longer starts, and nothing else would replace it.
+    - cron: "23 4 * * 1"
+
+permissions:
+  contents: write
+
+# One at a time: two publishes of one release would replace each other's assets.
+concurrency:
+  group: niri-binary
+
+jobs:
+  build:
+    # A fork has no use for it: the installer downloads from this repository.
+    if: github.repository == 'LanisOff/vitrum-shell'
+    runs-on: ubuntu-latest
+    container: archlinux:latest
+    timeout-minutes: 120
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Install git
+        run: pacman -Syu --noconfirm --needed git
+
+      - uses: actions/checkout@v5
+
+      - name: Install what building takes
+        run: tools/niri-binary deps
+
+      # A push that leaves the stamp alone has nothing new to build. The weekly
+      # run and a manual one build regardless.
+      - name: Check for this stamp's binary
+        id: released
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          if tools/niri-binary published; then
+            echo "skip=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Build, check and pack
+        if: steps.released.outputs.skip != 'true'
+        run: tools/niri-binary build
+
+      - name: Publish
+        if: steps.released.outputs.skip != 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: tools/niri-binary publish

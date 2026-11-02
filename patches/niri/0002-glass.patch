@@ -1,0 +1,1050 @@
+diff --git a/niri-config/src/appearance.rs b/niri-config/src/appearance.rs
+--- a/niri-config/src/appearance.rs
++++ b/niri-config/src/appearance.rs
+@@ -1055,6 +1055,114 @@ impl MergeWith<BlurPart> for Blur {
+     }
+ }
+ 
++/// A slab of glass with a rounded edge, see `shaders/glass.frag`.
++#[derive(Debug, Clone, Copy, PartialEq)]
++pub struct LiquidGlass {
++    /// How far the edge bends the view; 1 is a quarter of the bevel's width at the rim.
++    pub refraction_strength: f64,
++    /// The bevel's width; 1 is 120 logical pixels. Never more than a quarter of the short side.
++    pub edge_thickness: f64,
++    /// How much rounder than the silhouette the bevel's corners are.
++    pub corner_fan: f64,
++    /// The shade on the side away from the lamp.
++    pub depth_effect: f64,
++    /// Brightness of the rim.
++    pub glow_weight: f64,
++    /// Above 0, small pieces stay bevelled islands with a second contour, this bright. On the
++    /// bar's surface islands and panels share one rule, so their size tells them apart.
++    pub inner_rim: f64,
++    /// The edge's soft glow, in the hue of what is behind it. One hue, never a spectral split.
++    pub edge_lighting: f64,
++    pub saturation: f64,
++    /// Lifts muted colours of the backdrop more than saturated ones.
++    pub vibrancy: f64,
++    /// The lamp's soft pool across the face: panes near it are a little brighter.
++    pub sheen: f64,
++    /// Under the content, white comes down to 1 minus this; dark colours stay.
++    pub adaptive_dim: f64,
++    /// The veil of light a pane reflects over what is behind it.
++    pub adaptive_boost: f64,
++}
++
++impl Default for LiquidGlass {
++    fn default() -> Self {
++        Self {
++            refraction_strength: 3.,
++            edge_thickness: 0.11,
++            corner_fan: 1.5,
++            depth_effect: 0.5,
++            glow_weight: 1.,
++            inner_rim: 0.,
++            edge_lighting: 1.1,
++            saturation: 1.,
++            vibrancy: 0.25,
++            sheen: 0.1,
++            adaptive_dim: 0.21,
++            adaptive_boost: 0.15,
++        }
++    }
++}
++
++#[derive(knuffel::Decode, Debug, Default, Clone, Copy, PartialEq)]
++pub struct LiquidGlassPart {
++    #[knuffel(child, unwrap(argument))]
++    pub refraction_strength: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub edge_thickness: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub corner_fan: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub depth_effect: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub glow_weight: Option<FloatOrInt<-100, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub inner_rim: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub edge_lighting: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub saturation: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub vibrancy: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub sheen: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub adaptive_dim: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub adaptive_boost: Option<FloatOrInt<0, 100>>,
++
++    // Keys of the glass this replaced. Accepted and ignored, so that an effects.kdl or an
++    // overrides.kdl written before it still loads: niri refuses a whole config over one
++    // unknown key, and that would cost the session everything else in it.
++    #[knuffel(child, unwrap(argument))]
++    pub physical_refraction: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub power_factor: Option<FloatOrInt<1, 10>>,
++    #[knuffel(child, unwrap(argument))]
++    pub lens_distortion: Option<FloatOrInt<0, 100>>,
++    #[knuffel(child, unwrap(argument))]
++    pub fringing: Option<FloatOrInt<0, 100>>,
++}
++
++impl MergeWith<LiquidGlassPart> for LiquidGlass {
++    fn merge_with(&mut self, part: &LiquidGlassPart) {
++        merge!(
++            (self, part),
++            refraction_strength,
++            edge_thickness,
++            corner_fan,
++            depth_effect,
++            glow_weight,
++            inner_rim,
++            edge_lighting,
++            saturation,
++            vibrancy,
++            sheen,
++            adaptive_dim,
++            adaptive_boost,
++        );
++    }
++}
++
+ #[derive(knuffel::Decode, Debug, Default, Clone, Copy, PartialEq)]
+ pub struct BackgroundEffectRule {
+     #[knuffel(child, unwrap(argument))]
+@@ -1062,9 +1170,13 @@ pub struct BackgroundEffectRule {
+     #[knuffel(child, unwrap(argument))]
+     pub blur: Option<bool>,
+     #[knuffel(child, unwrap(argument))]
++    pub blur_amount: Option<FloatOrInt<0, 1>>,
++    #[knuffel(child, unwrap(argument))]
+     pub noise: Option<FloatOrInt<0, 1000>>,
+     #[knuffel(child, unwrap(argument))]
+     pub saturation: Option<FloatOrInt<0, 1000>>,
++    #[knuffel(child)]
++    pub liquid_glass: Option<LiquidGlassPart>,
+ }
+ 
+ /// Resolved background effect rule.
+@@ -1085,14 +1197,25 @@ pub struct BackgroundEffect {
+     /// - `Some(true)`: always blur
+     pub blur: Option<bool>,
+ 
++    /// How much of the configured blur to use, from 0 to 1 (the default).
++    ///
++    /// Takes effect on the framebuffer path, where a surface has its own blur textures; a smaller
++    /// amount needs fewer of them. Xray shares one blurred background, which stays as configured.
++    pub blur_amount: Option<f64>,
++
+     pub noise: Option<f64>,
+     pub saturation: Option<f64>,
++    pub liquid_glass: Option<LiquidGlass>,
+ }
+ 
+ impl MergeWith<BackgroundEffectRule> for BackgroundEffect {
+     fn merge_with(&mut self, part: &BackgroundEffectRule) {
+         merge_clone_opt!((self, part), xray, blur);
+ 
++        if let Some(x) = part.blur_amount {
++            self.blur_amount = Some(x.0);
++        }
++
+         if let Some(x) = part.noise {
+             self.noise = Some(x.0);
+         }
+@@ -1100,6 +1223,12 @@ impl MergeWith<BackgroundEffectRule> for BackgroundEffect {
+         if let Some(x) = part.saturation {
+             self.saturation = Some(x.0);
+         }
++
++        if let Some(part) = &part.liquid_glass {
++            self.liquid_glass
++                .get_or_insert_with(LiquidGlass::default)
++                .merge_with(part);
++        }
+     }
+ }
+ 
+diff --git a/niri-config/src/lib.rs b/niri-config/src/lib.rs
+--- a/niri-config/src/lib.rs
++++ b/niri-config/src/lib.rs
+@@ -2408,8 +2408,10 @@ mod tests {
+                     background_effect: BackgroundEffectRule {
+                         xray: None,
+                         blur: None,
++                        blur_amount: None,
+                         noise: None,
+                         saturation: None,
++                        liquid_glass: None,
+                     },
+                     popups: PopupsRule {
+                         opacity: None,
+@@ -2417,8 +2419,10 @@ mod tests {
+                         background_effect: BackgroundEffectRule {
+                             xray: None,
+                             blur: None,
++                            blur_amount: None,
+                             noise: None,
+                             saturation: None,
++                            liquid_glass: None,
+                         },
+                     },
+                 },
+@@ -2459,8 +2463,10 @@ mod tests {
+                     background_effect: BackgroundEffectRule {
+                         xray: None,
+                         blur: None,
++                        blur_amount: None,
+                         noise: None,
+                         saturation: None,
++                        liquid_glass: None,
+                     },
+                     popups: PopupsRule {
+                         opacity: None,
+@@ -2468,8 +2474,10 @@ mod tests {
+                         background_effect: BackgroundEffectRule {
+                             xray: None,
+                             blur: None,
++                            blur_amount: None,
+                             noise: None,
+                             saturation: None,
++                            liquid_glass: None,
+                         },
+                     },
+                 },
+diff --git a/src/render_helpers/background_effect.rs b/src/render_helpers/background_effect.rs
+--- a/src/render_helpers/background_effect.rs
++++ b/src/render_helpers/background_effect.rs
+@@ -1,6 +1,6 @@
+ use std::sync::{Arc, Mutex};
+ 
+-use niri_config::CornerRadius;
++use niri_config::{CornerRadius, LiquidGlass};
+ use smithay::backend::renderer::gles::GlesRenderer;
+ use smithay::utils::{Logical, Point, Rectangle, Scale};
+ use smithay::wayland::compositor::{with_states, SurfaceData};
+@@ -34,8 +34,10 @@ pub struct BackgroundEffect {
+ pub struct Options {
+     pub blur: bool,
+     pub xray: bool,
++    pub blur_amount: Option<f64>,
+     pub noise: Option<f64>,
+     pub saturation: Option<f64>,
++    pub glass: Option<LiquidGlass>,
+ }
+ 
+ impl Options {
+@@ -44,6 +46,7 @@ impl Options {
+             || self.blur
+             || self.noise.is_some_and(|x| x > 0.)
+             || self.saturation.is_some_and(|x| x != 1.)
++            || self.glass.is_some()
+     }
+ }
+ 
+@@ -124,8 +127,10 @@ impl BackgroundEffect {
+         let mut options = Options {
+             blur,
+             xray: effect.xray == Some(true),
++            blur_amount: effect.blur_amount,
+             noise: effect.noise,
+             saturation: effect.saturation,
++            glass: effect.liquid_glass,
+         };
+ 
+         // If we have some background effect but xray wasn't explicitly set, default it to true
+@@ -169,8 +174,9 @@ impl BackgroundEffect {
+ 
+         // Use noise/saturation from options, falling back to blur defaults if blurred, and
+         // to no effect if not blurred.
+-        let blur = self.options.blur && !self.blur_config.off;
+-        let blur_options = blur.then_some(BlurOptions::from(self.blur_config));
++        let amount = self.options.blur_amount.unwrap_or(1.);
++        let blur = self.options.blur && !self.blur_config.off && amount > 0.;
++        let blur_options = blur.then(|| BlurOptions::from(self.blur_config).scaled(amount));
+         let noise = if blur { self.blur_config.noise } else { 0. };
+         let noise = self.options.noise.unwrap_or(noise) as f32;
+         let saturation = if blur {
+@@ -193,13 +199,14 @@ impl BackgroundEffect {
+                 blur,
+                 noise,
+                 saturation,
++                self.options.glass,
+                 &mut |elem| push(elem.into()),
+             );
+         } else {
+             // Render non-xray effect.
+-            let elem = self
+-                .nonxray
+-                .render(ns, params, blur_options, noise, saturation);
++            let elem =
++                self.nonxray
++                    .render(ns, params, blur_options, noise, saturation, self.options.glass);
+             push(elem.into());
+         }
+     }
+diff --git a/src/render_helpers/blur.rs b/src/render_helpers/blur.rs
+--- a/src/render_helpers/blur.rs
++++ b/src/render_helpers/blur.rs
+@@ -37,6 +37,25 @@ impl From<niri_config::Blur> for BlurOptions {
+     }
+ }
+ 
++impl BlurOptions {
++    /// The same blur, `amount` as wide, on as few textures as that takes.
++    ///
++    /// The width of this blur goes as `offset * 2^passes`. A pass is a texture at half the size
++    /// of the last one, so passes are spent only where offset alone would go past what is
++    /// configured.
++    pub fn scaled(self, amount: f64) -> Self {
++        let width = self.offset * 2f64.powi(i32::from(self.passes)) * amount;
++        let mut passes = 1;
++        while passes < self.passes && width / 2f64.powi(i32::from(passes)) > self.offset {
++            passes += 1;
++        }
++        Self {
++            passes,
++            offset: width / 2f64.powi(i32::from(passes)),
++        }
++    }
++}
++
+ #[derive(Debug, Clone)]
+ pub struct BlurProgram(Rc<BlurProgramInner>);
+ 
+@@ -340,3 +359,28 @@ impl Blur {
+         Ok(self.textures[0].clone())
+     }
+ }
++
++#[cfg(test)]
++mod tests {
++    use super::*;
++
++    #[test]
++    fn scaled_blur_takes_fewer_passes_and_keeps_its_width() {
++        let blur = BlurOptions {
++            passes: 3,
++            offset: 3.,
++        };
++
++        let full = blur.scaled(1.);
++        assert_eq!(full.passes, 3);
++        assert!((full.offset - 3.).abs() < 1e-9);
++
++        let half = blur.scaled(0.5);
++        assert_eq!(half.passes, 2);
++        assert!((half.offset - 3.).abs() < 1e-9);
++
++        let light = blur.scaled(0.15);
++        assert_eq!(light.passes, 1);
++        assert!((light.offset - 1.8).abs() < 1e-9);
++    }
++}
+diff --git a/src/render_helpers/framebuffer_effect.rs b/src/render_helpers/framebuffer_effect.rs
+--- a/src/render_helpers/framebuffer_effect.rs
++++ b/src/render_helpers/framebuffer_effect.rs
+@@ -2,7 +2,7 @@ use std::cell::RefCell;
+ use std::sync::Once;
+ 
+ use glam::{Mat3, Vec2};
+-use niri_config::CornerRadius;
++use niri_config::{CornerRadius, LiquidGlass};
+ use smithay::backend::allocator::Fourcc;
+ use smithay::backend::renderer::element::{Element, Id, RenderElement};
+ use smithay::backend::renderer::gles::{
+@@ -17,6 +17,7 @@ use smithay::utils::{Buffer, Logical, Physical, Rectangle, Scale, Transform};
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+ use crate::render_helpers::background_effect::RenderParams;
+ use crate::render_helpers::blur::{Blur, BlurOptions};
++use crate::render_helpers::glass;
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+ use crate::render_helpers::shaders::{mat3_uniform, Shaders};
+ use crate::utils::region::TransformedRegion;
+@@ -39,6 +40,7 @@ pub struct FramebufferEffectElement {
+     blur_options: Option<BlurOptions>,
+     noise: f32,
+     saturation: f32,
++    glass: Option<LiquidGlass>,
+ }
+ 
+ #[derive(Debug)]
+@@ -69,6 +71,7 @@ impl FramebufferEffect {
+         blur_options: Option<BlurOptions>,
+         noise: f32,
+         saturation: f32,
++        glass: Option<LiquidGlass>,
+     ) -> FramebufferEffectElement {
+         let (clip_geo, corner_radius) = params
+             .clip
+@@ -90,6 +93,7 @@ impl FramebufferEffect {
+             blur_options,
+             noise,
+             saturation,
++            glass,
+         }
+     }
+ }
+@@ -99,7 +103,7 @@ impl FramebufferEffectElement {
+         &self,
+         crop: Rectangle<f64, Logical>,
+         transform: Transform,
+-    ) -> [Uniform<'static>; 7] {
++    ) -> Vec<Uniform<'static>> {
+         let offset = crop.loc - (self.clip_geo.loc - self.geometry.loc);
+         let offset = Vec2::new(offset.x as f32, offset.y as f32);
+         let crop_size = Vec2::new(crop.size.w as f32, crop.size.h as f32);
+@@ -109,15 +113,16 @@ impl FramebufferEffectElement {
+         let input_to_clip_geo =
+             Mat3::from_scale(crop_size / clip_size) * Mat3::from_translation(offset / crop_size);
+ 
+-        // Revert the effect of the texture transform.
++        // Revert the effect of the texture transform. draw() passes `transform.invert()`, and for
++        // a flipped 90/270 that is the other one of the two, not the inverse of this matrix.
+         let transform_mat = Mat3::from_translation(Vec2::new(0.5, 0.5))
+-            * transform.matrix()
++            * transform.invert().matrix().inverse()
+             * Mat3::from_translation(Vec2::new(-0.5, -0.5));
+         let input_to_clip_geo = input_to_clip_geo * transform_mat;
+ 
+         let clip_geo_size = (self.clip_geo.size.w as f32, self.clip_geo.size.h as f32);
+ 
+-        [
++        let mut uniforms = vec![
+             Uniform::new("niri_scale", self.scale),
+             Uniform::new("geo_size", clip_geo_size),
+             Uniform::new("corner_radius", <[f32; 4]>::from(self.corner_radius)),
+@@ -125,7 +130,13 @@ impl FramebufferEffectElement {
+             Uniform::new("noise", self.noise),
+             Uniform::new("saturation", self.saturation),
+             Uniform::new("bg_color", [0f32, 0., 0., 0.]),
+-        ]
++        ];
++
++        if let Some(options) = &self.glass {
++            glass::push_uniforms(options, 1., &mut uniforms);
++        }
++
++        uniforms
+     }
+ }
+ 
+@@ -398,10 +409,26 @@ impl RenderElement<GlesRenderer> for FramebufferEffectElement {
+             clamped_dst.size.to_f64().upscale(dst_to_src).to_logical(1.),
+         );
+ 
+-        let program = Shaders::get_from_frame(frame).postprocess_and_clip.clone();
+-        let uniforms = program
++        let shaders = Shaders::get_from_frame(frame);
++        let program = match self.glass {
++            Some(_) => shaders.glass.clone(),
++            None => shaders.postprocess_and_clip.clone(),
++        };
++        let mut uniforms = program
+             .is_some()
+             .then(|| self.compute_uniforms(crop, frame.transformation()));
++        if let (Some(uniforms), Some(_)) = (&mut uniforms, &self.glass) {
++            // The clip geometry's corner, in the dst this crop lands on.
++            let output = frame.output_size().to_f64();
++            let to_dst = clamped_dst.size.to_f64() / crop.size;
++            let corner = (self.clip_geo.loc - self.geometry.loc) - crop.loc;
++            let origin = clamped_dst.loc.to_f64() + corner.to_physical(to_dst);
++            glass::push_place(
++                [(origin.x / output.w) as f32, (origin.y / output.h) as f32],
++                [(to_dst.x / output.w) as f32, (to_dst.y / output.h) as f32],
++                uniforms,
++            );
++        }
+         let uniforms = uniforms.as_ref().map_or(&[][..], |x| &x[..]);
+ 
+         frame.render_texture_from_to(
+diff --git a/src/render_helpers/glass.rs b/src/render_helpers/glass.rs
+new file mode 100644
+--- /dev/null
++++ b/src/render_helpers/glass.rs
+@@ -0,0 +1,65 @@
++//! vitrum's glass: what `shaders/glass.frag` takes.
++//!
++//! A surface with `liquid-glass` in its background effect draws with that shader instead of
++//! `postprocess_and_clip`, on both the xray and the framebuffer path. The shader only ever bends
++//! the view inward, so it samples inside the element and needs no extra capture area.
++
++use niri_config::LiquidGlass;
++use smithay::backend::renderer::gles::{Uniform, UniformName, UniformType};
++
++const FLOATS: [&str; 13] = [
++    "glass_unit",
++    "glass_bend",
++    "glass_edge",
++    "glass_fan",
++    "glass_depth",
++    "glass_rim",
++    "glass_inner_rim",
++    "glass_content",
++    "glass_saturation",
++    "glass_vibrancy",
++    "glass_sheen",
++    "glass_dim",
++    "glass_boost",
++];
++
++/// Names of the shader's own uniforms, for compiling it.
++pub fn uniform_names() -> Vec<UniformName<'static>> {
++    let mut names: Vec<_> = FLOATS
++        .iter()
++        .map(|name| UniformName::new(*name, UniformType::_1f))
++        .collect();
++    names.push(UniformName::new("glass_origin", UniformType::_2f));
++    names.push(UniformName::new("glass_step", UniformType::_2f));
++    names
++}
++
++/// Where a pane is on the output, for the lamp: a position `p` in the element's `geo_size` units
++/// is at `origin + p * step`, in fractions of the output.
++///
++/// Taken at draw time from the rectangle the element really lands on, so that it holds while a
++/// window moves or the overview zooms.
++pub fn push_place(origin: [f32; 2], step: [f32; 2], out: &mut Vec<Uniform<'static>>) {
++    out.push(Uniform::new("glass_origin", origin));
++    out.push(Uniform::new("glass_step", step));
++}
++
++/// `unit` is how many of the element's `geo_size` units make a logical pixel.
++pub fn push_uniforms(glass: &LiquidGlass, unit: f32, out: &mut Vec<Uniform<'static>>) {
++    let values = [
++        unit,
++        glass.refraction_strength as f32,
++        glass.edge_thickness as f32,
++        glass.corner_fan as f32,
++        glass.depth_effect as f32,
++        glass.glow_weight as f32,
++        glass.inner_rim as f32,
++        glass.edge_lighting as f32,
++        glass.saturation as f32,
++        glass.vibrancy as f32,
++        glass.sheen as f32,
++        glass.adaptive_dim as f32,
++        glass.adaptive_boost as f32,
++    ];
++    out.extend(FLOATS.iter().zip(values).map(|(name, v)| Uniform::new(*name, v)));
++}
+diff --git a/src/render_helpers/mod.rs b/src/render_helpers/mod.rs
+--- a/src/render_helpers/mod.rs
++++ b/src/render_helpers/mod.rs
+@@ -34,6 +34,7 @@ pub mod damage;
+ pub mod debug;
+ pub mod effect_buffer;
+ pub mod framebuffer_effect;
++pub mod glass;
+ pub mod gradient_fade_texture;
+ pub mod memory;
+ pub mod offscreen;
+diff --git a/src/render_helpers/shaders/glass.frag b/src/render_helpers/shaders/glass.frag
+new file mode 100644
+--- /dev/null
++++ b/src/render_helpers/shaders/glass.frag
+@@ -0,0 +1,325 @@
++#version 100
++
++//_DEFINES_
++
++#if defined(EXTERNAL)
++#extension GL_OES_EGL_image_external : require
++#endif
++
++precision highp float;
++#if defined(EXTERNAL)
++uniform samplerExternalOES tex;
++#else
++uniform sampler2D tex;
++#endif
++
++uniform float alpha;
++varying vec2 v_coords;
++
++#if defined(DEBUG_FLAGS)
++uniform float tint;
++#endif
++
++uniform float niri_scale;
++
++uniform vec2 geo_size;
++uniform vec4 corner_radius;
++uniform mat3 input_to_geo;
++
++// A frosted slab with a rounded edge lying on what is behind it. The edge bends the
++// view inward. One lamp above the screen lights every pane, so each catches it by
++// where it stands: position and direction come from the lamp, strength and colour
++// from what is behind that spot, alive over bright detail and quiet over dark, with
++// a soft floor so that a pane always has an edge. A rule with an inner rim keeps
++// small pieces as bevelled islands, with two contours, for the bar.
++//
++// Lengths are in geo_size units. glass_unit is how many of those make a logical
++// pixel: xray elements work in zoomed backdrop units.
++uniform float glass_unit;
++uniform float glass_bend;       // refraction-strength: 1 is a quarter of the bevel's width
++uniform float glass_edge;       // edge-thickness
++uniform float glass_fan;        // corner-fan
++uniform float glass_depth;      // depth-effect: the shade on the side away from the lamp
++uniform float glass_rim;        // glow-weight: the rim
++uniform float glass_inner_rim;  // inner-rim: above 0, small pieces stay bevelled islands
++uniform float glass_vibrancy;   // vibrancy
++uniform float glass_sheen;      // sheen: the lamp's soft pool across the face
++uniform float glass_content;    // edge-lighting: the edge's glow, in the backdrop's hue
++uniform float glass_saturation;
++uniform float glass_dim;        // adaptive-dim
++uniform float glass_boost;      // adaptive-boost
++// Where this pane is on the output: a geo position p is at origin + p * step, in
++// fractions of the output.
++uniform vec2 glass_origin;
++uniform vec2 glass_step;
++
++// Index of refraction of the slab, crown glass.
++const float IOR = 1.5;
++// tan(deviation) at the rim, where a ray meets the surface at 90 degrees:
++// sqrt(IOR^2 - 1).
++const float RIM_DEVIATION = 1.118;
++// edge-thickness 1 is a bevel of this many logical pixels. The glass of one
++// surface has one thickness whatever its size, as a pane of glass does.
++const float EDGE_UNIT = 120.0;
++// The islands' light comes from above, a little from the left. y is down.
++const vec2 LIGHT = vec2(-0.447, -0.894);
++// The lamp over a 1080p frame, above the top edge, left of the middle. Height makes
++// it fall off across the screen, and a pane to its right is lit from the left.
++const vec3 LAMP = vec3(600.0, -480.0, 560.0);
++const vec2 FRAME = vec2(1920.0, 1080.0);
++// What a bar island bends by, whatever the rule says for the panels beside it.
++const float ISLAND_BEND = 6.0;
++
++vec4 postprocess(vec4 color);
++
++// The outline at this pixel. g_sil is the distance to the silhouette (the
++// clip), g_opt the distance to the rounder outline the bevel follows, both
++// negative inside. g_out is that outline's outward normal, g_half half of the
++// local short side, g_bevel the bevel's local width.
++float g_sil;
++float g_opt;
++vec2 g_out;
++float g_half;
++float g_bevel;
++// Position in the piece, -1 to 1 on both axes.
++vec2 g_rel;
++
++// A thick slab stays thick on a small piece, but the bevel never eats the face.
++float bevelWidth(float half_side) {
++    return max(min(glass_edge * EDGE_UNIT * glass_unit, 0.5 * half_side), 0.5);
++}
++
++// The corner radius of the bevel's outline. Past the corner radius the distance
++// field has a crease along the diagonal; a corner rounder than the bevel is
++// wide keeps it out of the bevel, and the inner rim stays rounded.
++float opticRadius(float radius, float bevel, float half_side) {
++    return clamp(max(radius, bevel) * glass_fan, radius, half_side);
++}
++
++// Signed distance to a rounded box, q = abs(p - center) - half_size.
++float boxDist(vec2 q, float r) {
++    vec2 k = q + r;
++    return min(max(k.x, k.y), 0.0) + length(max(k, 0.0)) - r;
++}
++
++// Its gradient, rel = p - center.
++vec2 boxNormal(vec2 q, float r, vec2 rel) {
++    vec2 k = q + r;
++    vec2 n;
++    if (k.x > 0.0 && k.y > 0.0)
++        n = normalize(k);
++    else
++        n = k.x > k.y ? vec2(1.0, 0.0) : vec2(0.0, 1.0);
++    return n * vec2(rel.x < 0.0 ? -1.0 : 1.0, rel.y < 0.0 ? -1.0 : 1.0);
++}
++
++void roundedOutline(vec2 p) {
++    vec2 half_size = geo_size * 0.5;
++    vec2 rel = p - half_size;
++    vec2 q = abs(rel) - half_size;
++    // Top left, top right, bottom right, bottom left.
++    float r = rel.x < 0.0 ? (rel.y < 0.0 ? corner_radius.x : corner_radius.w)
++                          : (rel.y < 0.0 ? corner_radius.y : corner_radius.z);
++
++    g_half = min(half_size.x, half_size.y);
++    g_bevel = bevelWidth(g_half);
++    float optic = opticRadius(r, g_bevel, g_half);
++    g_sil = boxDist(q, r);
++    g_opt = boxDist(q, optic);
++    g_out = boxNormal(q, optic, rel);
++    g_rel = rel / half_size;
++}
++
++// Geo units to a step in v_coords: the inverse of input_to_geo's linear part,
++// so that it holds on rotated outputs too.
++vec2 geoToTex(vec2 step_geo) {
++    vec2 c0 = input_to_geo[0].xy;
++    vec2 c1 = input_to_geo[1].xy;
++    float det = c0.x * c1.y - c1.x * c0.y;
++    vec2 g = step_geo / geo_size;
++    return vec2(c1.y * g.x - c1.x * g.y, c0.x * g.y - c0.y * g.x) / det;
++}
++
++// How far (geo units) the bevel moves the view at 1 - e of the way in. e is
++// the sine of the surface's tilt on a rounded edge. A ray straight down bends
++// by Snell's law and travels through as much glass as there is above the back
++// plane; the result is 1 at the rim and falls to 0 at the flat top.
++float edgeBend(float e) {
++    float cos_a = sqrt(1.0 - e * e);
++    float sin_b = e / IOR;
++    float cos_b = sqrt(1.0 - sin_b * sin_b);
++    float deviation = (e * cos_b - cos_a * sin_b) / (cos_a * cos_b + e * sin_b);
++    return (1.0 + cos_a) * deviation / RIM_DEVIATION;
++}
++
++// The same, eased in, so that nothing marks the place where the bevel ends.
++float bevelBend(float e) {
++    return edgeBend(e) * e * e * (3.0 - 2.0 * e);
++}
++
++vec4 sampleBent(float bend) {
++    if (bend <= 0.0)
++        return texture2D(tex, v_coords);
++
++    // One sample, for all three channels: no chromatic split. On a sharp backdrop
++    // it reads as a rainbow along the edge.
++    return texture2D(tex, clamp(v_coords + geoToTex(-g_out * bend), 0.0, 1.0));
++}
++
++vec3 frost(vec3 color) {
++    const vec3 w = vec3(0.2126, 0.7152, 0.0722);
++    float lum = dot(color, w);
++    float top = max(color.r, max(color.g, color.b));
++    float chroma = top - min(color.r, min(color.g, color.b));
++
++    // Vibrance: muted colours gain more than saturated ones, so the backdrop comes
++    // alive without anything turning neon.
++    float saturate_by = glass_saturation * (1.0 + glass_vibrancy * (1.0 - chroma));
++    color = clamp(mix(vec3(lum), color, saturate_by), 0.0, 1.0);
++
++    float keep = max(1.0 - glass_dim, 0.05);
++    float lift = 1.0 / (keep * keep * keep) - 1.0;
++    color /= pow(1.0 + lift * lum * lum * lum, 1.0 / 3.0);
++
++    return mix(color, vec3(1.0), glass_boost * 0.15);
++}
++
++// The light on the bevel and on its two rims. All of it is white: state and
++// colour belong to the client.
++vec3 islandLight(vec3 color, float e, float depth) {
++    // 1 on an edge that faces the light, -1 on the far one.
++    float facing = dot(g_out, LIGHT);
++    float away = max(-facing, 0.0);
++    float lit = max(facing, 0.0);
++
++    // The surface tilts toward the light on one side, away from it on the other.
++    float tilt = e * facing;
++    color += 1.0 * 0.11 * max(tilt, 0.0);
++    color *= 1.0 - 1.0 * 0.20 * max(-tilt, 0.0);
++
++    // What the lit side lets in comes out on the far side, past the bevel.
++    float past = (depth - g_bevel * 0.8) / (g_bevel * 0.55);
++    color += 1.0 * 0.09 * away * exp(-past * past);
++
++    // The bevel can throw the colour behind it back up. Off by default: on a
++    // sharp backdrop it reads as a coloured line along the rim.
++    color += color * 0.0 * 0.30 * e * e;
++
++    // The rim: thin and bright, brightest where it faces the light.
++    float width = 1.2 * glass_unit;
++    float rim = clamp(1.0 - (-g_sil) / width, 0.0, 1.0);
++    float rim_light = mix(0.28, 1.0, facing * facing);
++    color = mix(color, vec3(1.0), min(rim * rim_light * glass_rim * 0.62, 1.0));
++    // Its shadow keeps it apart from a bright backdrop.
++    float under = (-g_sil - 2.4 * glass_unit) / (1.3 * glass_unit);
++    color *= 1.0 - min(glass_rim, 1.0) * 0.10 * exp(-under * under);
++
++    // The inner rim, where the bevel ends: not a second stroke but light that
++    // went through the slab and leaves it on the far side, a little on the lit
++    // one, nothing along the sides. A thin line in a wider glow.
++    float at = (depth - g_bevel) / (1.0 * glass_unit);
++    float glow_at = (depth - g_bevel) / (5.0 * glass_unit);
++    float along = 0.03 + 0.27 * away * away + 0.12 * lit * lit;
++    float inner = exp(-at * at) + 0.22 * exp(-glow_at * glow_at);
++    // A small piece has no room for it: two contours close together read as a
++    // frame inside a frame.
++    float room = clamp(g_half / (6.0 * g_bevel), 0.2, 1.0);
++    along *= room * sqrt(room);
++    color = mix(color, vec3(1.0), min(inner * along * glass_inner_rim, 1.0));
++
++    return color;
++}
++
++// The lamp on the pane. Colour comes from one sample of the backdrop, so one hue at
++// a spot and no spectral split. State and colour belong to the client.
++vec3 light(vec3 color, vec3 behind, vec2 p) {
++    const vec3 w = vec3(0.2126, 0.7152, 0.0722);
++    float inside = max(-g_sil, 0.0);
++
++    vec3 to_lamp = LAMP - vec3((glass_origin + p * glass_step) * FRAME, 0.0);
++    float dist = length(to_lamp);
++    float near = 1.0 / (1.0 + dist * dist / 1000000.0);
++    vec2 side = normalize(to_lamp.xy);
++    float facing = dot(g_out, side);
++
++    // The lamp's soft pool: panes near it are a little brighter than panes far off.
++    color += glass_sheen * near * to_lamp.z / dist * (1.0 - color);
++
++    // The edge's reach, by the size of the piece. Past this the light is spent.
++    float reach = clamp(0.22 * g_half, 7.0 * glass_unit, 26.0 * glass_unit);
++    if (inside > 4.0 * reach)
++        return color;
++
++    // What the backdrop gives here: its brightness, and how far it stands out from
++    // what lies further in. The floor keeps an edge on a dark backdrop.
++    vec3 deeper = texture2D(tex, clamp(v_coords + geoToTex(-g_rel * reach * 2.0), 0.0, 1.0)).rgb;
++    float here = dot(behind, w);
++    float give = min(0.22 + 0.5 * smoothstep(0.1, 0.8, here) + 1.6 * max(here - dot(deeper, w), 0.0), 1.25);
++
++    float top = max(max(behind.r, max(behind.g, behind.b)), 0.2);
++    vec3 hue = mix(vec3(1.0), behind / top, 0.7);
++
++    // Toward the lamp the edge lights up; it wraps a little round the sides.
++    float lit = smoothstep(-0.35, 0.95, facing);
++
++    // The soft glow, in the backdrop's hue.
++    float fall = exp(-inside / reach);
++    float glow = glass_content * 0.5 * give * fall * (0.3 + 0.7 * lit);
++    color = 1.0 - (1.0 - color) * (1.0 - min(glow, 1.0) * hue);
++
++    // Away from the lamp the edge falls into shade.
++    color *= 1.0 - glass_depth * 0.14 * max(-facing, 0.0) * fall;
++
++    // The rim: soft, a line with a little light under it.
++    float width = 1.1 * glass_unit;
++    float rim = exp(-(inside * inside) / (width * width)) + 0.25 * exp(-inside / (3.0 * glass_unit));
++    float bright = rim * (0.12 + 0.9 * lit * (0.4 + near)) * give * glass_rim;
++    return mix(color, mix(hue, vec3(1.0), 0.55), min(bright, 1.0));
++}
++
++void main() {
++    vec2 uv = (input_to_geo * vec3(v_coords, 1.0)).xy;
++    vec4 color = vec4(0.0);
++
++    if (0.0 <= uv.x && uv.x <= 1.0 && 0.0 <= uv.y && uv.y <= 1.0) {
++        vec2 p = uv * geo_size;
++        roundedOutline(p);
++
++        float cover = clamp(0.5 - g_sil * niri_scale, 0.0, 1.0);
++        if (cover > 0.0) {
++            float depth = max(-g_opt, 0.0);
++            // 1 at the rim, 0 on the flat top.
++            float e = 1.0 - min(depth / g_bevel, 1.0);
++
++            // A rule with an inner rim keeps small pieces as they were: on the bar's
++            // surface the islands and the panels share one rule, so size tells them apart.
++            float island = glass_inner_rim > 0.0
++                ? 1.0 - smoothstep(30.0 * glass_unit, 70.0 * glass_unit, g_half) : 0.0;
++            float bend = 0.0;
++            if (e > 0.0)
++                bend = min(mix(glass_bend, ISLAND_BEND, island) * 0.25 * g_bevel, 0.9 * g_half)
++                    * mix(bevelBend(e), edgeBend(e), island);
++
++            color = sampleBent(bend);
++            vec3 behind = color.rgb;
++#if defined(NO_ALPHA)
++            color.a = 1.0;
++#endif
++            color.rgb = frost(color.rgb);
++            vec3 lit = light(color.rgb, behind, p);
++            if (island > 0.0)
++                lit = mix(lit, islandLight(color.rgb, e, depth), island);
++            color.rgb = lit;
++            color = postprocess(color) * cover;
++        }
++    }
++
++    color = color * alpha;
++
++#if defined(DEBUG_FLAGS)
++    if (tint == 1.0)
++        color = vec4(0.0, 0.2, 0.0, 0.2) + color * 0.8;
++#endif
++
++    gl_FragColor = color;
++}
+diff --git a/src/render_helpers/shaders/mod.rs b/src/render_helpers/shaders/mod.rs
+--- a/src/render_helpers/shaders/mod.rs
++++ b/src/render_helpers/shaders/mod.rs
+@@ -9,12 +9,14 @@ use smithay::backend::renderer::gles::{
+ use super::renderer::NiriRenderer;
+ use super::shader_element::ShaderProgram;
+ use crate::render_helpers::blur::BlurProgram;
++use crate::render_helpers::glass;
+ 
+ pub struct Shaders {
+     pub border: Option<ShaderProgram>,
+     pub shadow: Option<ShaderProgram>,
+     pub clipped_surface: Option<GlesTexProgram>,
+     pub postprocess_and_clip: Option<GlesTexProgram>,
++    pub glass: Option<GlesTexProgram>,
+     pub resize: Option<ShaderProgram>,
+     pub gradient_fade: Option<GlesTexProgram>,
+     pub blur: Option<BlurProgram>,
+@@ -126,6 +128,27 @@ impl Shaders {
+             })
+             .ok();
+ 
++        let glass = renderer
++            .compile_custom_texture_shader(
++                concat!(include_str!("glass.frag"), include_str!("postprocess.frag")),
++                &[
++                    UniformName::new("niri_scale", UniformType::_1f),
++                    UniformName::new("geo_size", UniformType::_2f),
++                    UniformName::new("corner_radius", UniformType::_4f),
++                    UniformName::new("input_to_geo", UniformType::Matrix3x3),
++                    UniformName::new("noise", UniformType::_1f),
++                    UniformName::new("saturation", UniformType::_1f),
++                    UniformName::new("bg_color", UniformType::_4f),
++                ]
++                .into_iter()
++                .chain(glass::uniform_names())
++                .collect::<Vec<_>>(),
++            )
++            .map_err(|err| {
++                warn!("error compiling glass shader: {err:?}");
++            })
++            .ok();
++
+         let resize = compile_resize_program(renderer, include_str!("resize.frag"))
+             .map_err(|err| {
+                 warn!("error compiling resize shader: {err:?}");
+@@ -153,6 +176,7 @@ impl Shaders {
+             shadow,
+             clipped_surface,
+             postprocess_and_clip,
++            glass,
+             resize,
+             gradient_fade,
+             blur,
+diff --git a/src/render_helpers/xray.rs b/src/render_helpers/xray.rs
+--- a/src/render_helpers/xray.rs
++++ b/src/render_helpers/xray.rs
+@@ -3,19 +3,20 @@ use std::cell::RefCell;
+ use std::rc::Rc;
+ 
+ use glam::{Mat3, Vec2};
+-use niri_config::CornerRadius;
++use niri_config::{CornerRadius, LiquidGlass};
+ use smithay::backend::renderer::element::{Element, Id, RenderElement};
+ use smithay::backend::renderer::gles::{
+     GlesError, GlesFrame, GlesRenderer, GlesTexProgram, Uniform,
+ };
+ use smithay::backend::renderer::utils::{CommitCounter, OpaqueRegions};
+-use smithay::backend::renderer::Color32F;
++use smithay::backend::renderer::{Color32F, Frame as _, Texture as _};
+ use smithay::utils::user_data::UserDataMap;
+ use smithay::utils::{Buffer, Logical, Physical, Point, Rectangle, Scale, Size, Transform};
+ 
+ use crate::backend::tty::{TtyFrame, TtyRenderer, TtyRendererError};
+ use crate::render_helpers::background_effect::RenderParams;
+ use crate::render_helpers::effect_buffer::EffectBuffer;
++use crate::render_helpers::glass;
+ use crate::render_helpers::renderer::AsGlesFrame as _;
+ use crate::render_helpers::shaders::{mat3_uniform, Shaders};
+ use crate::render_helpers::{RenderCtx, RenderTarget};
+@@ -81,6 +82,9 @@ pub struct XrayElement {
+     saturation: f32,
+     bg_color: Color32F,
+     program: Option<GlesTexProgram>,
++    glass: Option<LiquidGlass>,
++    /// How many of `clip_geo_size`'s units make a logical pixel.
++    unit: f32,
+ }
+ 
+ impl Xray {
+@@ -102,9 +106,14 @@ impl Xray {
+         blur: bool,
+         noise: f32,
+         saturation: f32,
++        glass: Option<LiquidGlass>,
+         push: &mut dyn FnMut(XrayElement),
+     ) {
+-        let program = Shaders::get(ctx.renderer).postprocess_and_clip.clone();
++        let shaders = Shaders::get(ctx.renderer);
++        let program = match glass {
++            Some(_) => shaders.glass.clone(),
++            None => shaders.postprocess_and_clip.clone(),
++        };
+ 
+         let zoom = xray_pos.zoom;
+         let pos_in_backdrop = xray_pos.pos_in_backdrop.upscale(zoom);
+@@ -202,6 +211,8 @@ impl Xray {
+                     saturation,
+                     bg_color: *bg_color,
+                     program: program.clone(),
++                    glass,
++                    unit: 1.,
+                 };
+                 push(elem);
+             }
+@@ -252,6 +263,8 @@ impl Xray {
+                 saturation,
+                 bg_color: self.backdrop_color,
+                 program: program.clone(),
++                glass,
++                unit: zoom as f32,
+             };
+             push(elem);
+         }
+@@ -259,8 +272,8 @@ impl Xray {
+ }
+ 
+ impl XrayElement {
+-    fn compute_uniforms(&self) -> [Uniform<'static>; 7] {
+-        [
++    fn compute_uniforms(&self) -> Vec<Uniform<'static>> {
++        let mut uniforms = vec![
+             Uniform::new("niri_scale", self.scale),
+             Uniform::new("geo_size", <[f32; 2]>::from(self.clip_geo_size)),
+             Uniform::new("corner_radius", <[f32; 4]>::from(self.corner_radius)),
+@@ -268,7 +281,13 @@ impl XrayElement {
+             Uniform::new("noise", self.noise),
+             Uniform::new("saturation", self.saturation),
+             Uniform::new("bg_color", self.bg_color.components()),
+-        ]
++        ];
++
++        if let Some(options) = &self.glass {
++            glass::push_uniforms(options, self.unit, &mut uniforms);
++        }
++
++        uniforms
+     }
+ }
+ 
+@@ -339,7 +358,23 @@ impl RenderElement<GlesRenderer> for XrayElement {
+             damage
+         };
+ 
+-        let uniforms = self.program.is_some().then(|| self.compute_uniforms());
++        let mut uniforms = self.program.is_some().then(|| self.compute_uniforms());
++        if let (Some(uniforms), Some(_)) = (&mut uniforms, &self.glass) {
++            // Where the clip geometry's corner lands: dst's two corners in clip UV.
++            let size = texture.size();
++            let size = Vec2::new(size.w as f32, size.h as f32);
++            let a = Vec2::new(src.loc.x as f32, src.loc.y as f32) / size;
++            let b = a + Vec2::new(src.size.w as f32, src.size.h as f32) / size;
++            let a = self.input_to_clip_geo.transform_point2(a);
++            let span = self.input_to_clip_geo.transform_point2(b) - a;
++            let output = frame.output_size().to_f64();
++            let output = Vec2::new(output.w as f32, output.h as f32);
++            let dst_loc = Vec2::new(dst.loc.x as f32, dst.loc.y as f32);
++            let dst_size = Vec2::new(dst.size.w as f32, dst.size.h as f32);
++            let origin = (dst_loc - a / span * dst_size) / output;
++            let step = dst_size / span / self.clip_geo_size / output;
++            glass::push_place(origin.to_array(), step.to_array(), uniforms);
++        }
+         let uniforms = uniforms.as_ref().map_or(&[][..], |x| &x[..]);
+ 
+         frame.render_texture_from_to(

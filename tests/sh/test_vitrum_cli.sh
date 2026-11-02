@@ -75,6 +75,85 @@ test_behind_up_to_date_and_unreachable() {
   assert_contains "$out" '"behind": 0'
   assert_contains "$out" '"error"'
 }
+# The island tells a major version from a batch by these two.
+_versioned() {
+  _origin
+  cd "$HOME/origin" && echo "$1" > VERSION && git add -A && git commit -qm version
+  git -C "$HOME/src" pull -q
+}
+test_behind_names_the_installed_and_the_remote_version() {
+  _versioned 0.5.6
+  printf '{\n  "version": "0.5.5",\n  "revision": "x"\n}\n' > "$XDG_DATA_HOME/vitrum/install.json"
+  cd "$HOME/origin" && echo 0.6.0 > VERSION && git commit -qam bump
+  out="$("$V" behind --json)"
+  assert_contains "$out" '"installed": "0.5.5"'
+  assert_contains "$out" '"remote": "0.6.0"'
+  assert_contains "$out" '"behind": 1'
+}
+test_behind_without_an_install_record_uses_the_checkouts_version() {
+  _versioned 0.5.6
+  cd "$HOME/origin" && echo 0.6.0 > VERSION && git commit -qam bump
+  echo 9.9.9 > "$HOME/src/VERSION"           # local edits do not count
+  assert_contains "$("$V" behind --json)" '"installed": "0.5.6"'
+}
+test_behind_no_version_file_or_no_origin_gives_empty_versions() {
+  _origin
+  out="$("$V" behind --json)"
+  assert_contains "$out" '"installed": ""'
+  assert_contains "$out" '"remote": ""'
+  _lonely
+  out="$(VITRUM_REPO="$HOME/nowhere" "$V" behind --json)"
+  assert_contains "$out" '"error"'
+  assert_contains "$out" '"remote": ""'
+}
+# update moves HEAD before the installer runs, and a cancelled run leaves it
+# there: what counts is what is installed, or the island goes while you are on
+# the old version.
+test_behind_counts_from_the_installed_revision() {
+  _origin; _installed_at "$HOME/src"
+  cd "$HOME/origin" && for n in two three; do echo $n >> install.sh; git commit -qam "$n"; done
+  git -C "$HOME/src" pull -q                 # pulled, and the installer cancelled
+  out="$("$V" behind --json)"
+  assert_contains "$out" '"behind": 2'
+  assert_contains "$out" '"subject": "two"'
+  assert_contains "$out" '"subject": "three"'
+  _installed_at "$HOME/src"                  # installed after all
+  assert_contains "$("$V" behind --json)" '"behind": 0'
+}
+# Nothing recorded, or nothing the checkout knows (an older installer, a fresh
+# clone): HEAD is all there is to count from.
+test_behind_counts_from_head_without_a_usable_revision() {
+  _origin
+  cd "$HOME/origin" && echo two >> install.sh && git commit -qam two
+  local r
+  for r in '' 0000000000000000000000000000000000000000; do
+    printf '{\n  "version": "0.5.6",\n  "revision": "%s"\n}\n' "$r" > "$XDG_DATA_HOME/vitrum/install.json"
+    assert_contains "$("$V" behind --json)" '"behind": 1'
+  done
+}
+# A checkout that moved: die inside $(source_dir) ends only that subshell, and
+# git -C "" means the folder you stand in. That repository is not ours to touch.
+_moved_checkout() {
+  _origin; rm -rf "$HOME/src"
+  git clone -q "$HOME/origin" "$HOME/elsewhere"
+  cd "$HOME/origin" && echo more >> install.sh && git commit -qam two
+  cd "$HOME/elsewhere" || return 1
+}
+test_update_with_a_moved_checkout_stops() {
+  _moved_checkout
+  out="$("$V" update 2>&1)" && { echo "update should fail"; return 1; }
+  assert_contains "$out" "do not know where vitrum was installed from"
+  ! grep -q "fetching" <<<"$out"
+  assert_eq "$(git -C "$HOME/elsewhere" log --oneline | wc -l | tr -d ' ')" "1"
+  [[ ! -e "$HOME/installs" ]]
+}
+test_behind_with_a_moved_checkout_stops() {
+  _moved_checkout
+  out="$("$V" behind --json 2>&1)" && { echo "behind should fail"; return 1; }
+  assert_contains "$out" "do not know where vitrum was installed from"
+  ! grep -q '"behind"' <<<"$out"
+  [[ ! -e "$HOME/elsewhere/.git/FETCH_HEAD" ]]
+}
 test_rollback_without_snapshots_says_so() {
   out="$("$V" rollback 2>&1)" && return 1
   assert_contains "$out" "no snapshots"
