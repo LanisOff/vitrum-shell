@@ -46,6 +46,17 @@ test_systemd_session_line_starts_the_user_unit() {
   assert_contains "$l" "systemctl --user import-environment"
   assert_contains "$l" "systemctl --user --wait start niri.service"
 }
+test_systemd_session_line_hands_over_this_login() {
+  # systemd --user outlives a login: a session id kept from an earlier one made
+  # niri's libseat fail ("Failed to open session") and the login a black screen.
+  source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-systemd.sh"
+  l="$(session_exec_line)"
+  assert_contains "$l" "unset-environment XDG_SESSION_ID"
+  assert_contains "$l" "XDG_SESSION_ID XDG_SEAT XDG_VTNR"
+  # Dropped before it is imported, and both before niri starts.
+  u="${l%%unset-environment XDG_SESSION_ID*}"; i="${l%%XDG_SESSION_ID XDG_SEAT XDG_VTNR*}"; s="${l%%--wait start niri.service*}"
+  [[ ${#u} -lt ${#i} && ${#i} -lt ${#s} ]] || { echo "order: unset, import, start"; return 1; }
+}
 test_systemd_session_unit_written() {
   stub sudo '"$@"'; export VITRUM_SYSROOT="$HOME/sys"
   source "$VITRUM_DIR/lib/common.sh"; source "$VITRUM_DIR/lib/backend/init-systemd.sh"

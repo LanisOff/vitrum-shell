@@ -22,7 +22,14 @@ if systemctl --user -q is-active niri.service; then
   echo "a niri session is already running" >&2; exit 1
 fi
 systemctl --user reset-failed niri.service 2>/dev/null
+# This login's session, not one systemd --user kept from an earlier login: it
+# outlives logins, and niri's libseat takes XDG_SESSION_ID from it first. A
+# session that is gone fails there, "Failed to open session: Function not
+# implemented", and the login is a black screen. Dropped first, so a login
+# that has none (a console without pam_systemd) leaves none behind either.
+systemctl --user unset-environment XDG_SESSION_ID XDG_SEAT XDG_VTNR XDG_SESSION_PATH XDG_SEAT_PATH 2>/dev/null
 systemctl --user import-environment XDG_CURRENT_DESKTOP XDG_SESSION_DESKTOP XDG_SESSION_TYPE VITRUM NIRI_CONFIG PATH \
+  XDG_SESSION_ID XDG_SEAT XDG_VTNR \
   QT_QPA_PLATFORM QT_QPA_PLATFORMTHEME QT_WAYLAND_DISABLE_WINDOWDECORATION GDK_BACKEND MOZ_ENABLE_WAYLAND \
   ELECTRON_OZONE_PLATFORM_HINT SDL_VIDEODRIVER _JAVA_AWT_WM_NONREPARENTING \
   GBM_BACKEND __GLX_VENDOR_LIBRARY_NAME LIBVA_DRIVER_NAME NVD_BACKEND 2>/dev/null
