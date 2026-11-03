@@ -6,7 +6,11 @@ const major = (...a) => u.decide(...a).major;
 // Versions
 eq(JSON.stringify(u.parseVersion("0.5.6")), "[0,5,6]", "three numbers");
 eq(JSON.stringify(u.parseVersion(" 0.6.0\n")), "[0,6,0]", "the file's newline");
-for (const bad of ["", "unknown", "0.6", "0.6.0.1", "v0.6.0", "0.6.0-rc1", "0.x.0", "1..0", null, undefined])
+eq(JSON.stringify(u.parseVersion("0.6.2.1")), "[0,6,2]", "a hotfix's fourth number");
+eq(u.isMajor("0.6.2.1", "0.7.0"), true, "from a hotfix to the next minor");
+eq(u.isMajor("0.6.3", "0.6.3.1"), false, "a hotfix is not major");
+eq(u.isMajor("0.6.3.1", "0.6.4"), false, "a hotfix to the next patch is not major");
+for (const bad of ["", "unknown", "0.6", "0.6.0.1.2", "0.6.0.", "v0.6.0", "0.6.0-rc1", "0.x.0", "1..0", null, undefined])
   eq(u.parseVersion(bad), null, `malformed ${JSON.stringify(bad)}`);
 eq(u.isMajor("0.5.6", "0.6.0"), true, "second number grew");
 eq(u.isMajor("0.9.9", "1.0.0"), true, "first number grew, second fell");

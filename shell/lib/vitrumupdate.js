@@ -6,9 +6,10 @@
 // decides then. With no commits missing from the install there is nothing to
 // tell; a pull that was cancelled before installing still counts as missing.
 
-// "0.6.0" → [0, 6, 0]; anything else → null.
+// "0.6.0" → [0, 6, 0]; a hotfix's fourth number ("0.6.2.1") is read and
+// dropped, since only the first two decide; anything else → null.
 function parseVersion(v) {
-    var m = /^(\d+)\.(\d+)\.(\d+)$/.exec(String(v || "").trim());
+    var m = /^(\d+)\.(\d+)\.(\d+)(?:\.\d+)?$/.exec(String(v || "").trim());
     return m ? [Number(m[1]), Number(m[2]), Number(m[3])] : null;
 }
 
