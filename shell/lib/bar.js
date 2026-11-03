@@ -3,7 +3,7 @@
 
 var MODULES = ["workspaces", "minimap", "context", "cpu", "memory", "temperature", "gpu",
                "tray", "keyboard", "network", "bluetooth", "volume", "microphone",
-               "dnd", "notifications", "recording", "power", "privacy", "awake", "sharing", "timer", "vpn", "emerge", "updates", "vitrum", "shutdown", "phone", "game"];
+               "dnd", "notifications", "recording", "power", "privacy", "awake", "sharing", "timer", "vpn", "emerge", "updates", "vitrum", "shutdown", "phone", "game", "battery"];
 // left / center / right, and activities: islands right of the centre that are
 // only there while their activity runs.
 var SIDES = ["left", "center", "activities", "right"];
@@ -134,7 +134,11 @@ var CATALOG = {
     vitrum:        { name: "vitrum update", icon: "vitrum-update", description: "Shows when a new vitrum is out; click for what is new." },
     shutdown:      { name: "Shutdown timer", icon: "power", description: "Shows while a shutdown is scheduled; click to cancel it." },
     phone:         { name: "Phone", icon: "phone", description: "Your phone (KDE Connect) while it is in reach, with its battery." },
-    game:          { name: "Game mode", icon: "gamepad", description: "Shows while game mode is on, with the game's name." }
+    game:          { name: "Game mode", icon: "gamepad", description: "Shows while game mode is on, with the game's name." },
+    battery:       { name: "Battery", icon: "battery", description: "The laptop's charge, by level, and while it charges; click for the Control Centre.",
+                     options: [{ key: "bar.modules.battery.percent", label: "Show percentage", type: "toggle", def: true },
+                               { key: "bar.modules.battery.time", label: "Time until empty or full", type: "toggle", def: false },
+                               { key: "bar.modules.battery.hideFull", label: "Hide when charged and plugged in", type: "toggle", def: false }] }
 };
 
 function _copy(v) { return JSON.parse(JSON.stringify(v)); }
@@ -169,7 +173,7 @@ var DEFAULT_LAYOUT = {
     center: [["context"]],
     activities: [["recording"], ["sharing"], ["timer"], ["game"], ["emerge"], ["shutdown"], ["vitrum"]],
     right: [["privacy"], ["cpu", "memory", "temperature", "gpu"],
-            ["tray", "keyboard", "network", "vpn", "bluetooth", "phone", "volume", "microphone", "awake", "dnd", "notifications", "updates"]]
+            ["tray", "keyboard", "network", "vpn", "bluetooth", "phone", "battery", "volume", "microphone", "awake", "dnd", "notifications", "updates"]]
 };
 function defaultLayout() { return _copy(DEFAULT_LAYOUT); }
 
@@ -267,6 +271,27 @@ function withMinimap(layout, on) {
     var w = _find(l, "workspaces");
     if (w) l[w.side][w.island].splice(w.index + 1, 0, "minimap");
     return l;
+}
+
+// The laptop battery (modules/battery.qml). The glyph: a bolt while it
+// charges, else by level, a warning when nearly empty. pct: 0–100.
+function batteryIcon(pct, charging) {
+    if (charging) return "battery-charging";
+    var p = typeof pct === "number" && isFinite(pct) ? pct : 100;
+    if (p <= 10) return "battery-warning";
+    if (p <= 35) return "battery-low";
+    if (p <= 60) return "battery-medium";
+    if (p <= 85) return "battery-high";
+    return "battery";
+}
+
+// Beside the glyph: "76%", "76% · 4:12", "4:12" or "" (time: Power.timeRemaining,
+// "" when UPower has no estimate yet).
+function batteryLabel(pct, percent, time, showTime) {
+    var parts = [];
+    if (percent) parts.push(Math.round(typeof pct === "number" && isFinite(pct) ? pct : 0) + "%");
+    if (showTime && time) parts.push(time);
+    return parts.join(" · ");
 }
 
 // What turns the list oldKeys into newKeys (unique strings) without touching

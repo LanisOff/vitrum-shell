@@ -15,22 +15,27 @@ import "../lib/motion.js" as M
 Singleton {
     readonly property real speed: Math.max(0.1, Settings.get("motion.speed", 1.0))
     readonly property bool reduce: Settings.get("motion.reduce", false)
+    /// No animation at all, durations 0: reduced motion, or lite mode's
+    /// "No shell animations" (Lite.animationsOff).
+    readonly property bool still: reduce || Lite.animationsOff
     // No animations while a game runs (GameMode): the shell keeps out of its way.
-    readonly property bool enabled: !reduce && !GameMode.active
+    readonly property bool enabled: !still && !GameMode.active
 
     readonly property var snappy: M.spring("snappy", speed)
     readonly property var smooth: M.spring("smooth", speed)
     /// deprecated alias, kept for user widgets: the springs have no bounce now.
     readonly property var bouncy: smooth
 
-    readonly property int fast: M.scaled(150, speed, reduce)
-    readonly property int standard: M.scaled(240, speed, reduce)
-    readonly property int emphasized: M.scaled(380, speed, reduce)
-    readonly property int colour: M.scaled(300, speed, reduce)
+    readonly property int fast: M.scaled(150, speed, still)
+    readonly property int standard: M.scaled(240, speed, still)
+    readonly property int emphasized: M.scaled(380, speed, still)
+    readonly property int colour: M.scaled(300, speed, still)
+    /// Lit glass's light holds still: lite mode's "Still light" or no animation.
+    readonly property bool lightStill: still || Lite.lightOff
     /// The dichroic tint's drift under the pointer (Tint): ~1.2 s, damped.
-    readonly property int drift: M.scaled(M.DRIFT_MS, speed, reduce)
+    readonly property int drift: M.scaled(M.DRIFT_MS, speed, lightStill)
     /// The one sweep across a tint that turns on: ~1 s, damped.
-    readonly property int sweep: M.scaled(M.SWEEP_MS, speed, reduce)
+    readonly property int sweep: M.scaled(M.SWEEP_MS, speed, lightStill)
     readonly property var glide: M.GLIDE
     /// A meter (0..1) moves to a new value only for a step this big; a smaller
     /// one is set at once. Live figures change a little with every sample, and

@@ -52,7 +52,7 @@ Item {
         }
     }
     function read() { if (!reader.running) reader.running = true; }
-    Timer { interval: 3000; repeat: true; running: root.live; triggeredOnStart: true; onTriggered: root.read() }
+    Timer { interval: Lite.poll(3000); repeat: true; running: root.live; triggeredOnStart: true; onTriggered: root.read() }
     Timer { id: soon; interval: 800; onTriggered: if (root.live) root.read() }
     // A new grouping or measure shows at the next reading, not three seconds on.
     onByMemoryChanged: if (live) read()

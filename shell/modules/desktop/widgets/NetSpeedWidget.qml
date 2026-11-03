@@ -55,7 +55,7 @@ Item {
         printErrors: false
         onLoaded: root.take(text())
     }
-    Timer { interval: 1000; repeat: true; running: root.live; onTriggered: dev.reload() }
+    Timer { interval: Lite.poll(1000); repeat: true; running: root.live; onTriggered: dev.reload() }
     onWantedIfaceChanged: { downs = []; ups = []; }
 
     function push(list, v) { const l = list.concat([v]); return l.length > points ? l.slice(l.length - points) : l; }

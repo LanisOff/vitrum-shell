@@ -884,3 +884,156 @@ class CursorTheme(unittest.TestCase):
                 text = (cfg / v / "settings.ini").read_text()
                 self.assertIn("gtk-cursor-theme-name=Bibata-Modern-Ice", text)
                 self.assertIn("gtk-cursor-theme-size=24", text)
+
+
+class LiteMode(unittest.TestCase):
+    """Settings → Lite mode: what reaches niri through effects, look and animations."""
+
+    def settings(self, **lite):
+        s, _ = vt.load_settings(Path("/nonexistent"))
+        auto = lite.pop("auto", None)
+        s["lite"].update(lite)
+        if auto:
+            s["lite"]["auto"].update(auto)
+        return s
+
+    def layer(self, kdl, group):
+        return kdl.split(f'match namespace="^vitrum-{group}$"')[1].split("layer-rule")[0]
+
+    def test_defaults_cut_nothing(self):
+        f = vt.lite_flags(self.settings())
+        self.assertEqual(set(f), set(vt.LITE_PARTS) | {"active"})
+        self.assertFalse(any(f.values()))
+        s = self.settings()
+        pal = vt.guard(vt.palette_from_preset("graphite"))
+        # Off, the files are exactly what they were without lite mode.
+        self.assertEqual(vt.effects_kdl(s, None, f).replace(", lite", ""), vt.effects_kdl(s).replace(", lite", ""))
+        self.assertEqual(vt.look_kdl(s, pal, "dark", f), vt.look_kdl(s, pal, "dark"))
+        self.assertEqual(vt.animations_kdl(s, f), vt.animations_kdl(s))
+
+    def test_master_switch_cuts_everything(self):
+        f = vt.lite_flags(self.settings(enabled=True))
+        self.assertTrue(all(f.values()))
+
+    def test_one_switch_on_its_own(self):
+        f = vt.lite_flags(self.settings(shadows=True))
+        self.assertTrue(f["shadows"])
+        self.assertFalse(f["active"])
+        self.assertEqual([p for p in vt.LITE_PARTS if f[p]], ["shadows"])
+
+    def test_automatic_reason_needs_its_switch(self):
+        # The shell wrote "battery": lite mode only while auto.onBattery is still on.
+        self.assertTrue(vt.lite_flags(self.settings(auto={"onBattery": True}), "battery")["active"])
+        self.assertFalse(vt.lite_flags(self.settings(), "battery")["active"])
+        self.assertTrue(vt.lite_flags(self.settings(auto={"lowBattery": True}), "low")["blur"])
+        self.assertFalse(vt.lite_flags(self.settings(auto={"onBattery": True}), "low")["active"])
+        self.assertTrue(vt.lite_flags(self.settings(auto={"powerSaver": True}), "saver")["windowAnimations"])
+        self.assertFalse(vt.lite_flags(self.settings(auto={"powerSaver": True}), "manual")["active"])
+
+    def test_lite_auto_reads_the_shells_file(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            p = Path(tmp) / "lite"
+            self.assertEqual(vt.lite_auto(p), "", "no file yet")
+            p.write_text("battery\n")
+            self.assertEqual(vt.lite_auto(p), "battery")
+            p.write_text("\n")
+            self.assertEqual(vt.lite_auto(p), "")
+            p.write_text("nonsense\n")
+            self.assertEqual(vt.lite_auto(p), "", "an unknown reason is none")
+
+    def test_blur_cut_no_effect_on_the_shell_but_the_lock(self):
+        s = self.settings(blur=True)
+        k = vt.effects_kdl(s, {"shapedGlass": True, "ownGlass": True}, vt.lite_flags(s))
+        for g in vt.GROUPS:
+            if g == "lock":
+                continue
+            self.assertIn("blur false", self.layer(k, g), g)
+            self.assertNotIn("liquid-glass", self.layer(k, g), g)
+            self.assertNotIn("geometry-corner-radius", self.layer(k, g), f"{g}: no shaped rule")
+        self.assertIn("liquid-glass", self.layer(k, "lock"), "the lock keeps its own glass")
+        # Window materials stay: blur behind panels is not window glass.
+        self.assertIn('match app-id="^kitty$"', k)
+
+    def test_glass_cut_makes_glass_frosted(self):
+        s = self.settings(glass=True)
+        k = vt.effects_kdl(s, {"shapedGlass": True, "ownGlass": True}, vt.lite_flags(s))
+        for g in ("bar", "launcher", "widgets", "dock"):
+            block = self.layer(k, g)
+            self.assertNotIn("liquid-glass", block, g)
+            self.assertIn("blur true", block, g)
+            self.assertNotIn("geometry-corner-radius", block, g)
+        self.assertIn("liquid-glass", self.layer(k, "lock"))
+        # A frosted group is left as it is.
+        self.assertIn("noise 0.02", self.layer(k, "panels"))
+
+    def test_window_glass_cut(self):
+        s = self.settings(windowGlass=True)
+        f = vt.lite_flags(s)
+        k = vt.effects_kdl(s, None, f)
+        self.assertNotIn("window-rule", k, "no window materials")
+        pal = vt.guard(vt.palette_from_preset("graphite"))
+        look = vt.look_kdl(s, pal, "dark", f)
+        self.assertIn("match is-focused=false\n    opacity 1.0", look, "unfocused windows not dimmed")
+        self.assertIn("match is-focused=false\n    opacity 0.92", vt.look_kdl(s, pal, "dark"))
+        # The terminal goes opaque; nothing else in the settings changes.
+        r = vt.lite_render_settings(s, f)
+        self.assertEqual(r["terminal"]["opacity"], 1.0)
+        self.assertEqual(s["terminal"]["opacity"], 0.72, "the settings themselves are not touched")
+        self.assertIs(vt.lite_render_settings(s, vt.lite_flags(self.settings())), s)
+
+    def test_shadows_cut(self):
+        pal = vt.guard(vt.palette_from_preset("graphite"))
+        s = self.settings(shadows=True)
+        look = vt.look_kdl(s, pal, "dark", vt.lite_flags(s))
+        layout = look.split("layout {")[1].split("\n}\n")[0]
+        self.assertIn("shadow {\n        off\n    }", layout)
+        self.assertIn("workspace-shadow {\n        off\n    }", look.split("overview {")[1])
+        self.assertIn("window-rule {\n    shadow {\n        off\n    }\n}", look)
+        self.assertNotIn("softness 50", look, "no focused-window shadow")
+        # The red shadow round a window being cast stays, after the rule that turns them off.
+        self.assertGreater(look.index("match is-window-cast-target=true"), look.index("window-rule {\n    shadow {\n        off"))
+        self.assertIn("softness 50", vt.look_kdl(s, pal, "dark"))
+
+    def test_focus_by_shadow_gets_a_ring_when_nothing_else_shows_it(self):
+        pal = vt.guard(vt.palette_from_preset("graphite"))
+        both = self.settings(shadows=True, windowGlass=True)
+        self.assertIn("focus-ring {\n        on", vt.look_kdl(both, pal, "dark", vt.lite_flags(both)))
+        # Dimming still shows it with only the shadows cut.
+        one = self.settings(shadows=True)
+        self.assertIn("focus-ring {\n        off", vt.look_kdl(one, pal, "dark", vt.lite_flags(one)))
+
+    def test_window_animations_cut(self):
+        s = self.settings(windowAnimations=True)
+        self.assertIn("animations {\n    off\n}", vt.animations_kdl(s, vt.lite_flags(s)))
+        self.assertIn("slowdown", vt.animations_kdl(s))
+        # The shell's own animations are the shell's: niri keeps its springs.
+        s2 = self.settings(animations=True)
+        self.assertIn("slowdown", vt.animations_kdl(s2, vt.lite_flags(s2)))
+
+    def test_cli_reads_the_reason_next_to_the_palette(self):
+        with tempfile.TemporaryDirectory() as tmp:
+            write(tmp, "settings.json", {"palette": {"source": "preset"}, "lite": {"auto": {"onBattery": True}}})
+            args = [sys.executable, str(ROOT / "tools" / "vitrum-theme"), "--settings", str(Path(tmp) / "settings.json"),
+                    "--out-palette", str(Path(tmp) / "palette.json"), "--niri-dir", str(Path(tmp) / "gen"),
+                    "--no-color-scheme", "--templates", str(Path(tmp) / "none")]
+            r = subprocess.run(args, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertNotIn("off", (Path(tmp) / "gen" / "animations.kdl").read_text())
+            (Path(tmp) / "lite").write_text("battery\n")
+            r = subprocess.run(args, capture_output=True, text=True)
+            self.assertEqual(r.returncode, 0, r.stderr)
+            self.assertIn("animations {\n    off\n}", (Path(tmp) / "gen" / "animations.kdl").read_text())
+            self.assertIn("blur false", (Path(tmp) / "gen" / "effects.kdl").read_text())
+
+    @unittest.skipUnless(shutil.which("niri"), "niri not installed")
+    def test_lite_kdl_validates(self):
+        s = self.settings(enabled=True)
+        f = vt.lite_flags(s)
+        pal = vt.guard(vt.palette_from_preset("graphite"))
+        with tempfile.TemporaryDirectory() as tmp:
+            for name, text in (("look", vt.look_kdl(s, pal, "dark", f)), ("effects", vt.effects_kdl(s, None, f)),
+                               ("animations", vt.animations_kdl(s, f))):
+                (Path(tmp) / f"{name}.kdl").write_text(text)
+            (Path(tmp) / "config.kdl").write_text('include "look.kdl"\ninclude "effects.kdl"\ninclude "animations.kdl"\n')
+            r = subprocess.run(["niri", "validate", "-c", str(Path(tmp) / "config.kdl")], capture_output=True, text=True)
+        self.assertEqual(r.returncode, 0, r.stderr[-800:])

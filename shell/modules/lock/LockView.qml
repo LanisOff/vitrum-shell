@@ -361,9 +361,9 @@ Item {
             numeric: true
         }
         StatusIsland {
-            visible: Layouts.short.length > 0
+            visible: Layouts.shortName.length > 0
             icon: "keyboard"
-            text: Layouts.short
+            text: Layouts.shortName
             // With fcitx5 this goes through the keymaps only: no engine at the lock.
             clickable: Layouts.switchable
             onClicked: Layouts.next(true)

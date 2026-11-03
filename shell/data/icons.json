@@ -123,6 +123,31 @@
   "ph": "battery-full",
   "nerd": "󰁹"
  },
+ "battery-high": {
+  "phosphor": "",
+  "ph": "battery-high",
+  "nerd": "󰂁"
+ },
+ "battery-medium": {
+  "phosphor": "",
+  "ph": "battery-medium",
+  "nerd": "󰁾"
+ },
+ "battery-low": {
+  "phosphor": "",
+  "ph": "battery-low",
+  "nerd": "󰁻"
+ },
+ "battery-warning": {
+  "phosphor": "",
+  "ph": "battery-warning",
+  "nerd": "󰂃"
+ },
+ "battery-charging": {
+  "phosphor": "",
+  "ph": "battery-charging",
+  "nerd": "󰂄"
+ },
  "power": {
   "phosphor": "",
   "ph": "power",

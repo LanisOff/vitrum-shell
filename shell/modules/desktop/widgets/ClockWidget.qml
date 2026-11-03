@@ -39,7 +39,11 @@ Item {
     readonly property bool digital: options.style === "digital"
     // Glass in a game as well (Materials.plain): the desktop draws a frame only
     // when the digits change, and none at all on the game's screen (unmapped).
-    readonly property bool useGlass: !digital && !preview && !!backdrop && Materials.of("widgets") !== "solid"
+    // Painted with lite mode's "No glass refraction" (Lite.glassOff).
+    readonly property bool useGlass: !digital && !preview && !!backdrop && Materials.of("widgets") !== "solid" && !Lite.glassOff
+    // The soft shadows that keep the figures readable on the wallpaper: a blur
+    // pass each time they change. Not with lite mode's "No shadows".
+    readonly property bool shadowed: onWallpaper && !Lite.shadowsOff
     // Bare on the wallpaper: white with a shadow. In a card or on a plate: the theme's ink.
     readonly property bool onWallpaper: !digital && !preview
 
@@ -114,7 +118,7 @@ Item {
             saturation: 1
             brightness: 0.07
             tint: Qt.rgba(1, 1, 1, Colors.dark ? 0.05 : 0.12)
-            shadow: 0.6
+            shadow: Lite.shadowsOff ? 0 : 0.6
             Digits { id: glassDigits; lines: root.lines; size: root.timeSize; weight: Font.Bold; ink: "white" }
         }
 
@@ -130,7 +134,7 @@ Item {
                 size: root.timeSize
                 weight: root.digital ? Font.Light : Font.Bold
                 ink: root.onWallpaper ? "white" : Colors.text
-                layer.enabled: root.onWallpaper
+                layer.enabled: root.shadowed
                 layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 0.7; shadowColor: Qt.rgba(0, 0, 0, 0.5); shadowVerticalOffset: 2 }
             }
             // AM/PM on the plate only: glass reads as digits alone.
@@ -153,7 +157,7 @@ Item {
             font.weight: root.digital ? Font.Normal : Font.DemiBold
             color: root.onWallpaper ? "white" : root.digital ? Colors.textDim : Colors.text
             // On the bare wallpaper: a soft shadow keeps it readable on light pictures.
-            layer.enabled: root.onWallpaper
+            layer.enabled: root.shadowed
             layer.effect: MultiEffect { shadowEnabled: true; shadowBlur: 0.6; shadowColor: Qt.rgba(0, 0, 0, 0.55); shadowVerticalOffset: 1 }
         }
     }

@@ -3,6 +3,7 @@ pragma Singleton
 import QtQuick
 import Quickshell
 import Quickshell.Io
+import qs.theme
 import "../lib/wallpaper.js" as Lib
 
 /*
@@ -25,9 +26,13 @@ Singleton {
     readonly property string home: Quickshell.env("HOME")
     readonly property string runtime: (Quickshell.env("XDG_RUNTIME_DIR") || "/tmp") + "/vitrum-wallpaper-" + (Quickshell.env("WAYLAND_DISPLAY") || "0")
     readonly property var conf: Settings.get("wallpaper", ({}))
-    readonly property bool parallax: Settings.get("wallpaper.parallax", false)
-    readonly property bool live: Settings.get("wallpaper.live.enabled", true)
-    readonly property string transition: Settings.get("wallpaper.transition", "grow")
+    // Lite mode's "Still wallpaper" (Lite.stillWallpaper): no parallax, and a
+    // video shows its first frame, as with live wallpapers off.
+    readonly property bool parallax: Settings.get("wallpaper.parallax", false) && !Lite.stillWallpaper
+    readonly property bool live: Settings.get("wallpaper.live.enabled", true) && !Lite.stillWallpaper
+    // No transition with no animations (reduced motion, lite mode, a game):
+    // awww's grow and fade are animations of their own, at 60 fps.
+    readonly property string transition: Motion.enabled ? Settings.get("wallpaper.transition", "grow") : "none"
     readonly property string dir: Lib.expand(Settings.get("wallpaper.dir", "~/Pictures/Wallpapers"), home)
 
     property var installed: ({})
@@ -61,6 +66,8 @@ Singleton {
     Connections { target: Settings; function onValuesChanged() { Qt.callLater(root.applyAll); Qt.callLater(root.updatePause); } }
     Connections { target: Quickshell; function onScreensChanged() { Qt.callLater(root.applyAll); } }
     onShellDrawsChanged: Qt.callLater(applyAll)
+    // Lite mode turns live wallpapers off and on without a settings change.
+    onLiveChanged: Qt.callLater(applyAll)
 
     function applyAll() {
         if (!checked || !Settings.ready) return;

@@ -83,12 +83,12 @@ DialogFrame {
             }
             Rectangle {
                 id: layoutChip
-                visible: Layouts.short.length > 0
+                visible: Layouts.shortName.length > 0
                 anchors.right: parent.right; anchors.rightMargin: Tokens.gap
                 anchors.verticalCenter: parent.verticalCenter
                 width: visible ? Tokens.iconSize * 2 : 0; height: Tokens.iconSize * 1.3; radius: Tokens.radiusKnob
                 color: Colors.alpha(Colors.text, 0.10)
-                Label { anchors.centerIn: parent; text: Layouts.short; size: Tokens.textSmall; font.weight: Font.DemiBold }
+                Label { anchors.centerIn: parent; text: Layouts.shortName; size: Tokens.textSmall; font.weight: Font.DemiBold }
             }
         }
         Label {

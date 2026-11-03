@@ -38,7 +38,7 @@ Item {
     readonly property var sampleSeries: Array.from({ length: 60 }, (_, i) => 0.42 + 0.18 * Math.sin(i / 6) + 0.07 * Math.sin(i * 1.3))
     readonly property var series: sample ? sampleSeries : history
     Timer {
-        interval: 2000; repeat: true; running: SysInfo.gpuAvailable
+        interval: Lite.poll(2000); repeat: true; running: SysInfo.gpuAvailable
         onTriggered: {
             const l = root.history.concat([SysInfo.gpuUsage]);
             root.history = l.length > root.points ? l.slice(l.length - root.points) : l;

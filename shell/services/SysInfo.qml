@@ -121,9 +121,10 @@ Singleton {
     property var _lastCpu: null
 
     // Slower while a game runs: what shows the figures is under it, and the
-    // hardware alerts look for half a minute of heat anyway.
+    // hardware alerts look for half a minute of heat anyway. Slower with lite
+    // mode's "Slower system figures" too.
     Timer {
-        interval: GameMode.active ? 10000 : 2000
+        interval: GameMode.active ? 10000 : Lite.poll(2000)
         running: root.subscribers > 0
         repeat: true
         triggeredOnStart: true
@@ -323,10 +324,17 @@ Singleton {
     property real gpuUsage: 0
     property real gpuTemp: 0
 
+    // Its own loop sleeps between samples: a change of pace (lite mode's
+    // slower figures) starts it again with the new one.
+    property bool _gpuRestart: false
+    readonly property int gpuSeconds: Lite.poll(2000) / 1000
+    onGpuSecondsChanged: if (gpuProc.running) { _gpuRestart = true; gpuBack.restart(); }
+    // A moment for the old loop to end before the new one starts.
+    Timer { id: gpuBack; interval: 500; onTriggered: root._gpuRestart = false }
     Process {
         id: gpuProc
-        running: root.subscribers > 0
-        command: ["sh", "-c", Gpu.command()]
+        running: root.subscribers > 0 && !root._gpuRestart
+        command: ["sh", "-c", Gpu.command("", root.gpuSeconds)]
         stdout: SplitParser {
             onRead: line => {
                 const s = Gpu.parse(line);

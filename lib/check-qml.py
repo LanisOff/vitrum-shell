@@ -14,6 +14,7 @@ session at least once:
                                             type unavailable and cascades all
                                             the way up to shell.qml
   4. a property our own components do not have
+  5. a property, function, signal or id named with a reserved word
 
 None of this replaces actually running Quickshell. It catches the mistakes that
 are cheap to make and expensive to discover, at the only moment when discovering
@@ -484,6 +485,28 @@ def check_final_names(path, clean, report):
         report(path, clean.count("\n", 0, m.start()) + 1, "property %s overrides Item's FINAL %s" % (m.group(1), m.group(1)))
 
 
+# Words the QML parser keeps for itself: JavaScript's keywords and the ones
+# ECMAScript 3 reserved for later (short, int, char, …). A property, function,
+# signal or id named one of them is "Expected token `identifier'", and the
+# file — and everything that imports it — fails to load. `short` on Layouts
+# took the whole shell down for a user on 0.6.1.
+RESERVED = set("""break case catch class const continue debugger default delete do else enum
+export extends false finally for function if import in instanceof new null return super
+switch this throw true try typeof var void while with implements interface let package
+private protected public static yield abstract boolean byte char double final float goto
+int long native short synchronized throws transient volatile""".split())
+DECLARED_NAME = re.compile(
+    r"\b(?:property\s+(?:alias\s+)?[\w<>.]+|function|signal)\s+([A-Za-z_]\w*)|^\s*id\s*:\s*([A-Za-z_]\w*)", re.M)
+
+
+def check_reserved_names(path, clean, report):
+    for m in DECLARED_NAME.finditer(clean):
+        name = m.group(1) or m.group(2)
+        if name in RESERVED:
+            report(path, clean.count("\n", 0, m.start()) + 1,
+                   "`%s` is a reserved word in QML — rename it" % name)
+
+
 def main(argv):
     roots = argv[1:] or ["shell", "apps"]
     paths = [p for p in qml_files(roots)]
@@ -524,6 +547,7 @@ def main(argv):
         check_window_root(path, clean, report)
         check_grouped_semicolons(path, clean, report)
         check_final_names(path, clean, report)
+        check_reserved_names(path, clean, report)
         own_root, own_decl = dict(root_of), dict(declared)
         for name, (base, decl) in inline.get(path, {}).items():
             own_root[name], own_decl[name] = base, decl

@@ -12,6 +12,7 @@ var panes = [
     { group: "Personal", id: "materials", name: "Materials", icon: "materials", keys: ["materials"], words: "glass blur frosted transparency" },
     { group: "Personal", id: "type", name: "Fonts & icons", icon: "typography", keys: ["fonts", "icons", "cursor"], words: "font fonts typography text size scale icons cursor" },
     { group: "Personal", id: "motion", name: "Motion", icon: "motion", keys: ["motion"], words: "animation speed reduce motion" },
+    { group: "Personal", id: "lite", name: "Lite mode", icon: "leaf", keys: ["lite"], words: "lite light mode performance low-end low end slow old weak hardware laptop effects blur glass refraction animations shadows transparency video wallpaper parallax spectrum cava visualizer polling battery saver power saving eco fps lag" },
     { group: "Desktop", id: "bar", name: "Bar", icon: "toolbar", keys: ["bar"], words: "panel top islands modules" },
     { group: "Desktop", id: "dock", name: "Dock", icon: "apps", keys: ["dock"], words: "taskbar icons magnify pinned" },
     { group: "Desktop", id: "widgets", name: "Widgets", icon: "widgets", keys: ["widgets"], words: "desktop clock weather" },

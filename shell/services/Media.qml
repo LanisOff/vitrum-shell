@@ -69,7 +69,7 @@ Singleton {
     Timer {
         // Playback state changes do not always emit through the list, so a
         // slow tick keeps the choice honest without costing anything.
-        interval: 2000
+        interval: Lite.poll(2000)
         running: true
         repeat: true
         triggeredOnStart: true

@@ -8,13 +8,14 @@
 // loop (-l). amdgpu has no such tool, so sh loops over its sysfs files with
 // the builtin read, and only sleep forks.
 
-var _nvidia = "nvidia-smi -i 0 --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits -l 2";
+function _nvidia(secs) { return "nvidia-smi -i 0 --query-gpu=utilization.gpu,temperature.gpu --format=csv,noheader,nounits -l " + secs; }
 var _number = /^\d+(\.\d+)?$/;
 
 function _quote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
 
-// The sh script for ["sh", "-c", …]. It prints "usage, temp" every two seconds
-// and nothing at all without a card to read.
+// The sh script for ["sh", "-c", …]. It prints "usage, temp" every `seconds`
+// (2 when not given; lite mode's slower figures pass more) and nothing at all
+// without a card to read.
 //   NVIDIA first, on a hybrid machine too, but only if nvidia-smi answers: a
 //   binary left behind with no driver falls through to AMD.
 //   Of the amdgpu cards the one with the most VRAM: discrete over integrated.
@@ -24,10 +25,11 @@ function _quote(s) { return "'" + String(s).replace(/'/g, "'\\''") + "'"; }
 //   (the card resetting) prints nothing for that round.
 //   Each read restarts amdgpu's 5 s autosuspend timer, so a load of 0 skips the
 //   next three rounds (6 s) and repeats that sample, letting an idle card sleep.
-function command(sysRoot) {
+function command(sysRoot, seconds) {
+    var secs = Math.max(1, Math.round(Number(seconds) || 2));
     return [
         "if command -v nvidia-smi >/dev/null && nvidia-smi -L >/dev/null 2>&1; then",
-        "    exec " + _nvidia,
+        "    exec " + _nvidia(secs),
         "fi",
         "dev='' top=-1",
         "for f in " + _quote(sysRoot || "/sys") + "/class/drm/card*/device/gpu_busy_percent; do",
@@ -58,7 +60,7 @@ function command(sysRoot) {
         "        case $b in ''|*[!0-9]*) ;; *) printf '%s, %s\\n' \"$b\" \"$t\" || exit 0 ;; esac",
         "        if [ \"$b\" = 0 ]; then idle=3 last=$t; fi",
         "    fi",
-        "    sleep 2 || exit 0",
+        "    sleep " + secs + " || exit 0",
         "done"
     ].join("\n");
 }

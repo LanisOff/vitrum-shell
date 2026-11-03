@@ -255,3 +255,10 @@ try {
 } finally {
   rmSync(base, { recursive: true, force: true });
 }
+
+// Lite mode's slower figures: the same loop, at another pace (whole seconds, at least one).
+const slow = g.command("", 6);
+ok(slow.includes("--format=csv,noheader,nounits -l 6"), "nvidia-smi at the slower pace");
+ok(slow.includes("sleep 6 || exit 0"), "amdgpu's loop at the slower pace");
+ok(g.command("", 0.2).includes("sleep 1 ||"), "never under a second");
+ok(g.command().includes("sleep 2 ||"), "two seconds by default");

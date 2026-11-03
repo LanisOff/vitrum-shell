@@ -281,7 +281,10 @@ Singleton {
     /// Set by GameMode while a game runs: no polling then (a workspace change
     /// still asks), read again after. Not read from GameMode here: it reads Niri.
     property bool quiet: false
-    Timer { interval: 10000; running: !root.quiet; repeat: true; triggeredOnStart: true; onTriggered: outputsProc.running = true }
+    /// Set by Lite (lite mode's slower figures): every 30 s instead of 10.
+    /// Not read from Lite here: it reads Power, which reads GameMode, which reads Niri.
+    property bool slowPolling: false
+    Timer { interval: root.slowPolling ? 30000 : 10000; running: !root.quiet; repeat: true; triggeredOnStart: true; onTriggered: outputsProc.running = true }
     Process {
         id: outputsProc
         command: [root.bin, "msg", "--json", "outputs"]

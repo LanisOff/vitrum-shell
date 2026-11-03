@@ -6,8 +6,8 @@ const P = load("settings-panes.js");
 // One list, ids unique, 25 sections in the agreed order of groups.
 const ids = P.panes.map(p => p.id);
 eq(new Set(ids).size, ids.length, "ids unique");
-eq(P.panes.length, 25, "25 sections");
-eq(P.panes.filter(p => p.group === "Personal").length, 5, "Personal: 5");
+eq(P.panes.length, 26, "26 sections");
+eq(P.panes.filter(p => p.group === "Personal").length, 6, "Personal: 6");
 eq(P.panes.filter(p => p.group === "Desktop").length, 9, "Desktop: 9");
 eq(P.panes.filter(p => p.group === "System").length, 11, "System: 11");
 
@@ -81,3 +81,22 @@ ok(!appearanceQml.includes("vesktop.theme.opacity"), "no Vesktop opacity row");
 ok(appearanceQml.indexOf('title: "Vesktop theme"') > appearanceQml.indexOf('key: "toolkits.gtk"'), "the Vesktop section after the toolkit rows");
 eq(P.matches(appearance, "follow vitrum", ["vesktop.theme.sync"], () => "Follow vitrum's colours"), true, "the sync row → Appearance");
 eq(P.matches(power, "vesktop", ["vesktop.theme.sync"], () => "Follow vitrum's colours"), false, "not Power's");
+
+// Lite mode has its own section, in Personal right after Motion, and is found
+// by what people with a slow machine look for. Power & performance stays the
+// power profile's and the games'.
+const liteP = P.panes.find(p => p.id === "lite");
+eq(liteP.group, "Personal", "lite mode in Personal");
+eq(P.panes.findIndex(x => x.id === "lite"), P.panes.findIndex(x => x.id === "motion") + 1, "right after Motion");
+for (const q of ["lite", "low-end", "blur", "battery saver", "performance", "effects", "animations"])
+    ok(P.find(q, 3).some(p => p.id === "lite"), `${q} → Lite mode`);
+eq(P.find("lite", 3)[0].id, "lite", "lite → Lite mode first");
+eq(P.find("low-end", 3)[0].id, "lite", "low-end → Lite mode first");
+eq(P.matches(liteP, "opaque windows", ["lite.windowGlass"], () => "Opaque windows"), true, "a row's label → Lite mode");
+const liteQml = readFileSync(join(root, "apps/settings/panes/LitePane.qml"), "utf8");
+for (const k of ["lite.enabled", "lite.blur", "lite.glass", "lite.light", "lite.animations", "lite.windowAnimations", "lite.shadows",
+                 "lite.wallpaper", "lite.spectrum", "lite.windowGlass", "lite.polling", "lite.auto.onBattery", "lite.auto.lowBattery",
+                 "lite.auto.below", "lite.auto.powerSaver"])
+    ok(liteQml.includes(`key: "${k}"`), `${k} has a row in LitePane`);
+// Every part's row is held while lite mode is on.
+eq((liteQml.match(/heldBy: page\.held/g) || []).length, load("lite.js").PARTS.length, "every part's row is held by lite mode");

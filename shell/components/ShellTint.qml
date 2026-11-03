@@ -1,12 +1,13 @@
 import QtQuick
+import qs.services
 import qs.theme
 
 /*
  * The dichroic tint (Tint) in the shell's theme: `tint` (the accent by
  * default) and its pair (Colors.pair: accent2 for the accent, the same colour
  * turned −30° and lighter for any other), the scheme, and the drift only when
- * Motion.enabled and not over a game (Materials.plain): a tint over a game is
- * drawn, but never moves.
+ * Motion.enabled, not held still by lite mode (Lite.lightOff) and not over a
+ * game (Materials.overGame): a tint there is drawn, but never moves.
  *
  *     ShellTint { anchors.fill: parent; radius: Tokens.radiusTile; active: root.active; hovered: mouse.containsMouse }
  */
@@ -19,7 +20,7 @@ Tint {
     color: tint
     color2: Colors.pair(tint)
     dark: Colors.dark
-    animate: Motion.enabled && !Materials.plain(group, Screen.name)
+    animate: Motion.enabled && !Lite.lightOff && !Materials.overGame(group, Screen.name)
     duration: Motion.drift
     sweepDuration: Motion.sweep
     fadeDuration: Motion.emphasized

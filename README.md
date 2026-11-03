@@ -101,6 +101,7 @@ when something breaks.
 - Type Japanese, Korean and Chinese with an optional input method: fcitx5 with Mozc, Hangul and Pinyin takes over your layouts, and Alt+Shift still switches them.
 - A lock screen whose field lights up as you type. Caps Lock gets a hint, your avatar sits in a coloured ring, and it goes quiet when idle.
 - Game mode turns on by itself when a game goes fullscreen. Video wallpapers pause under windows.
+- Lite mode for older hardware: blur, glass, animations, shadows, the live wallpaper and more, off one by one or all at once, by hand or on battery.
 
 ### Apps
 

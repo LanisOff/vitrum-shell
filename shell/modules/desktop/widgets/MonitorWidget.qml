@@ -42,7 +42,7 @@ Item {
     function push(list, v) { const l = list.concat([v]); return l.length > points ? l.slice(l.length - points) : l; }
     property var _lastNet: null
     Timer {
-        interval: 2000; repeat: true; running: root.sampling; triggeredOnStart: true
+        interval: Lite.poll(2000); repeat: true; running: root.sampling; triggeredOnStart: true
         onTriggered: {
             root.cpu = root.push(root.cpu, SysInfo.cpuUsage);
             root.mem = root.push(root.mem, SysInfo.memoryUsage);

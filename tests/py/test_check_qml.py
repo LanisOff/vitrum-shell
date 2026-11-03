@@ -26,6 +26,14 @@ class CheckQml(unittest.TestCase):
         rc, out = run({"Ok.qml": "import QtQuick\nItem {\n    property real topValue: 1\n    anchors.top: parent.top\n}\n"})
         self.assertNotIn("FINAL", out)
 
+    def test_property_named_with_a_reserved_word_is_flagged(self):
+        # "property string short" is a parse error: Layouts.qml took the shell down on 0.6.1.
+        rc, out = run({"Use.qml": "import QtQuick\nItem {\n    readonly property string short: \"EN\"\n}\n"})
+        self.assertIn("reserved", out)
+        self.assertNotEqual(rc, 0)
+        rc, out = run({"Ok.qml": "import QtQuick\nItem {\n    readonly property string shortName: \"EN\"\n    function shortLabel() { return { short: 1 }.short }\n}\n"})
+        self.assertNotIn("reserved", out)
+
     def test_semicolon_after_grouped_property_is_flagged(self):
         # "anchors { … }; text: …" does not parse in QML: the file fails to load.
         rc, out = run({"Use.qml": "import QtQuick\nItem {\n    Text { anchors { left: parent.left }; text: \"x\" }\n}\n"})

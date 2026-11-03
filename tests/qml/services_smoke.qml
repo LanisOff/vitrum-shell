@@ -8,7 +8,7 @@ ShellRoot {
     function check(name, ok, why) { console.log((ok ? " PASS " : " FAIL ") + name + (ok ? "" : ": " + why)); }
     Component.onCompleted: {
         // touch every singleton
-        const all = [Settings, Sun, Niri, Audio, Media, Notifs, Weather, Apps, Clipboard, Emoji, SysInfo, Power, Network, Bluetooth, Polkit, Sounds, Idle, UiState];
+        const all = [Settings, Sun, Niri, Audio, Media, Notifs, Weather, Apps, Clipboard, Emoji, SysInfo, Power, Network, Bluetooth, Polkit, Sounds, Idle, UiState, Lite];
         check("all services construct", all.every(s => s !== null && s !== undefined), "");
         SysInfo.subscribe();
     }
@@ -22,6 +22,7 @@ ShellRoot {
             check("cpu usage measured", SysInfo.cpuUsage >= 0 && SysInfo.cpuUsage <= 1, SysInfo.cpuUsage);
             check("gpu read", SysInfo.gpuAvailable, SysInfo.gpuAvailable);
             check("sun decided", typeof Sun.isDay === "boolean", typeof Sun.isDay);
+            check("lite mode off by default", Lite.active === false && !Lite.blurOff && !Lite.slowPolling && Lite.poll(2000) === 2000, Lite.reason);
             check("apps listed", Apps.all.length > 10, Apps.all.length);
             console.log(" DONE"); Qt.quit();
         }

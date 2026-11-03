@@ -58,7 +58,7 @@ const base = () => frozen({ left: [["workspaces"]], center: [["context"]], activ
   const sget = load("settings.js").get;
   const enums = readJson("shell/data/settings.enums.json");
   const c = b.catalog();
-  eq(c.length, 28, "28 modules in the catalog");
+  eq(c.length, 29, "29 modules in the catalog");
   eq(J(c.map(e => e.id)), J(b.modules()), "catalog in MODULES order");
   for (const e of c) {
     ok(icons[e.icon], `catalog icon ${e.icon} of ${e.id} is in icons.json`);
@@ -78,7 +78,7 @@ const base = () => frozen({ left: [["workspaces"]], center: [["context"]], activ
     }
   }
   const withOpts = c.filter(e => e.options.length).map(e => e.id).sort();
-  eq(J(withOpts), J(["context", "cpu", "gpu", "keyboard", "memory", "temperature", "volume", "workspaces"]), "the modules that have options");
+  eq(J(withOpts), J(["battery", "context", "cpu", "gpu", "keyboard", "memory", "temperature", "volume", "workspaces"]), "the modules that have options");
   eq(J(b.info("context").options.map(o => o.key)), J(["bar.modules.context.title", "clock.seconds", "clock.h24", "media.lyricsInBar"]), "context options");
   eq(J(b.info("cpu").options[0].values), J(["both", "icon", "value"]), "cpu show values");
   eq(b.info("workspaces").options[0].key, "bar.minimap", "workspaces: the minimap");
@@ -90,6 +90,34 @@ const base = () => frozen({ left: [["workspaces"]], center: [["context"]], activ
   eq(b.catalog()[0].name, "Workspaces", "catalog entries are copies");
   eq(b.catalog()[0].options.length, 1, "catalog options are copies");
   eq(b.info("cpu").options[0].values.length, 3, "info options are copies");
+}
+
+// The laptop battery: its options, its place in the default bar, its glyphs and label.
+{
+  const icons = readJson("shell/data/icons.json");
+  eq(J(b.info("battery").options.map(o => [o.key, o.def])),
+     J([["bar.modules.battery.percent", true], ["bar.modules.battery.time", false], ["bar.modules.battery.hideFull", false]]), "battery options");
+  const status = b.defaultLayout().right[2];
+  eq(status.indexOf("battery"), status.indexOf("phone") + 1, "battery right after the phone in the status island");
+  eq(b.batteryIcon(100, false), "battery", "full");
+  eq(b.batteryIcon(86, false), "battery", "86 still full");
+  eq(b.batteryIcon(85, false), "battery-high", "85 high");
+  eq(b.batteryIcon(60, false), "battery-medium", "60 medium");
+  eq(b.batteryIcon(35, false), "battery-low", "35 low");
+  eq(b.batteryIcon(10, false), "battery-warning", "10 nearly empty");
+  eq(b.batteryIcon(0, false), "battery-warning", "0 nearly empty");
+  eq(b.batteryIcon(5, true), "battery-charging", "charging wins over the level");
+  eq(b.batteryIcon(NaN, false), "battery", "no reading: full, never a false alarm");
+  for (const p of [0, 10, 20, 35, 50, 60, 70, 85, 100]) for (const c of [false, true])
+    ok(icons[b.batteryIcon(p, c)], `battery glyph for ${p}% ${c ? "charging" : ""} is in icons.json`);
+  for (const n of ["battery-high", "battery-medium", "battery-low", "battery-warning", "battery-charging"])
+    eq(icons[n] && icons[n].ph, n, `${n} is Phosphor's ${n}`);
+  eq(b.batteryLabel(76.4, true, "", false), "76%", "the percentage, rounded");
+  eq(b.batteryLabel(76.5, true, "4:12", false), "77%", "no time unless asked");
+  eq(b.batteryLabel(76, true, "4:12", true), "76% · 4:12", "percentage and time");
+  eq(b.batteryLabel(76, false, "40 min", true), "40 min", "time only");
+  eq(b.batteryLabel(76, true, "", true), "76%", "no estimate yet: just the percentage");
+  eq(b.batteryLabel(76, false, "4:12", false), "", "neither: the glyph alone");
 }
 
 // defaultLayout(): the same as the shipped default, and a copy each time.

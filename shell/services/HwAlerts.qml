@@ -25,7 +25,7 @@ Singleton {
     // Temperatures: SysInfo samples every 2 s while subscribed.
     Component.onCompleted: SysInfo.subscribe()
     Timer {
-        interval: 5000; repeat: true; running: root.enabled
+        interval: Lite.poll(5000); repeat: true; running: root.enabled
         onTriggered: {
             const g = Settings.get("alerts.gpu", 85), c = Settings.get("alerts.cpu", 90);
             if (SysInfo.gpuAvailable && root._check("gpu", SysInfo.gpuTemp >= g, 30, 600))

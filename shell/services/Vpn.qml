@@ -88,6 +88,6 @@ Singleton {
         }
     }
     // Not while a game runs (the bar is under it); probed again after.
-    Timer { interval: 5000; repeat: true; running: !GameMode.active; triggeredOnStart: true; onTriggered: if (!probe.running) probe.running = true }
+    Timer { interval: Lite.poll(5000); repeat: true; running: !GameMode.active; triggeredOnStart: true; onTriggered: if (!probe.running) probe.running = true }
     Timer { id: recheck; interval: 1500; onTriggered: if (!probe.running) probe.running = true }
 }

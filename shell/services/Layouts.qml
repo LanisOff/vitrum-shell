@@ -42,7 +42,7 @@ Singleton {
     /// The full name: "English (US)", "Russian", "Japanese".
     readonly property string current: names[index] || ""
     /// The label: EN/RU/JP/KR/CN on fcitx5's path, niri's short name on the other.
-    readonly property string short: fcitx ? (ims.length ? Kb.fcitxShort(ims[index], current) : "") : Niri.keyboardShort
+    readonly property string shortName: fcitx ? (ims.length ? Kb.fcitxShort(ims[index], current) : "") : Niri.keyboardShort
     readonly property bool available: fcitx ? ims.length > 0 : Niri.available
 
     function next(forward) {

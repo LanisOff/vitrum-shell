@@ -135,7 +135,7 @@ Singleton {
     onNmViewChanged: if (nmView) _apply(nmView)
 
     Timer {
-        interval: root.nm ? 3000 : 10000; running: true; repeat: true; triggeredOnStart: true
+        interval: Lite.poll(root.nm ? 3000 : 10000); running: true; repeat: true; triggeredOnStart: true
         onTriggered: root.nm ? root._apply(root._readNm()) : ipProc.running = true
     }
 

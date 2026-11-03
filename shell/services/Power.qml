@@ -22,6 +22,10 @@ Singleton {
     readonly property real percentage: device ? device.percentage * 100 : 100
     readonly property bool charging: device ? device.state === UPowerDeviceState.Charging : false
     readonly property bool pluggedIn: UPower.onBattery === false
+    // On the charger and not taking charge: full, or held at a charge limit
+    // (UPower says pending-charge then). Not a weak charger that still drains.
+    readonly property bool full: hasBattery && pluggedIn
+        && (device.state === UPowerDeviceState.FullyCharged || device.state === UPowerDeviceState.PendingCharge)
     readonly property real timeToEmpty: device ? device.timeToEmpty : 0
     readonly property real timeToFull: device ? device.timeToFull : 0
     readonly property real healthPercentage: device ? device.healthPercentage : 0
@@ -41,6 +45,9 @@ Singleton {
 
     property string profile: "balanced"       // power-saver | balanced | performance
     property var profiles: []
+    /// Set by Lite (lite mode's slower figures): the profile and the backlight
+    /// are read three times less often. Not read from Lite here: it reads Power.
+    property bool slowPolling: false
 
     Process {
         id: profileRead
@@ -61,7 +68,7 @@ Singleton {
     }
 
     // Not while a game runs (nothing shows it then); read again after.
-    Timer { interval: 20000; running: !GameMode.active; repeat: true; triggeredOnStart: true
+    Timer { interval: root.slowPolling ? 60000 : 20000; running: !GameMode.active; repeat: true; triggeredOnStart: true
             onTriggered: profileRead.running = true }
 
     // -------------------------------------------------------- backlight ---
@@ -90,7 +97,7 @@ Singleton {
     // none: that was a brightnessctl every five seconds for nothing), and not
     // while a game runs.
     Component.onCompleted: brightRead.running = true
-    Timer { interval: 5000; running: root.hasBacklight && !GameMode.active; repeat: true; triggeredOnStart: true
+    Timer { interval: root.slowPolling ? 15000 : 5000; running: root.hasBacklight && !GameMode.active; repeat: true; triggeredOnStart: true
             onTriggered: brightRead.running = true }
 
     signal feedback(string kind)

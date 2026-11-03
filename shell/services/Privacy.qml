@@ -84,7 +84,7 @@ Singleton {
     }
     // Not while a game runs: the walk reads every fd of every process, the
     // game's and Proton's thousands among them, every three seconds.
-    Timer { interval: 3000; running: !GameMode.active; repeat: true; triggeredOnStart: true; onTriggered: if (!camScan.running) camScan.running = true }
+    Timer { interval: Lite.poll(3000); running: !GameMode.active; repeat: true; triggeredOnStart: true; onTriggered: if (!camScan.running) camScan.running = true }
 
     // Screen shares: vitrum-portal keeps a list in its runtime directory.
     FileView {

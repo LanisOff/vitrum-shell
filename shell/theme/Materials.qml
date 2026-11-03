@@ -30,16 +30,27 @@ Singleton {
     /// nothing. screen: the surface's screen name; not known (or game mode on
     /// by hand, no game found): plain. The lock draws its own glass, over its
     /// own picture, and keeps it.
-    function plain(group, screen) {
+    function overGame(group, screen) {
         return GameMode.active && group !== "lock" && (!screen || !GameMode.screen || screen === GameMode.screen);
+    }
+    /// Plain translucent fills, no blur or glass from niri: over a game, or
+    /// everywhere with lite mode's "Plain fills instead of blur" (the lock
+    /// keeps its own glass there too: it is drawn by the shell, only while
+    /// locked, over its own still picture).
+    function plain(group, screen) {
+        return overGame(group, screen) || (Lite.blurOff && group !== "lock");
     }
 
     /// Glass on this group, drawn by niri in the shape of the region's pieces.
     function shaped(group, screen) { return shapedGlass && of(group) === "glass" && !plain(group, screen); }
 
+    /// The group's material as drawn: lite mode's "No glass refraction"
+    /// (Lite.glassOff) makes glass frosted, the lock's own glass aside.
+    /// vitrum-theme writes niri's rules the same way.
     function of(group) {
         const g = Settings.get("materials.groups", {});
-        return g[group] || Settings.get("materials.default", "frosted");
+        const m = g[group] || Settings.get("materials.default", "frosted");
+        return m === "glass" && Lite.glassOff && group !== "lock" ? "frosted" : m;
     }
     function wantsRegion(group, screen) { return of(group) !== "solid" && !plain(group, screen); }
 

@@ -51,13 +51,16 @@ def main(argv=None) -> int:
     scheme = vt.current_scheme(settings)
 
     caps = vt.niri_caps()
+    # Lite mode: the settings' switches, and the automatic reason the shell
+    # wrote next to the palette (on battery, a low battery, the Saver profile).
+    lite = vt.lite_flags(settings, vt.lite_auto(a.out_palette.parent / "lite"))
     outputs = {
         a.out_palette: json.dumps({"source": note, "palette": palette}, indent=2) + "\n",
         # What this niri can do, for the shell (shaped glass on the bar).
         a.out_palette.parent / "niri-caps.json": json.dumps(caps) + "\n",
-        a.niri_dir / "look.kdl": vt.look_kdl(settings, palette, scheme),
-        a.niri_dir / "effects.kdl": vt.effects_kdl(settings, caps),
-        a.niri_dir / "animations.kdl": vt.animations_kdl(settings),
+        a.niri_dir / "look.kdl": vt.look_kdl(settings, palette, scheme, lite),
+        a.niri_dir / "effects.kdl": vt.effects_kdl(settings, caps, lite),
+        a.niri_dir / "animations.kdl": vt.animations_kdl(settings, lite),
     }
     from vitrum_theme import niri_input
     try:   # config.kdl's xkb options stay when Settings sets the layouts
@@ -84,7 +87,7 @@ def main(argv=None) -> int:
     # Terminal and toolkits: kitty, fish, Starship, tmux, Neovim, GTK, Kvantum.
     if not a.dry_run and a.templates.is_dir():
         from vitrum_theme import render
-        written = render.render_all(palette[scheme], scheme, settings, templates=a.templates, config=a.config,
+        written = render.render_all(palette[scheme], scheme, vt.lite_render_settings(settings, lite), templates=a.templates, config=a.config,
                                     data=a.out_palette.parent, base=a.all, source=note)
         for w in written:
             say(f"wrote {w}")

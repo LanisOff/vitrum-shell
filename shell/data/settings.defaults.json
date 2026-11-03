@@ -38,6 +38,25 @@
     "speed": 1.0,
     "reduce": false
   },
+  "lite": {
+    "enabled": false,
+    "blur": false,
+    "glass": false,
+    "light": false,
+    "animations": false,
+    "windowAnimations": false,
+    "shadows": false,
+    "wallpaper": false,
+    "spectrum": false,
+    "windowGlass": false,
+    "polling": false,
+    "auto": {
+      "onBattery": false,
+      "lowBattery": false,
+      "below": 30,
+      "powerSaver": false
+    }
+  },
   "bar": {
     "position": "top",
     "primary": "",
@@ -92,6 +111,7 @@
           "vpn",
           "bluetooth",
           "phone",
+          "battery",
           "volume",
           "microphone",
           "awake",
@@ -109,7 +129,8 @@
       "temperature": { "show": "both" },
       "gpu": { "show": "both" },
       "volume": { "percent": false },
-      "keyboard": { "long": false }
+      "keyboard": { "long": false },
+      "battery": { "percent": true, "time": false, "hideFull": false }
     }
   },
   "dock": {
